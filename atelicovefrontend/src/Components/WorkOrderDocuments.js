@@ -3,21 +3,25 @@ import {
   Alert,
   Box,
   Button,
+  FormControl,
+  InputLabel,
+  MenuItem,
   Paper,
-  Stack,
+  Select,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Typography,
 } from '@mui/material';
 import { apiDownload, apiFetch } from '../api';
 import { formatDateTime } from '../model';
+import TableTitleRow from './TableTitleRow';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = '.pdf,.jpg,.jpeg,.png,.docx,.xlsx,.txt';
+const DOCUMENT_TYPES = ['WORK_ORDER', 'RECEIPT', 'OTHER'];
 
 const formatFileSize = (bytes = 0) => {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -28,6 +32,7 @@ const formatFileSize = (bytes = 0) => {
 const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
   const inputRef = useRef(null);
   const [documents, setDocuments] = useState([]);
+  const [pendingDocuments, setPendingDocuments] = useState([]);
   const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -42,33 +47,65 @@ const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
 
   useEffect(loadDocuments, [workOrderID]);
 
-  const uploadDocument = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const addDocument = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
 
-    if (file.size > MAX_FILE_SIZE) {
+    const oversizedFile = files.find(file => file.size > MAX_FILE_SIZE);
+    if (oversizedFile) {
       setMessage({ severity: 'error', text: 'Documents must be 10 MB or smaller.' });
       event.target.value = '';
       return;
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
+    setPendingDocuments(current => [
+      ...current,
+      ...files.map(file => ({
+        localID: `${file.name}-${file.size}-${file.lastModified}-${Date.now()}-${Math.random()}`,
+        file,
+        documentType: '',
+      })),
+    ]);
+    setMessage(null);
+    event.target.value = '';
+  };
+
+  const updatePendingDocumentType = (localID, documentType) => {
+    setPendingDocuments(current => current.map(document => (
+      document.localID === localID ? { ...document, documentType } : document
+    )));
+  };
+
+  const removePendingDocument = (localID) => {
+    setPendingDocuments(current => current.filter(document => document.localID !== localID));
+  };
+
+  const uploadDocument = async () => {
+    if (!pendingDocuments.length || pendingDocuments.some(document => !document.documentType)) {
+      setMessage({ severity: 'error', text: 'Each pending document needs a document type before uploading.' });
+      return;
+    }
 
     setBusy(true);
     setMessage(null);
     try {
-      await apiFetch(`/workorders/${workOrderID}/documents`, {
-        method: 'POST',
-        body: formData,
-      });
-      setMessage({ severity: 'success', text: 'Document uploaded.' });
+      for (const document of pendingDocuments) {
+        const formData = new FormData();
+        formData.append('file', document.file);
+        formData.append('documentType', document.documentType);
+
+        await apiFetch(`/workorders/${workOrderID}/documents`, {
+          method: 'POST',
+          body: formData,
+        });
+      }
+      setMessage({ severity: 'success', text: 'Documents uploaded.' });
+      setPendingDocuments([]);
       loadDocuments();
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
     } finally {
       setBusy(false);
-      event.target.value = '';
     }
   };
 
@@ -110,31 +147,15 @@ const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
 
   return (
     <Box sx={{ mt: 4 }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={2} sx={{ mb: 1 }}>
-        <Typography variant="h6">Files</Typography>
-        {canManage && (
-          <Box>
-            <input
-              ref={inputRef}
-              type="file"
-              accept={ACCEPTED_TYPES}
-              hidden
-              onChange={uploadDocument}
-            />
-            <Button variant="contained" disabled={busy} onClick={() => inputRef.current?.click()}>
-              Upload File
-            </Button>
-          </Box>
-        )}
-      </Stack>
-
       {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
 
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
+            <TableTitleRow title="Documents" colSpan={6} />
             <TableRow>
               <TableCell>File</TableCell>
+              <TableCell>Document Type</TableCell>
               <TableCell>Size</TableCell>
               <TableCell>Uploaded By</TableCell>
               <TableCell>Uploaded</TableCell>
@@ -144,15 +165,15 @@ const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
           <TableBody>
             {documents.map(document => (
               <TableRow key={document.documentID}>
-                <TableCell>
-                  <Button size="small" onClick={() => downloadDocument(document)} disabled={busy}>
-                    {document.fileName}
-                  </Button>
-                </TableCell>
+                <TableCell>{document.fileName}</TableCell>
+                <TableCell>{document.documentType?.replaceAll('_', ' ') || 'Not set'}</TableCell>
                 <TableCell>{formatFileSize(document.fileSize)}</TableCell>
                 <TableCell>{document.uploadedBy || 'Not recorded'}</TableCell>
                 <TableCell>{formatDateTime(document.createdAt)}</TableCell>
                 <TableCell align="right">
+                  <Button size="small" disabled={busy} onClick={() => downloadDocument(document)}>
+                    Download
+                  </Button>
                   {canManage && (
                     <Button size="small" color="error" disabled={busy} onClick={() => deleteDocument(document)}>
                       Delete
@@ -161,18 +182,67 @@ const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
                 </TableCell>
               </TableRow>
             ))}
-            {!loading && !documents.length && (
+            {pendingDocuments.map(document => (
+              <TableRow key={document.localID}>
+                <TableCell>{document.file.name}</TableCell>
+                <TableCell>
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Document Type</InputLabel>
+                    <Select
+                      value={document.documentType}
+                      label="Document Type"
+                      onChange={event => updatePendingDocumentType(document.localID, event.target.value)}
+                    >
+                      {DOCUMENT_TYPES.map(type => (
+                        <MenuItem key={type} value={type}>{type.replaceAll('_', ' ')}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </TableCell>
+                <TableCell>{formatFileSize(document.file.size)}</TableCell>
+                <TableCell>Pending upload</TableCell>
+                <TableCell>Not uploaded</TableCell>
+                <TableCell align="right">
+                  <Button size="small" color="warning" disabled={busy} onClick={() => removePendingDocument(document.localID)}>
+                    Remove
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+            {!loading && !documents.length && !pendingDocuments.length && (
               <TableRow>
-                <TableCell colSpan={5}>No files are attached to this work order.</TableCell>
+                <TableCell colSpan={6}>No documents are attached to this work order.</TableCell>
               </TableRow>
             )}
             {loading && (
               <TableRow>
-                <TableCell colSpan={5}>Loading files...</TableCell>
+                <TableCell colSpan={6}>Loading documents...</TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+        {canManage && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1, p: 2, flexWrap: 'wrap' }}>
+            <input
+              ref={inputRef}
+              type="file"
+              accept={ACCEPTED_TYPES}
+              multiple
+              hidden
+              onChange={addDocument}
+            />
+            <Button variant="outlined" disabled={busy} onClick={() => inputRef.current?.click()}>
+              Add Document
+            </Button>
+            <Button
+              variant="contained"
+              disabled={busy || !pendingDocuments.length || pendingDocuments.some(document => !document.documentType)}
+              onClick={uploadDocument}
+            >
+              Upload File
+            </Button>
+          </Box>
+        )}
       </TableContainer>
     </Box>
   );

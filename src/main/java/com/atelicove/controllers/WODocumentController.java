@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.atelicove.dto.WorkOrderDocumentDTO;
 import com.atelicove.entities.WorkOrderDocument;
+import com.atelicove.enums.DocumentType;
 import com.atelicove.services.WODocumentService;
 
 @RestController
@@ -42,9 +43,10 @@ public class WODocumentController {
     public WorkOrderDocumentDTO uploadDocument(
             @PathVariable Integer workOrderID,
             @RequestParam("file") MultipartFile file,
+            @RequestParam("documentType") DocumentType documentType,
             Principal principal) {
 
-        return new WorkOrderDocumentDTO(service.upload(workOrderID, file, principal.getName()));
+        return new WorkOrderDocumentDTO(service.upload(workOrderID, file, documentType, principal.getName()));
     }
 
     @GetMapping("/{documentID}/download")

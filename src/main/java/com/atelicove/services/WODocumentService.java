@@ -66,18 +66,21 @@ public class WODocumentService {
     }
 
     @Transactional
-    public WorkOrderDocument upload(Integer workOrderID, MultipartFile file, String username) {
+    public WorkOrderDocument upload(Integer workOrderID, MultipartFile file, DocumentType documentType, String username) {
         WorkOrder workOrder = getEditableWorkOrder(workOrderID);
         Worker worker = workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(username)
                 .orElseThrow(() -> new IllegalArgumentException("Uploader not found"));
 
+        if (documentType == null) {
+            throw new IllegalArgumentException("Document type is required");
+        }
         validateFile(file);
 
         try {
             WorkOrderDocument document = new WorkOrderDocument(
                     workOrder,
                     cleanFileName(file.getOriginalFilename()),
-                    DocumentType.OTHER,
+                    documentType,
                     file.getBytes(),
                     worker,
                     file.getContentType(),

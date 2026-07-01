@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
     Box,
-    Typography,
     Table,
     TableBody,
     TableCell,
@@ -13,13 +12,17 @@ import {
     Chip,
     Alert,
     Button,
+    Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers } from '../model';
 import { useAuth } from './AuthContext';
 
-const WorkOrders = () => {
+const WorkOrders = ({
+    title = 'Work Orders',
+    subtitle = 'Browse currently active work orders.',
+}) => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [workOrders, setWorkOrders] = useState([]);
@@ -68,11 +71,8 @@ const WorkOrders = () => {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    Active Work Orders
-                </Typography>
-            </Box>
+            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{title}</Typography>
+            <Typography color="text.secondary" sx={{ mb: 3 }}>{subtitle}</Typography>
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
             <TableContainer component={Paper}>

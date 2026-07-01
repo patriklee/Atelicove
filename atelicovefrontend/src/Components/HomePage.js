@@ -78,12 +78,12 @@ const HomePage = () => {
           }}
           onClick={handleTitleClick}
         >
-          Steve Ball & Associates
+          Atelicove
         </Typography>
         
         {user && (
           <Typography variant="subtitle1" sx={{ marginBottom: 2 }}>
-            Welcome, {user.firstName}
+            Welcome, {user.firstName}. What are we creating today?
           </Typography>
         )}
         
@@ -103,7 +103,7 @@ const HomePage = () => {
         </List>
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+      <Box component="main" sx={{ flexGrow: 1, p: 3, pb: 12 }}>
         <Outlet />
       </Box>
 

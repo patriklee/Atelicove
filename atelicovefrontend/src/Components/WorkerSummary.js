@@ -16,6 +16,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../model';
+import TableTitleRow from './TableTitleRow';
 
 const WorkerSummary = () => {
   const { workerID } = useParams();
@@ -70,9 +71,11 @@ const WorkerSummary = () => {
         {worker.firstName} {worker.lastName}
       </Typography>
 
-      <Typography variant="h6" sx={{ mb: 1 }}>Worker Summary</Typography>
       <TableContainer component={Paper} sx={{ mb: 4 }}>
         <Table>
+          <TableHead>
+            <TableTitleRow title="Worker Summary" colSpan={2} />
+          </TableHead>
           <TableBody>
             <TableRow><TableCell sx={{ fontWeight: 600 }}>Worker ID</TableCell><TableCell>{worker.workerID}</TableCell></TableRow>
             <TableRow><TableCell sx={{ fontWeight: 600 }}>Username</TableCell><TableCell>{worker.username}</TableCell></TableRow>
@@ -83,10 +86,10 @@ const WorkerSummary = () => {
         </Table>
       </TableContainer>
 
-      <Typography variant="h6" sx={{ mb: 1 }}>Associated Work Orders</Typography>
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
+            <TableTitleRow title="Associated Work Orders" colSpan={4} />
             <TableRow>
               <TableCell>Work Order</TableCell>
               <TableCell>Status</TableCell>

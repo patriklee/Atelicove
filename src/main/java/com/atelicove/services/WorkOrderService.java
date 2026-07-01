@@ -220,6 +220,21 @@ public class WorkOrderService{
     }
 
     @Transactional
+    public WorkOrder deleteItem(Integer workOrderID, Integer itemID) {
+        WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
+        ensureWorkOrderCanBeEdited(workOrder);
+
+        WorkOrderItem item = workOrder.getItems().stream()
+                .filter(existingItem -> existingItem.getWorkOrderItemID() == itemID)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Work order item not found"));
+
+        workOrder.removeItem(item);
+
+        return workOrderRepository.save(workOrder);
+    }
+
+    @Transactional
     public void archiveById(Integer id) {
         WorkOrder workOrder = getRequiredWorkOrder(id);
 

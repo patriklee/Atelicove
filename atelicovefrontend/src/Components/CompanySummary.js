@@ -16,6 +16,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers } from '../model';
+import TableTitleRow from './TableTitleRow';
 
 const CompanySummary = () => {
   const { companyID } = useParams();
@@ -66,9 +67,11 @@ const CompanySummary = () => {
       <Button onClick={() => navigate(-1)} sx={{ mb: 2 }}>Back</Button>
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>{company.companyName}</Typography>
 
-      <Typography variant="h6" sx={{ mb: 1 }}>Company Summary</Typography>
       <TableContainer component={Paper} sx={{ mb: 4 }}>
         <Table>
+          <TableHead>
+            <TableTitleRow title="Company Summary" colSpan={2} />
+          </TableHead>
           <TableBody>
             <TableRow><TableCell sx={{ fontWeight: 600 }}>Address</TableCell><TableCell>{company.companyAddress || 'Not set'}</TableCell></TableRow>
             <TableRow><TableCell sx={{ fontWeight: 600 }}>Phone</TableCell><TableCell>{company.companyPhone || 'Not set'}</TableCell></TableRow>
@@ -78,10 +81,10 @@ const CompanySummary = () => {
         </Table>
       </TableContainer>
 
-      <Typography variant="h6" sx={{ mb: 1 }}>Associated Work Orders</Typography>
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
+            <TableTitleRow title="Associated Work Orders" colSpan={4} />
             <TableRow>
               <TableCell>Work Order</TableCell>
               <TableCell>Status</TableCell>

@@ -20,6 +20,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.WorkOrderDocument;
 import com.atelicove.entities.Worker;
+import com.atelicove.enums.DocumentType;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.WODocumentRepository;
 import com.atelicove.repositories.WorkOrderRepository;
@@ -86,7 +87,7 @@ class WODocumentServiceTest {
         when(repository.save(any(WorkOrderDocument.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        WorkOrderDocument saved = service.upload(1, file, "plee");
+        WorkOrderDocument saved = service.upload(1, file, DocumentType.OTHER, "plee");
 
         assertEquals("inspection.pdf", saved.getFileName());
         assertEquals("application/pdf", saved.getMimeType());
@@ -104,7 +105,7 @@ class WODocumentServiceTest {
 
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
 
-        assertThrows(IllegalStateException.class, () -> service.upload(1, file, "plee"));
+        assertThrows(IllegalStateException.class, () -> service.upload(1, file, DocumentType.OTHER, "plee"));
     }
 
     @Test
@@ -118,6 +119,6 @@ class WODocumentServiceTest {
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
         when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse("plee")).thenReturn(Optional.of(worker));
 
-        assertThrows(IllegalArgumentException.class, () -> service.upload(1, file, "plee"));
+        assertThrows(IllegalArgumentException.class, () -> service.upload(1, file, DocumentType.OTHER, "plee"));
     }
 }

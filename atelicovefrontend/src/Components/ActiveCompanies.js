@@ -35,7 +35,8 @@ const ActiveCompanies = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>Active Companies</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Companies</Typography>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>Browse currently active companies</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <TableContainer component={Paper}>

@@ -45,7 +45,8 @@ const MyAssignments = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>My Assignments</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>My Assignments</Typography>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>Browse my current assigned work orders</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {!workOrders.length && <Alert severity="info">No work orders are assigned to you.</Alert>}
 
@@ -57,7 +58,9 @@ const MyAssignments = () => {
               <TableCell>Company</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Start</TableCell>
-              <TableCell>Files</TableCell>
+              <TableCell>Items</TableCell>
+              <TableCell>Assigned Workers</TableCell>
+              <TableCell>Documents</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -71,6 +74,8 @@ const MyAssignments = () => {
                 <TableCell>{order.company?.companyName || 'No company'}</TableCell>
                 <TableCell><Chip label={formatStatus(order.status)} size="small" /></TableCell>
                 <TableCell>{formatDateTime(order.startDateTime)}</TableCell>
+                <TableCell>{order.items?.length ?? 0}</TableCell>
+                <TableCell>{getWorkOrderWorkers(order).length}</TableCell>
                 <TableCell>{order.fileNo ?? ''}</TableCell>
               </TableRow>
             ))}

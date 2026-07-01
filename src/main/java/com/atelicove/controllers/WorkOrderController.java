@@ -106,6 +106,11 @@ public class WorkOrderController {
     	return workOrderService.updateItem(id, itemID, item);
     }
 
+    @DeleteMapping("/{id}/items/{itemID}")
+    public WorkOrder deleteItem(@PathVariable Integer id, @PathVariable Integer itemID) {
+    	return workOrderService.deleteItem(id, itemID);
+    }
+
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> archiveWorkOrder(@PathVariable Integer id) {

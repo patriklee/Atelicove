@@ -24,6 +24,8 @@ import MyWorkOrderDetail from './Components/MyWorkOrderDetail';
 import ArchivedWorkOrders from './Components/ArchivedWorkOrders';
 import ArchivedCompanies from './Components/ArchivedCompanies';
 import ArchivedWorkers from './Components/ArchivedWorkers';
+import Documents from './Components/Documents';
+import DraftPage from './Components/DraftPage';
 
 // Worker pages
 import HomePage from './Components/HomePage';
@@ -47,12 +49,13 @@ function App() {
           {/* Admin Routes */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminHomePage />}>
-              <Route index element={<div>Welcome to the Admin Dashboard</div>} />
+              <Route index element={<div>Project Studio</div>} />
               <Route path="manage-workorders" element={<ManageWorkOrders />} />
               <Route path="companies" element={<ActiveCompanies />} />
               <Route path="manage-companies" element={<ManageCompanies />} />
               <Route path="manage-companies/:companyID" element={<ManageCompanies />} />
               <Route path="companies/:companyID" element={<CompanySummary />} />
+              <Route path="documents" element={<Documents />} />
               <Route path="workers" element={<ActiveWorkers />} />
               <Route path="manage-workers" element={<ManageWorkers />} />
               <Route path="manage-workers/:workerID" element={<ManageWorkers />} />
@@ -63,6 +66,9 @@ function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="my-assignments" element={<MyAssignments />} />
               <Route path="my-assignments/:workOrderID" element={<MyWorkOrderDetail />} />
+              <Route path="projects/active" element={<WorkOrders title="Active Projects" subtitle="Brows currently active projects and edit them as needed." />} />
+              <Route path="projects/draft-studio" element={<DraftPage title="Draft Studio" subtitle="Draft projects" />} />
+              <Route path="projects/launch-queue" element={<DraftPage title="Launch Queue" subtitle="View drafts" />} />
 			  <Route path="workorders" element={<WorkOrders />} />
               <Route path="workorders/:workOrderID" element={<WorkOrderDetail />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
@@ -72,7 +78,7 @@ function App() {
           {/* Worker Routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/worker" element={<HomePage />}>
-              <Route index element={<div>Welcome to the Worker Dashboard</div>} />
+              <Route index element={<div>Project Studio</div>} />
               <Route path="assigned" element={<InspectorAssignedWork />} />
               <Route path="my-assignments" element={<MyAssignments />} />
               <Route path="my-assignments/:workOrderID" element={<MyWorkOrderDetail />} />

@@ -19,7 +19,8 @@ import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../model';
 
 const archiveConfig = {
   workorders: {
-    title: 'Archived Work Orders',
+    title: 'Work Orders',
+    subtitle: 'Browse archived work orders.',
     endpoint: '/workorders/archived',
     restorePath: item => `/workorders/${item.workOrderID}/restore`,
     canDelete: false,
@@ -45,7 +46,8 @@ const archiveConfig = {
     ],
   },
   companies: {
-    title: 'Archived Companies',
+    title: 'Companies',
+    subtitle: 'Browse archived companies.',
     endpoint: '/companies/archived',
     restorePath: item => `/companies/${item.companyID}/restore`,
     canDelete: false,
@@ -66,7 +68,8 @@ const archiveConfig = {
     ],
   },
   workers: {
-    title: 'Archived Workers',
+    title: 'Workers',
+    subtitle: 'Browse archived workers.',
     endpoint: '/workers/archived',
     restorePath: item => `/workers/${item.workerID}/restore`,
     canDelete: false,
@@ -146,7 +149,8 @@ const ArchiveTable = ({ type }) => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>{config.title}</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{config.title}</Typography>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>{config.subtitle}</Typography>
       {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
 
       <TableContainer component={Paper}>

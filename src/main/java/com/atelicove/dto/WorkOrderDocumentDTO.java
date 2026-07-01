@@ -4,15 +4,19 @@ import java.time.LocalDateTime;
 
 import com.atelicove.entities.WorkOrderDocument;
 import com.atelicove.enums.DocumentType;
+import com.atelicove.enums.WorkOrderStatus;
 
 public class WorkOrderDocumentDTO {
 
     private int documentID;
     private int workOrderID;
+    private WorkOrderStatus workOrderStatus;
+    private String companyName;
     private String fileName;
     private DocumentType documentType;
     private String mimeType;
     private long fileSize;
+    private int uploadedByWorkerID;
     private String uploadedBy;
     private LocalDateTime createdAt;
     private LocalDateTime lastModifiedAt;
@@ -22,6 +26,10 @@ public class WorkOrderDocumentDTO {
     public WorkOrderDocumentDTO(WorkOrderDocument document) {
         this.documentID = document.getDocumentID();
         this.workOrderID = document.getWorkOrder().getWorkOrderID();
+        this.workOrderStatus = document.getWorkOrder().getStatus();
+        if (document.getWorkOrder().getCompany() != null) {
+            this.companyName = document.getWorkOrder().getCompany().getCompanyName();
+        }
         this.fileName = document.getFileName();
         this.documentType = document.getDocumentType();
         this.mimeType = document.getMimeType();
@@ -30,6 +38,7 @@ public class WorkOrderDocumentDTO {
         this.lastModifiedAt = document.getLastModifiedAt();
 
         if (document.getUploadedByWorker() != null) {
+            this.uploadedByWorkerID = document.getUploadedByWorker().getWorkerID();
             String firstName = document.getUploadedByWorker().getWorkerFName();
             String lastName = document.getUploadedByWorker().getWorkerLName();
             this.uploadedBy = String.join(" ",
@@ -50,6 +59,14 @@ public class WorkOrderDocumentDTO {
         return workOrderID;
     }
 
+    public WorkOrderStatus getWorkOrderStatus() {
+        return workOrderStatus;
+    }
+
+    public String getCompanyName() {
+        return companyName;
+    }
+
     public String getFileName() {
         return fileName;
     }
@@ -64,6 +81,10 @@ public class WorkOrderDocumentDTO {
 
     public long getFileSize() {
         return fileSize;
+    }
+
+    public int getUploadedByWorkerID() {
+        return uploadedByWorkerID;
     }
 
     public String getUploadedBy() {

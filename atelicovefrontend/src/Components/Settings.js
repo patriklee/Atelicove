@@ -9,6 +9,7 @@ import {
   TableBody,
   TableCell,
   TableContainer,
+  TableHead,
   TableRow,
   TextField,
   Typography,
@@ -16,6 +17,7 @@ import {
 import { apiFetch } from '../api';
 import { useAuth } from './AuthContext';
 import { normalizeWorker } from '../model';
+import TableTitleRow from './TableTitleRow';
 
 const Settings = () => {
   const { user, updateUser } = useAuth();
@@ -90,9 +92,11 @@ const Settings = () => {
       <Grid container spacing={3} alignItems="flex-start">
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Profile</Typography>
             <TableContainer>
               <Table>
+                <TableHead>
+                  <TableTitleRow title="Profile" colSpan={2} />
+                </TableHead>
                 <TableBody>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600, width: 180 }}>Username</TableCell>
@@ -138,10 +142,12 @@ const Settings = () => {
           </Paper>
 
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Password Reset</Typography>
             {user?.isAdmin ? (
               <TableContainer>
                 <Table>
+                  <TableHead>
+                    <TableTitleRow title="Password Reset" colSpan={2} />
+                  </TableHead>
                   <TableBody>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600, width: 180 }}>New Password</TableCell>
@@ -174,9 +180,11 @@ const Settings = () => {
 
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Profile Information</Typography>
             <TableContainer>
               <Table>
+                <TableHead>
+                  <TableTitleRow title="Profile Information" colSpan={2} />
+                </TableHead>
                 <TableBody>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600, width: 180 }}>Display Name</TableCell>

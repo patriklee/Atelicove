@@ -37,6 +37,7 @@ const hydrateState = (rawState) => ({
     workers: (order.workers || []).map(withWorkerDefaults),
     company: order.company ? withAuditDefaults(order.company) : null,
     items: (order.items || []).map(withAuditDefaults),
+    documents: (order.documents || []).map(withAuditDefaults),
   })),
 });
 
@@ -86,6 +87,25 @@ const bodyAsJson = (options) => {
   return typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
 };
 
+const allowedDocumentExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'docx', 'xlsx', 'txt'];
+const maxDocumentSize = 10 * 1024 * 1024;
+
+const getDocumentExtension = (fileName = '') => fileName.split('.').pop()?.toLowerCase() || '';
+
+const ensureDocumentFileIsAllowed = (file) => {
+  if (!file) {
+    throw new MockApiError('A document file is required', 400);
+  }
+
+  if (file.size > maxDocumentSize) {
+    throw new MockApiError('Documents must be 10 MB or smaller', 400);
+  }
+
+  if (!allowedDocumentExtensions.includes(getDocumentExtension(file.name))) {
+    throw new MockApiError('Only PDF, JPEG, PNG, DOCX, XLSX, and TXT files are allowed', 400);
+  }
+};
+
 const findWorker = (workerID) => state.workers.find(worker => worker.workerID === Number(workerID));
 const findCompany = (companyID) => state.companies.find(company => company.companyID === Number(companyID));
 const findWorkOrder = (workOrderID) => state.workOrders.find(order => order.workOrderID === Number(workOrderID));
@@ -125,6 +145,30 @@ const createLoginResponse = (worker) => ({
   lastLoginAt: worker.lastLoginAt,
   admin: worker.admin,
 });
+
+const toDocumentResponse = (document) => ({
+  documentID: document.documentID,
+  workOrderID: document.workOrderID,
+  workOrderStatus: document.workOrderStatus,
+  companyName: document.companyName,
+  fileName: document.fileName,
+  documentType: document.documentType || 'OTHER',
+  mimeType: document.mimeType,
+  fileSize: document.fileSize,
+  uploadedByWorkerID: document.uploadedByWorkerID,
+  uploadedBy: document.uploadedBy,
+  createdAt: document.createdAt,
+  lastModifiedAt: document.lastModifiedAt,
+});
+
+const allDocuments = () => state.workOrders.flatMap(order => (
+  (order.documents || []).map(document => toDocumentResponse({
+    ...document,
+    workOrderID: order.workOrderID,
+    workOrderStatus: order.status,
+    companyName: order.company?.companyName || null,
+  }))
+));
 
 const handleAuth = (segments, method, options) => {
   if (segments[1] === 'login' && method === 'POST') {
@@ -392,17 +436,86 @@ const setWorkOrderStatus = (workOrder, status) => {
   return workOrder;
 };
 
+const handleWorkOrderDocuments = (workOrder, segments, method, options) => {
+  workOrder.documents = workOrder.documents || [];
+
+  if (segments.length === 3 && method === 'GET') {
+    return [...workOrder.documents]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .map(toDocumentResponse);
+  }
+
+  if (segments.length === 3 && method === 'POST') {
+    ensureWorkOrderCanBeEdited(workOrder);
+
+    const file = options.body instanceof FormData ? options.body.get('file') : null;
+    const documentType = options.body instanceof FormData ? options.body.get('documentType') : null;
+    ensureDocumentFileIsAllowed(file);
+    if (!documentType) {
+      throw new MockApiError('Document type is required', 400);
+    }
+
+    const uploader = workOrder.workers?.[0] || state.workers.find(worker => worker.admin) || state.workers[0];
+    const uploadedBy = uploader
+      ? `${uploader.workerFName || ''} ${uploader.workerLName || ''}`.trim() || uploader.workerUser
+      : 'Mock User';
+    const document = {
+      documentID: nextId(workOrder.documents, 'documentID'),
+      workOrderID: workOrder.workOrderID,
+      workOrderStatus: workOrder.status,
+      companyName: workOrder.company?.companyName || null,
+      fileName: file.name,
+      documentType,
+      mimeType: file.type || 'application/octet-stream',
+      fileSize: file.size,
+      uploadedByWorkerID: uploader?.workerID || 0,
+      uploadedBy,
+      createdAt: now(),
+      lastModifiedAt: now(),
+    };
+
+    workOrder.documents = [document, ...workOrder.documents];
+    touch(workOrder);
+    saveState();
+    return toDocumentResponse(document);
+  }
+
+  const documentID = Number(segments[3]);
+  const document = workOrder.documents.find(item => item.documentID === documentID);
+  if (!document) throw new MockApiError('Document not found', 404);
+
+  if (segments.length === 4 && method === 'DELETE') {
+    ensureWorkOrderCanBeEdited(workOrder);
+
+    workOrder.documents = workOrder.documents.filter(item => item.documentID !== documentID);
+    touch(workOrder);
+    saveState();
+    return null;
+  }
+
+  throw new MockApiError('Mock work order document route not found', 404);
+};
+
 const handleWorkOrders = (segments, method, options) => {
   if (segments.length === 1 && method === 'GET') {
-    return activeOnly(state.workOrders);
+    return activeOnly(state.workOrders).map(order => ({
+      ...order,
+      fileNo: order.documents?.length || 0,
+    }));
   }
 
   if (segments[1] === 'all-with-archived' && method === 'GET') {
-    return state.workOrders;
+    return state.workOrders.map(order => ({
+      ...order,
+      fileNo: order.documents?.length || 0,
+    }));
   }
 
   if (segments[1] === 'archived' && method === 'GET') {
-    return archivedOnly(state.workOrders);
+    return archivedOnly(state.workOrders).map(order => ({
+      ...order,
+      fileNo: order.documents?.length || 0,
+    }));
   }
 
   if (segments[1] === 'count' && method === 'GET') {
@@ -429,6 +542,7 @@ const handleWorkOrders = (segments, method, options) => {
       endDateTime: null,
       comment: payload.comment || '',
       items: [],
+      documents: [],
       createdAt: now(),
       lastModifiedAt: now(),
       archived: false,
@@ -441,7 +555,12 @@ const handleWorkOrders = (segments, method, options) => {
 
   if (segments[1] === 'company' && method === 'GET') {
     const companyID = Number(segments[2]);
-    return activeOnly(state.workOrders).filter(order => order.company?.companyID === companyID);
+    return activeOnly(state.workOrders)
+      .filter(order => order.company?.companyID === companyID)
+      .map(order => ({
+        ...order,
+        fileNo: order.documents?.length || 0,
+      }));
   }
 
   const workOrderID = segments[1];
@@ -449,7 +568,14 @@ const handleWorkOrders = (segments, method, options) => {
   if (!workOrder) throw new MockApiError('Work order not found', 404);
 
   if (segments.length === 2 && method === 'GET') {
-    return workOrder;
+    return {
+      ...workOrder,
+      fileNo: workOrder.documents?.length || 0,
+    };
+  }
+
+  if (segments[2] === 'documents') {
+    return handleWorkOrderDocuments(workOrder, segments, method, options);
   }
 
   if (segments.length === 2 && method === 'DELETE') {
@@ -572,6 +698,16 @@ const handleWorkOrders = (segments, method, options) => {
     return workOrder;
   }
 
+  if (segments[2] === 'items' && segments[3] && method === 'DELETE') {
+    ensureWorkOrderCanBeEdited(workOrder);
+
+    const itemID = Number(segments[3]);
+    workOrder.items = (workOrder.items || []).filter(item => item.workOrderItemID !== itemID);
+    touch(workOrder);
+    saveState();
+    return workOrder;
+  }
+
   if (segments[2] === 'start' && method === 'PUT') {
     ensureWorkOrderCanBeEdited(workOrder);
 
@@ -637,10 +773,31 @@ export const mockApiFetch = async (path, options = {}) => {
     if (segments[0] === 'auth') return clone(handleAuth(segments, method, options));
     if (segments[0] === 'workers') return clone(handleWorkers(segments, method, options));
     if (segments[0] === 'companies') return clone(handleCompanies(segments, method, options));
+    if (segments[0] === 'documents' && method === 'GET') return clone(allDocuments());
     if (segments[0] === 'workorders') return clone(handleWorkOrders(segments, method, options));
   } catch (error) {
     throw error;
   }
 
   throw new MockApiError(`Mock route not found: ${method} ${path}`, 404);
+};
+
+export const mockApiDownload = async (path) => {
+  await new Promise(resolve => setTimeout(resolve, 150));
+
+  const segments = path.split('?')[0].split('/').filter(Boolean);
+  if (segments[0] !== 'workorders' || segments[2] !== 'documents' || segments[4] !== 'download') {
+    throw new MockApiError(`Mock download route not found: ${path}`, 404);
+  }
+
+  const workOrder = findWorkOrder(segments[1]);
+  if (!workOrder) throw new MockApiError('Work order not found', 404);
+
+  const document = (workOrder.documents || []).find(item => item.documentID === Number(segments[3]));
+  if (!document) throw new MockApiError('Document not found', 404);
+
+  return new Blob(
+    [`Mock download for ${document.fileName}\n\nThis file was uploaded in mock mode.`],
+    { type: document.mimeType || 'text/plain' }
+  );
 };

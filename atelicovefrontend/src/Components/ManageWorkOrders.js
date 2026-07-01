@@ -29,6 +29,7 @@ import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../model';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import TableTitleRow from './TableTitleRow';
 
 const ManageWorkOrders = () => {
   const navigate = useNavigate();
@@ -296,13 +297,14 @@ const ManageWorkOrders = () => {
 
   return (
     <Box sx={{ p: 3, pb: 8 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>Manage Work Orders</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Work Orders</Typography>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>Create and edit active work orders.</Typography>
       {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
 
       <Grid container spacing={3} alignItems="stretch">
         <Grid item xs={12} md={6}>
           <Paper component="form" onSubmit={handleAssign} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Create Work Order</Typography>
+            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Create Work Order</Typography>
 
             <FormControl fullWidth margin="normal">
               <InputLabel>Worker or Admin</InputLabel>
@@ -344,7 +346,7 @@ const ManageWorkOrders = () => {
 
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Edit Work Order</Typography>
+            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Edit Work Order</Typography>
 
             <FormControl fullWidth margin="normal">
               <InputLabel>Work Order</InputLabel>
@@ -466,11 +468,10 @@ const ManageWorkOrders = () => {
 
         <Grid item xs={12} md={6} sx={{ mt: 6 }}>
           <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Review Work Order</Typography>
-
             <TableContainer sx={{ height: 320, overflowY: 'auto' }}>
               <Table stickyHeader size="small">
                 <TableHead>
+                  <TableTitleRow title="Review Work Order" colSpan={4} />
                   <TableRow>
                     <TableCell>Work Order</TableCell>
                     <TableCell>Company</TableCell>
@@ -528,11 +529,10 @@ const ManageWorkOrders = () => {
 
         <Grid item xs={12} md={6} sx={{ mt: 6 }}>
           <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Work Orders</Typography>
-
             <TableContainer sx={{ height: 320, overflowY: 'auto' }}>
               <Table stickyHeader size="small">
                 <TableHead>
+                  <TableTitleRow title="Work Orders" colSpan={5} />
                   <TableRow>
                     <TableCell>Work Order</TableCell>
                     <TableCell>Status</TableCell>

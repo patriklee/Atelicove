@@ -29,6 +29,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { useAuth } from './AuthContext';
 import { formatDateTime } from '../model';
+import TableTitleRow from './TableTitleRow';
 
 const emptyCompany = {
   companyName: '',
@@ -239,12 +240,13 @@ const ManageCompanies = () => {
 
   return (
     <Box sx={{ p: 3, pb: 8 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>Manage Companies</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Companies</Typography>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>Create and edit active companies.</Typography>
 
       <Grid container spacing={3} alignItems="stretch">
         <Grid item xs={12} md={6}>
           <Paper component="form" onSubmit={createCompany} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Create Company</Typography>
+            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Create Company</Typography>
 
             <CompanyFields form={createForm} onChange={handleCreateChange} />
 
@@ -256,7 +258,7 @@ const ManageCompanies = () => {
 
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Edit Company</Typography>
+            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Edit Company</Typography>
 
             <FormControl fullWidth margin="normal">
               <InputLabel>Company</InputLabel>
@@ -308,11 +310,10 @@ const ManageCompanies = () => {
 
         <Grid item xs={12} sx={{ mt: 6 }}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Companies</Typography>
-
             <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
               <Table stickyHeader>
                 <TableHead>
+                  <TableTitleRow title="Companies" colSpan={5} />
                   <TableRow>
                     <TableCell>Company</TableCell>
                     <TableCell>Address</TableCell>

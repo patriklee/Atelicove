@@ -1,4 +1,4 @@
-import { mockApiFetch } from './mockApi';
+import { mockApiDownload, mockApiFetch } from './mockApi';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 const USE_MOCK_API = process.env.REACT_APP_USE_MOCK_API === 'true';
@@ -46,6 +46,10 @@ export const apiFetch = async (path, options = {}) => {
 };
 
 export const apiDownload = async (path) => {
+  if (USE_MOCK_API) {
+    return mockApiDownload(path);
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     credentials: 'include',
   });

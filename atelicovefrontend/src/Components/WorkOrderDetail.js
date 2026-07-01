@@ -18,6 +18,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers } from '../model';
 import WorkOrderDocuments from './WorkOrderDocuments';
+import TableTitleRow from './TableTitleRow';
 
 const money = (value) => Number(value || 0).toLocaleString(undefined, {
   style: 'currency',
@@ -94,9 +95,11 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
         Work Order #{workOrder.workOrderID}
       </Typography>
 
-      <Typography variant="h6" sx={{ mb: 1 }}>Details</Typography>
       <TableContainer component={Paper} sx={{ mb: 4 }}>
         <Table>
+          <TableHead>
+            <TableTitleRow title="Details" colSpan={2} />
+          </TableHead>
           <TableBody>
             <DetailRow label="Status" value={workOrder.status} />
             <DetailRow label="Start" value={formatDateTime(workOrder.startDateTime)} />
@@ -118,10 +121,10 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
         <Typography>{workOrder.comment || 'No comments have been added.'}</Typography>
       </Paper>
 
-      <Typography variant="h6" sx={{ mb: 1 }}>Items</Typography>
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
+            <TableTitleRow title="Items" colSpan={7} />
             <TableRow>
               <TableCell>
                 <TableSortLabel

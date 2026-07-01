@@ -12,6 +12,7 @@ const AdminHomePage = () => {
     const [open, setOpen] = useState(false);
     const [, setActiveTab] = useState('/admin');
     const [openMenus, setOpenMenus] = useState({
+        projects: false,
         workOrders: false,
         companies: false,
         worker: false,
@@ -24,7 +25,16 @@ const AdminHomePage = () => {
 	const[workOrderCount, setWorkOrderCount] = useState(0);
 	
     const menuItems = useMemo(() => [
-        { label: 'My Assignments', path: '/admin/my-assignments' },
+        {
+            label: 'Projects',
+            key: 'projects',
+            children: [
+                { label: 'My Assignments', path: '/admin/my-assignments' },
+                { label: 'Active Projects', path: '/admin/projects/active' },
+                { label: 'Draft Studio', path: '/admin/projects/draft-studio' },
+                { label: 'Launch Queue', path: '/admin/projects/launch-queue' },
+            ],
+        },
         {
             label: 'Work Orders',
             key: 'workOrders',
@@ -49,6 +59,7 @@ const AdminHomePage = () => {
                 { label: 'Manage Companies', path: '/admin/manage-companies' },
             ],
         },
+        { label: 'Documents', path: '/admin/documents' },
         {
             label: 'Archive',
             key: 'archive',
@@ -78,6 +89,7 @@ const AdminHomePage = () => {
     };
 
     const closedMenus = useCallback(() => ({
+        projects: false,
         workOrders: false,
         companies: false,
         worker: false,
@@ -154,12 +166,12 @@ const AdminHomePage = () => {
                     }}
                     onClick={handleTitleClick}
                 >
-                    Steve Ball & Associates
+                    Atelicove
                 </Typography>
                 
                 {user && (
                     <Typography variant="subtitle1" sx={{ marginBottom: 2 }}>
-                        Welcome, {user.displayName || user.firstName}
+                        Welcome, {user.displayName || user.firstName}. What are we creating today?
                     </Typography>
                 )}
                 
@@ -244,11 +256,11 @@ const AdminHomePage = () => {
                 </List>
             </Drawer>
 
-			<Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+			<Box component="main" sx={{ flexGrow: 1, p: 3, pb: 12 }}>
 			    {location.pathname === '/admin' && (
 			        <Box>
 			            <Typography variant="h4" sx={{ mb: 3 }}>
-			                Admin Dashboard
+			                Project Studio
 			            </Typography>
 						
 						{/* Work order summary */}

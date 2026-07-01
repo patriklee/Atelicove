@@ -31,6 +31,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker, workerPayload } from '../model';
 import { useAuth } from './AuthContext';
+import TableTitleRow from './TableTitleRow';
 
 const emptyWorker = {
   firstName: '',
@@ -282,12 +283,13 @@ const ManageWorkers = () => {
   return (
     <Box sx={{ p: 3, pb: 8 }}>
       <Button onClick={() => navigate(-1)} sx={{ mb: 2 }}>Back</Button>
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>Manage Workers</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Worker</Typography>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>Create and edit active workers.</Typography>
 
       <Grid container spacing={3} alignItems="stretch">
         <Grid item xs={12} md={6}>
           <Paper component="form" onSubmit={createWorker} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Create Worker</Typography>
+            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Create Worker</Typography>
 
             <WorkerFields form={createForm} onChange={handleCreateChange} mode="create" />
 
@@ -315,7 +317,7 @@ const ManageWorkers = () => {
 
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Edit Worker</Typography>
+            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Edit Worker</Typography>
 
             <FormControl fullWidth margin="normal">
               <InputLabel>Worker</InputLabel>
@@ -370,11 +372,10 @@ const ManageWorkers = () => {
 
         <Grid item xs={12} sx={{ mt: 6 }}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h5" align="center" sx={{ fontWeight: 600, mb: 2 }}>Workers</Typography>
-
             <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
               <Table stickyHeader>
                 <TableHead>
+                  <TableTitleRow title="Workers" colSpan={7} />
                   <TableRow>
                     <TableCell>Name</TableCell>
                     <TableCell>Username</TableCell>
