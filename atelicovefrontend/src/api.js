@@ -44,3 +44,16 @@ export const apiFetch = async (path, options = {}) => {
 
   return data;
 };
+
+export const apiDownload = async (path) => {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new ApiError(message || `Request failed (${response.status})`, response.status, message);
+  }
+
+  return response.blob();
+};

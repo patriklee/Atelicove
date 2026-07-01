@@ -1,6 +1,6 @@
 import { mockCompanies, mockWorkers, mockWorkOrders } from './mockData';
 
-const STORAGE_KEY = 'sbaMockApiStateV2';
+const STORAGE_KEY = 'atelicoveMockApiStateV2';
 
 class MockApiError extends Error {
   constructor(message, status = 400, data = null) {

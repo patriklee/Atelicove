@@ -17,6 +17,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers } from '../model';
+import WorkOrderDocuments from './WorkOrderDocuments';
 
 const money = (value) => Number(value || 0).toLocaleString(undefined, {
   style: 'currency',
@@ -30,7 +31,7 @@ const DetailRow = ({ label, value }) => (
   </TableRow>
 );
 
-const WorkOrderDetail = () => {
+const WorkOrderDetail = ({ canManageDocuments = false }) => {
   const { workOrderID } = useParams();
   const navigate = useNavigate();
   const [workOrder, setWorkOrder] = useState(null);
@@ -196,6 +197,11 @@ const WorkOrderDetail = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <WorkOrderDocuments
+        workOrderID={workOrder.workOrderID}
+        canManage={canManageDocuments && workOrder.status !== 'COMPLETE' && !workOrder.archived}
+      />
     </Box>
   );
 };

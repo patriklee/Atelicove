@@ -9,6 +9,7 @@ import java.util.Set;
 import jakarta.persistence.*;
 
 import com.atelicove.enums.WorkOrderStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
@@ -45,6 +46,10 @@ public class WorkOrder extends ArchivableEntity {
 	// get all items in WO
 	@OneToMany(mappedBy = "workOrder", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<WorkOrderItem> items = new ArrayList<>();
+
+	@JsonIgnore
+	@OneToMany(mappedBy = "workOrder", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<WorkOrderDocument> documents = new ArrayList<>();
 	
 	public WorkOrder() {}
 	
@@ -97,6 +102,12 @@ public class WorkOrder extends ArchivableEntity {
 	
 	public List<WorkOrderItem> getItems() {
 	    return items;
+	}
+
+	@JsonProperty("fileNo")
+	@Transient
+	public int getFileNo() {
+		return documents == null ? 0 : documents.size();
 	}
 
 

@@ -57,6 +57,7 @@ const MyAssignments = () => {
               <TableCell>Company</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Start</TableCell>
+              <TableCell>Files</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -70,6 +71,7 @@ const MyAssignments = () => {
                 <TableCell>{order.company?.companyName || 'No company'}</TableCell>
                 <TableCell><Chip label={formatStatus(order.status)} size="small" /></TableCell>
                 <TableCell>{formatDateTime(order.startDateTime)}</TableCell>
+                <TableCell>{order.fileNo ?? ''}</TableCell>
               </TableRow>
             ))}
           </TableBody>

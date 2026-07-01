@@ -41,6 +41,7 @@ const archiveConfig = {
       { label: 'Last Updated', value: item => formatDateTime(item.lastModifiedAt) },
       { label: 'Completed', value: item => formatDateTime(item.endDateTime) },
       { label: 'Archived', value: item => formatDateTime(item.archivedAt) },
+      { label: 'Files', value: item => item.fileNo ?? '' },
     ],
   },
   companies: {

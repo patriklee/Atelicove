@@ -1,5 +1,5 @@
-CREATE DATABASE payrollBillingDB;
-use payrollBillingDB;
+CREATE DATABASE atelicoveDB;
+use atelicoveDB;
 
 DROP TABLE IF EXISTS worker;
 DROP TABLE IF EXISTS work_order;
@@ -54,7 +54,7 @@ create TABLE completedWO (
     companyID INTEGER,
     file_no INTEGER,
     my_price DOUBLE,
-    SBATotal DOUBLE,
+    AtelicoveTotal DOUBLE,
     assessment VARCHAR(1),
     plat VARCHAR(1),
     address VARCHAR(25),

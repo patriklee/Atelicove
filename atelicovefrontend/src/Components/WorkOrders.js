@@ -120,6 +120,7 @@ const WorkOrders = () => {
                             </TableCell>
                             <TableCell>Start</TableCell>
                             <TableCell>Close</TableCell>
+                            <TableCell>Files</TableCell>
                         </TableRow>
                     </TableHead>
 
@@ -141,6 +142,7 @@ const WorkOrders = () => {
                                 <TableCell><Chip label={formatStatus(wo.status)} size="small" /></TableCell>
                                 <TableCell>{formatDateTime(wo.startDateTime)}</TableCell>
                                 <TableCell>{formatDateTime(wo.endDateTime)}</TableCell>
+                                <TableCell>{wo.fileNo ?? ''}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>

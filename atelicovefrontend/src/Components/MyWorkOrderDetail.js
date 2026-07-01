@@ -27,6 +27,7 @@ import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers } from '../model';
 import { useAuth } from './AuthContext';
 import WorkOrderDetail from './WorkOrderDetail';
+import WorkOrderDocuments from './WorkOrderDocuments';
 
 const money = (value) => Number(value || 0).toLocaleString(undefined, {
   style: 'currency',
@@ -78,7 +79,7 @@ const MyWorkOrderDetail = () => {
   if (workOrder.archived) return <Alert severity="warning">This work order is archived and no longer appears in My Assignments.</Alert>;
 
   if (['IN_REVIEW', 'COMPLETE'].includes(workOrder.status)) {
-    return <WorkOrderDetail />;
+    return <WorkOrderDetail canManageDocuments={workOrder.status !== 'COMPLETE'} />;
   }
 
   const workers = getWorkOrderWorkers(workOrder);
@@ -280,6 +281,8 @@ const MyWorkOrderDetail = () => {
           <Button variant="contained" onClick={saveItems} disabled={saving}>Save Items</Button>
         </Box>
       </TableContainer>
+
+      <WorkOrderDocuments workOrderID={workOrder.workOrderID} canManage={workOrder.status !== 'COMPLETE'} />
 
       <Typography variant="h6" sx={{ mt: 4, mb: 1 }}>Item History</Typography>
       <TableContainer component={Paper}>

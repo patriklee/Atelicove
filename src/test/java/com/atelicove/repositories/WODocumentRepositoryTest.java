@@ -56,14 +56,35 @@ class WODocumentRepositoryTest {
     @Test
     void deleteByIdRemovesDocument() {
         WorkOrder workOrder = workOrderRepository.saveAndFlush(new WorkOrder());
+        Worker worker = workerRepository.saveAndFlush(
+                new Worker("Pat", "Lee", "patlee", "patlee@test.com", "encoded-password", false));
         WorkOrderDocument saved = documentRepository.saveAndFlush(
                 new WorkOrderDocument(
                         workOrder, "note.txt", DocumentType.OTHER, new byte[] { 1 },
-                        null, "text/plain", 1));
+                        worker, "text/plain", 1));
 
         documentRepository.deleteById(saved.getDocumentID());
         documentRepository.flush();
 
         assertThat(documentRepository.findById(saved.getDocumentID())).isEmpty();
+    }
+
+    @Test
+    void findByWorkOrderReturnsDocumentsForThatWorkOrder() {
+        WorkOrder workOrder = workOrderRepository.saveAndFlush(new WorkOrder());
+        WorkOrder otherWorkOrder = workOrderRepository.saveAndFlush(new WorkOrder());
+        Worker worker = workerRepository.saveAndFlush(
+                new Worker("Pat", "Lee", "pat", "pat@test.com", "encoded-password", false));
+
+        WorkOrderDocument first = documentRepository.saveAndFlush(
+                new WorkOrderDocument(workOrder, "first.pdf", DocumentType.OTHER,
+                        new byte[] { 1 }, worker, "application/pdf", 1));
+        documentRepository.saveAndFlush(
+                new WorkOrderDocument(otherWorkOrder, "other.pdf", DocumentType.OTHER,
+                        new byte[] { 2 }, worker, "application/pdf", 1));
+
+        assertThat(documentRepository.findByWorkOrder_WorkOrderIDOrderByCreatedAtDesc(workOrder.getWorkOrderID()))
+                .extracting(WorkOrderDocument::getDocumentID)
+                .containsExactly(first.getDocumentID());
     }
 }
