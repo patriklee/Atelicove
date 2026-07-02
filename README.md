@@ -1,188 +1,86 @@
-# Atelicove
+# ✨ Atelicove
 
-> A thoughtfully crafted workspace for growing businesses.
+### *A thoughtfully crafted workspace for growing businesses.*
 
-Atelicove is a modern full-stack business workspace designed to help small
-businesses organize work orders, companies, workers, documents, and daily
-operations through a clean and intuitive web experience.
+A modern full-stack business workspace for managing companies, projects, work orders, documents, and day-to-day operations through a clean and intuitive experience.
 
-Built with Java, Spring Boot, React, and MySQL, Atelicove emphasizes
-maintainable architecture, thoughtful user experience, and scalable business
-workflows. The project serves as both a practical business application and a
-demonstration of modern full-stack software engineering principles.
+![Java](https://img.shields.io/badge/Java-25-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
 ---
 
-## Features
+## ✨ Features
 
-### Workspace Management
+### 🏢 Workspace Management
 
-- Secure user authentication
+- Secure authentication
 - Company management
 - Worker management
+- Project management
 - Work order management
 - Assignment tracking
 - Dashboard overview
+- Action item planning
 
-### Document Management
+### 📁 Document Management
 
 - Upload documents directly to work orders
-- Download stored documents
-- Delete documents while a work order is active
-- Automatic file count displayed on work orders
-- Database-backed document storage
-- Archived work orders retain all associated documents
+- Download stored files
+- Delete documents while work orders remain active
+- Database-backed storage
+- Archived work orders retain associated documents
 
-### Business Rules
+### 🛡 Business Rules
 
-- Admin and worker role support
-- Role-aware work order access
+- Admin & Worker roles
+- Role-aware access
 - Soft-delete archiving
 - Completed work orders become read-only
-- Historical relationships are preserved after archival
-- Server-side file validation
+- Historical relationships preserved
 - 10 MB upload limit
-- Supports PDF, DOCX, XLSX, TXT, PNG, and JPEG files
+- Supports PDF, DOCX, XLSX, TXT, PNG & JPEG
 
 ---
 
-## Screenshots
+## 🛠 Technology Stack
 
-Coming soon:
-
-- Dashboard
-- Work Orders
-- Company Management
-- Worker Management
-- Document Management
-
----
-
-## Technology Stack
-
-### Backend
-
-- Java 21+
-- Spring Boot 3
-- Spring Data JPA (Hibernate)
-- Maven
-
-### Frontend
-
-- React 18
-- Material UI (MUI)
-- React Router
-- Axios
-
-### Database
-
-- MySQL 8
-- Docker
-
-### Development Tools
-
-- Git
-- GitHub
-- Docker Desktop
-- DBeaver
-- Node.js
+| Backend | Frontend | Database | Tools |
+|---------|----------|----------|------|
+| Java 25 | React | MySQL 8 | Git |
+| Spring Boot | Material UI | Docker | GitHub |
+| Spring Data JPA | React Router | | Docker Desktop |
+| Maven | Axios | | DBeaver |
 
 ---
 
-## Technical Highlights
-
-Atelicove demonstrates several common enterprise software development
-practices, including:
-
-- Layered Controller -> Service -> Repository architecture
-- RESTful API design
-- DTO-based API responses
-- Entity relationship modeling
-- Enum-based domain modeling
-- Soft-delete archival system
-- Audit timestamps
-- Database-backed document storage
-- File upload validation
-- Dockerized MySQL development environment
-
----
-
-## Architecture
+## 🏗 Architecture
 
 ```text
 React Frontend
-        |
- REST Controllers
-        |
- Business Services
-        |
- Repositories
-        |
- Spring Data JPA
-        |
- Dockerized MySQL
+      │
+REST Controllers
+      │
+Business Services
+      │
+Repositories
+      │
+Spring Data JPA
+      │
+Dockerized MySQL
 ```
 
-Atelicove follows a layered architecture that separates presentation, business
-logic, and persistence, making the application easier to maintain, test, and
-extend.
-
 ---
 
-## Document Management
-
-Documents are fully integrated into work orders and follow business rules that
-preserve historical records.
-
-### Features
-
-- Upload documents directly to work orders
-- Download stored documents
-- Delete files while a work order is active
-- Automatic file counting
-- Files remain attached to archived work orders
-
-### Supported File Types
-
-- PDF
-- DOCX
-- XLSX
-- TXT
-- PNG
-- JPEG
-
-### Upload Rules
-
-- Maximum file size: 10 MB
-- Completed work orders become read-only
-- Archived work orders retain all associated documents
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Java 21+
-- Maven
-- Docker Desktop
-- Node.js 20+
-
-### Database
-
-Start the Docker MySQL container before running the backend.
-
-| Setting | Value |
-| --- | --- |
-| Database | `atelicoveDB` |
-| Container | `atelicove-mysql` |
-| Host Port | `3307` |
+## 🚀 Getting Started
 
 ### Backend
 
-Run `AtelicoveApplication.java`.
+Run `AtelicoveApplication.java`
 
-Backend URL: `http://localhost:8080`
+Backend: http://localhost:8080
 
 ### Frontend
 
@@ -192,59 +90,24 @@ npm install
 npm start
 ```
 
-Frontend URL: `http://localhost:3000`
+Frontend: http://localhost:3000
 
 ---
 
-## Roadmap
+## 🌟 Vision
 
-### Near-Term
+> Software should feel like a thoughtfully crafted workspace—not just another collection of forms.
 
-- Expand role-based permissions
-- Dashboard enhancements
-- Docker Compose support
-- Cloud deployment
-- Improved document management
-
-### Future Modules
-
-- Scheduling
-- Inventory management
-- Reporting and analytics
-- Customer portal
-- Billing
-- Payroll
+Atelicove is an independently maintained business workspace focused on elegant administration, scalable architecture, and thoughtful user experience.
 
 ---
 
-## Vision
+## 🙏 Origins
 
-Atelicove is designed around a simple philosophy:
-
-> Software should feel like a thoughtfully crafted workspace, not just another
-> collection of forms.
-
-Rather than focusing solely on data entry, Atelicove aims to provide
-administrators with an organized environment where projects, workers,
-companies, and documents naturally come together in one place.
-
-The long-term goal is to build a workspace that is intuitive, maintainable, and
-enjoyable to use as businesses continue to grow.
+Atelicove is the independent successor to the ICS 499 Software Engineering Capstone Project. While inspired by the original academic project, this repository has evolved into its own independently maintained application with new branding, architecture, workflows, and long-term vision.
 
 ---
 
-## Origins
-
-Atelicove is the independent successor to the ICS 499 Software Engineering
-Capstone Project, originally developed alongside Jeremy Marks, Aaron Nguyen,
-Austin Silva, and Patrick Lee.
-
-While the original repository remains available to recognize the contributions
-of the original team, Atelicove has since evolved into its own project with new
-architecture, branding, features, and long-term vision.
-
----
-
-## License
+## 📄 License
 
 Licensed under the MIT License.
