@@ -1,7 +1,12 @@
 package com.atelicove.enums;
 
 public enum DocumentType {
-	WORK_ORDER,
+	GENERAL,
+	CONTRACT,
 	RECEIPT,
+	INVOICE,
+	REPORT,
+	PHOTO,
+	FORM,
 	OTHER
 }

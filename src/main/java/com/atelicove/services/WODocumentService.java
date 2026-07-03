@@ -103,6 +103,10 @@ public class WODocumentService {
         WorkOrder workOrder = workOrderRepository.findById(workOrderID)
                 .orElseThrow(() -> new IllegalArgumentException("Work order not found"));
 
+        if (workOrder.getStatus() == WorkOrderStatus.DRAFT) {
+            throw new IllegalStateException("Draft work orders cannot have documents");
+        }
+
         if (workOrder.getStatus() == WorkOrderStatus.COMPLETE) {
             throw new IllegalStateException("Completed work orders are sealed and cannot be edited");
         }

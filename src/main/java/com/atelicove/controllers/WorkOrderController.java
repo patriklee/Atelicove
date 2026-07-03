@@ -119,6 +119,13 @@ public class WorkOrderController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}/draft")
+    public ResponseEntity<Void> deleteDraftWorkOrder(@PathVariable Integer id) {
+    	workOrderService.deleteDraftById(id);
+    	return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}/restore")
     public WorkOrder restoreWorkOrder(@PathVariable Integer id) {
     	return workOrderService.restoreById(id);

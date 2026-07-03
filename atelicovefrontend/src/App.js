@@ -24,8 +24,9 @@ import MyWorkOrderDetail from './Components/MyWorkOrderDetail';
 import ArchivedWorkOrders from './Components/ArchivedWorkOrders';
 import ArchivedCompanies from './Components/ArchivedCompanies';
 import ArchivedWorkers from './Components/ArchivedWorkers';
+import ArchivedProjects from './Components/ArchivedProjects';
 import Documents from './Components/Documents';
-import DraftPage from './Components/DraftPage';
+import ProjectsPage from './Components/ProjectsPage';
 
 // Worker pages
 import HomePage from './Components/HomePage';
@@ -61,14 +62,15 @@ function App() {
               <Route path="manage-workers/:workerID" element={<ManageWorkers />} />
               <Route path="workers/:workerID" element={<WorkerSummary />} />
               <Route path="archive/workorders" element={<ArchivedWorkOrders />} />
+              <Route path="archive/projects" element={<ArchivedProjects />} />
               <Route path="archive/companies" element={<ArchivedCompanies />} />
               <Route path="archive/workers" element={<ArchivedWorkers />} />
               <Route path="settings" element={<Settings />} />
               <Route path="my-assignments" element={<MyAssignments />} />
               <Route path="my-assignments/:workOrderID" element={<MyWorkOrderDetail />} />
-              <Route path="projects/active" element={<WorkOrders title="Active Projects" subtitle="Brows currently active projects and edit them as needed." />} />
-              <Route path="projects/draft-studio" element={<DraftPage title="Draft Studio" subtitle="Draft projects" />} />
-              <Route path="projects/launch-queue" element={<DraftPage title="Launch Queue" subtitle="View drafts" />} />
+              <Route path="projects/draft-studio" element={<ProjectsPage mode="studio" title="Projects" subtitle="Create teams, draft projects, add comments, attach work orders, and launch approved drafts." />} />
+              <Route path="projects/launch-queue" element={<ProjectsPage mode="queue" title="Projects" subtitle="Draft projects saved for later." />} />
+              <Route path="projects/active" element={<ProjectsPage mode="active" title="Projects" subtitle="Projects currently in active status." />} />
 			  <Route path="workorders" element={<WorkOrders />} />
               <Route path="workorders/:workOrderID" element={<WorkOrderDetail />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />

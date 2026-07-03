@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
-import { formatDateTime, getWorkOrderWorkers } from '../model';
+import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers } from '../model';
 import { useAuth } from './AuthContext';
 
 const WorkOrders = ({
@@ -48,6 +48,7 @@ const WorkOrders = ({
         const getValue = (workOrder) => {
             if (orderBy === 'company') return workOrder.company?.companyName || '';
             if (orderBy === 'workers') return getWorkOrderWorkers(workOrder).map(worker => worker.lastName).join(',');
+            if (orderBy === 'actualPrice') return getWorkOrderActualPrice(workOrder);
             return workOrder[orderBy] ?? '';
         };
         if (getValue(a) < getValue(b)) {
@@ -120,6 +121,15 @@ const WorkOrders = ({
                             </TableCell>
                             <TableCell>Start</TableCell>
                             <TableCell>Close</TableCell>
+                            <TableCell>
+                                <TableSortLabel
+                                    active={orderBy === 'actualPrice'}
+                                    direction={orderBy === 'actualPrice' ? order : 'asc'}
+                                    onClick={() => handleSort('actualPrice')}
+                                >
+                                    Actual Price
+                                </TableSortLabel>
+                            </TableCell>
                             <TableCell>Files</TableCell>
                         </TableRow>
                     </TableHead>
@@ -142,6 +152,7 @@ const WorkOrders = ({
                                 <TableCell><Chip label={formatStatus(wo.status)} size="small" /></TableCell>
                                 <TableCell>{formatDateTime(wo.startDateTime)}</TableCell>
                                 <TableCell>{formatDateTime(wo.endDateTime)}</TableCell>
+                                <TableCell>{formatMoney(getWorkOrderActualPrice(wo))}</TableCell>
                                 <TableCell>{wo.fileNo ?? ''}</TableCell>
                             </TableRow>
                         ))}

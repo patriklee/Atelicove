@@ -31,13 +31,18 @@ public class WorkOrder extends ArchivableEntity {
 	@ManyToOne
 	@JoinColumn(name = "company_id")
     private Company company;
+
+	@ManyToOne
+	@JoinColumn(name = "project_id")
+	@JsonIgnore
+	private Project project;
     
 	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
     private WorkOrderStatus status = WorkOrderStatus.OPEN;
     
-    @Column( nullable = false)
+    @Column
     private LocalDateTime startDateTime = LocalDateTime.now();
     
     private LocalDateTime endDateTime;
@@ -83,7 +88,11 @@ public class WorkOrder extends ArchivableEntity {
 	public Company getCompany() {
 		return company;
 	}
-	
+
+	public Project getProject() {
+		return project;
+	}
+
 	public WorkOrderStatus getStatus() {
 		return status;
 	}
@@ -130,7 +139,11 @@ public class WorkOrder extends ArchivableEntity {
 	public void setCompany(Company company) {
 		this.company = company;
 	}
-	
+
+	public void setProject(Project project) {
+		this.project = project;
+	}
+
 	public void setStatus(WorkOrderStatus status) {
 		this.status = status;
 	}

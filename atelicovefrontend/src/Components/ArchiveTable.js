@@ -15,9 +15,35 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
-import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../model';
+import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../model';
 
 const archiveConfig = {
+  projects: {
+    title: 'Projects',
+    subtitle: 'Browse archived projects and their draft snapshots.',
+    endpoint: '/projects/archived',
+    restorePath: item => `/projects/${item.projectID}/restore`,
+    canDelete: false,
+    key: item => item.projectID,
+    empty: 'No archived projects found.',
+    columns: [
+      { label: 'Project', value: item => item.projectName || `Project #${item.projectID}` },
+      { label: 'Status', value: item => item.projectStatus?.replaceAll('_', ' ') || 'Not set' },
+      { label: 'Budget', value: item => item.budget == null ? 'Not set' : formatMoney(item.budget) },
+      { label: 'Actual Cost', value: item => formatMoney(item.actualCost) },
+      { label: 'Snapshots', value: item => (item.snapshots?.length ? (
+        <Stack spacing={0.5}>
+          {item.snapshots.map(snapshot => (
+            <Typography key={snapshot.projectSnapshotID} variant="body2">
+              {snapshot.snapshotName || `Snapshot #${snapshot.projectSnapshotID}`} - {formatDateTime(snapshot.createdAt)}
+            </Typography>
+          ))}
+        </Stack>
+      ) : 'None') },
+      { label: 'Created', value: item => formatDateTime(item.createdAt) },
+      { label: 'Archived', value: item => formatDateTime(item.archivedAt) },
+    ],
+  },
   workorders: {
     title: 'Work Orders',
     subtitle: 'Browse archived work orders.',
@@ -41,6 +67,7 @@ const archiveConfig = {
       { label: 'Created', value: item => formatDateTime(item.createdAt) },
       { label: 'Last Updated', value: item => formatDateTime(item.lastModifiedAt) },
       { label: 'Completed', value: item => formatDateTime(item.endDateTime) },
+      { label: 'Actual Price', value: item => formatMoney(getWorkOrderActualPrice(item)) },
       { label: 'Archived', value: item => formatDateTime(item.archivedAt) },
       { label: 'Files', value: item => item.fileNo ?? '' },
     ],

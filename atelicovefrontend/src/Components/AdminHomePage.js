@@ -29,10 +29,10 @@ const AdminHomePage = () => {
             label: 'Projects',
             key: 'projects',
             children: [
-                { label: 'My Assignments', path: '/admin/my-assignments' },
-                { label: 'Active Projects', path: '/admin/projects/active' },
                 { label: 'Draft Studio', path: '/admin/projects/draft-studio' },
                 { label: 'Launch Queue', path: '/admin/projects/launch-queue' },
+                { label: 'Active Projects', path: '/admin/projects/active' },
+                { label: 'My Assignments', path: '/admin/my-assignments' },
             ],
         },
         {
@@ -65,6 +65,7 @@ const AdminHomePage = () => {
             key: 'archive',
             children: [
                 { label: 'Work Orders', path: '/admin/archive/workorders' },
+                { label: 'Projects', path: '/admin/archive/projects' },
                 { label: 'Companies', path: '/admin/archive/companies' },
                 { label: 'Workers', path: '/admin/archive/workers' },
             ],

@@ -86,6 +86,7 @@ const MyWorkOrderDetail = () => {
   }
 
   const workers = getWorkOrderWorkers(workOrder);
+  const isDraftWorkOrder = workOrder.status === 'DRAFT';
   const editingItemIDs = new Set(editItems.filter(item => !item.isNew).map(item => item.workOrderItemID));
   const displayedSavedItems = savedItems
     .filter(item => Number(item.quantity) > 0)
@@ -224,6 +225,21 @@ const MyWorkOrderDetail = () => {
     }
   };
 
+  const deleteDraftWorkOrder = async () => {
+    if (!window.confirm(`Delete draft work order #${workOrder.workOrderID}?`)) return;
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      await apiFetch(`/workorders/${workOrder.workOrderID}/draft`, { method: 'DELETE' });
+      navigate('/admin/projects/draft-studio');
+    } catch (error) {
+      setMessage({ severity: 'error', text: error.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const runPendingAction = () => {
     if (pendingAction === 'submit') {
       submitForReview();
@@ -234,7 +250,7 @@ const MyWorkOrderDetail = () => {
     <Box sx={{ p: 3 }}>
       <Button onClick={() => navigate(-1)} sx={{ mb: 2 }}>Back</Button>
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
-        Work Order #{workOrder.workOrderID}
+        {isDraftWorkOrder ? 'Draft Work Order' : 'Work Order'} #{workOrder.workOrderID}
       </Typography>
       {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
 
@@ -252,32 +268,34 @@ const MyWorkOrderDetail = () => {
         </Table>
       </TableContainer>
 
-      <TableContainer component={Paper} sx={{ mb: 4 }}>
-        <Table>
-          <TableHead>
-            <TableTitleRow title="Comments" colSpan={2} />
-          </TableHead>
-          <TableBody>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 600, width: 220 }}>Work Notes</TableCell>
-              <TableCell>
-                <TextField
-                  value={comment}
-                  onChange={event => setComment(event.target.value)}
-                  fullWidth
-                  multiline
-                  minRows={4}
-                  disabled={!editingComment}
-                />
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
-                  <Button onClick={() => setEditingComment(true)}>Edit</Button>
-                  <Button variant="contained" onClick={updateComment} disabled={!editingComment || saving}>Update</Button>
-                </Box>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {!isDraftWorkOrder && (
+        <TableContainer component={Paper} sx={{ mb: 4 }}>
+          <Table>
+            <TableHead>
+              <TableTitleRow title="Comments" colSpan={2} />
+            </TableHead>
+            <TableBody>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 600, width: 220 }}>Work Notes</TableCell>
+                <TableCell>
+                  <TextField
+                    value={comment}
+                    onChange={event => setComment(event.target.value)}
+                    fullWidth
+                    multiline
+                    minRows={4}
+                    disabled={!editingComment}
+                  />
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+                    <Button onClick={() => setEditingComment(true)}>Edit</Button>
+                    <Button variant="contained" onClick={updateComment} disabled={!editingComment || saving}>Update</Button>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       <TableContainer component={Paper}>
         <Table>
@@ -382,13 +400,25 @@ const MyWorkOrderDetail = () => {
         </Box>
       </TableContainer>
 
-      <WorkOrderDocuments workOrderID={workOrder.workOrderID} canManage={workOrder.status !== 'COMPLETE'} />
+      {!isDraftWorkOrder && (
+        <WorkOrderDocuments workOrderID={workOrder.workOrderID} canManage={workOrder.status !== 'COMPLETE'} />
+      )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-        <Button variant="contained" color="success" onClick={() => requestPassword('submit')}>
-          Submit for Review
-        </Button>
-      </Box>
+      {!isDraftWorkOrder && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Button variant="contained" color="success" onClick={() => requestPassword('submit')}>
+            Submit for Review
+          </Button>
+        </Box>
+      )}
+
+      {isDraftWorkOrder && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Button variant="outlined" color="error" disabled={saving} onClick={deleteDraftWorkOrder}>
+            Delete Draft Work Order
+          </Button>
+        </Box>
+      )}
 
       <Dialog open={passwordOpen} onClose={() => setPasswordOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Confirm Changes</DialogTitle>

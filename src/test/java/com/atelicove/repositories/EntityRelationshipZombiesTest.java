@@ -304,8 +304,8 @@ class EntityRelationshipZombiesTest {
 
             WorkOrderDocument document = new WorkOrderDocument(
                     workOrder,
-                    "work-order.txt",
-                    DocumentType.WORK_ORDER,
+                    "form.txt",
+                    DocumentType.FORM,
                     new byte[] { 4, 5 },
                     worker,
                     "text/plain",

@@ -25,7 +25,10 @@ public class WorkOrderService{
     private final WorkerRepository workerRepository;
     private final CompanyRepository companyRepository;
 
-    public WorkOrderService(WorkOrderRepository workOrderRepository, WorkerRepository workerRepository, CompanyRepository companyRepository) {
+    public WorkOrderService(
+            WorkOrderRepository workOrderRepository,
+            WorkerRepository workerRepository,
+            CompanyRepository companyRepository) {
         this.workOrderRepository = workOrderRepository;
         this.workerRepository = workerRepository;
         this.companyRepository = companyRepository;
@@ -45,7 +48,9 @@ public class WorkOrderService{
     }
 
     public List<WorkOrder> findByCompanyID(Integer companyID) {
-        return workOrderRepository.findByCompany_CompanyIDAndArchivedFalse(companyID);
+        return workOrderRepository.findByCompany_CompanyIDAndArchivedFalse(companyID).stream()
+                .filter(workOrder -> workOrder.getStatus() != WorkOrderStatus.DRAFT)
+                .toList();
     }
     
     public Optional<WorkOrder> findById(Integer id) {
@@ -53,7 +58,9 @@ public class WorkOrderService{
     }
     
     public List<WorkOrder> findActive() {
-        return workOrderRepository.findByArchivedFalse();
+        return workOrderRepository.findByArchivedFalse().stream()
+                .filter(workOrder -> workOrder.getStatus() != WorkOrderStatus.DRAFT)
+                .toList();
     }
 
     public List<WorkOrder> findAll() {
@@ -68,6 +75,10 @@ public class WorkOrderService{
     	workOrder.setWorkOrderID(0);
     	workOrder.setArchived(false);
     	workOrder.setArchivedAt(null);
+    	if (workOrder.getStatus() == WorkOrderStatus.DRAFT) {
+    		throw new IllegalStateException("Draft work orders must be created from a draft project");
+    	}
+
     	if (workOrder.getWorkers() == null || workOrder.getWorkers().isEmpty()) {
     		workOrder.setStatus(WorkOrderStatus.OPEN);
     	} else {
@@ -182,6 +193,9 @@ public class WorkOrderService{
     public WorkOrder updateComment(Integer workOrderID, String comment) {
         WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
         ensureWorkOrderCanBeEdited(workOrder);
+        if (workOrder.getStatus() == WorkOrderStatus.DRAFT) {
+            throw new IllegalStateException("Draft work orders do not have comments");
+        }
         workOrder.setComment(comment);
 
         return workOrderRepository.save(workOrder);
@@ -249,6 +263,21 @@ public class WorkOrderService{
         workOrder.setArchived(true);
         workOrder.setArchivedAt(LocalDateTime.now());
         workOrderRepository.save(workOrder);
+    }
+
+    @Transactional
+    public void deleteDraftById(Integer id) {
+        WorkOrder workOrder = getRequiredWorkOrder(id);
+
+        if (workOrder.getStatus() != WorkOrderStatus.DRAFT) {
+            throw new IllegalStateException("Only draft work orders can be deleted from Draft Studio");
+        }
+
+        if (workOrder.getProject() != null) {
+            workOrder.getProject().removeWorkOrder(workOrder);
+        }
+        workOrder.setWorkers(new HashSet<>());
+        workOrderRepository.delete(workOrder);
     }
 
     @Transactional

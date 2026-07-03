@@ -26,5 +26,16 @@ export const workerPayload = (worker) => ({
 export const getWorkOrderWorkers = (workOrder = {}) =>
   Array.isArray(workOrder.workers) ? workOrder.workers.map(normalizeWorker) : [];
 
+export const getWorkOrderActualPrice = (workOrder = {}) =>
+  (workOrder.items || []).reduce((sum, item) => (
+    sum + ((Number(item.quantity) || 0) * (Number(item.price) || 0))
+  ), 0);
+
+export const formatMoney = (value) =>
+  Number(value || 0).toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
+  });
+
 export const formatDateTime = (value) =>
   value ? new Date(value).toLocaleString() : 'Not set';

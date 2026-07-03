@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +17,21 @@ import com.atelicove.entities.Worker;
 import com.atelicove.enums.DocumentType;
 
 class WorkOrderDocumentTest {
+
+    @Test
+    void documentTypeIncludesExpandedWorkOrderDocumentTypes() {
+        assertEquals(
+                List.of(
+                        DocumentType.GENERAL,
+                        DocumentType.CONTRACT,
+                        DocumentType.RECEIPT,
+                        DocumentType.INVOICE,
+                        DocumentType.REPORT,
+                        DocumentType.PHOTO,
+                        DocumentType.FORM,
+                        DocumentType.OTHER),
+                Arrays.asList(DocumentType.values()));
+    }
 
     @Test
     void constructorSetsDocumentDetails() {
@@ -46,8 +63,8 @@ class WorkOrderDocumentTest {
 
         document.setDocumentID(20);
         document.setWorkOrder(workOrder);
-        document.setFileName("work-order.txt");
-        document.setDocumentType(DocumentType.WORK_ORDER);
+        document.setFileName("contract.txt");
+        document.setDocumentType(DocumentType.CONTRACT);
         document.setDocumentData(data);
         document.setCreatedAt(uploadedAt);
         document.setUploadedByWorker(worker);
@@ -57,8 +74,8 @@ class WorkOrderDocumentTest {
         assertAll(
                 () -> assertEquals(20, document.getDocumentID()),
                 () -> assertSame(workOrder, document.getWorkOrder()),
-                () -> assertEquals("work-order.txt", document.getFileName()),
-                () -> assertEquals(DocumentType.WORK_ORDER, document.getDocumentType()),
+                () -> assertEquals("contract.txt", document.getFileName()),
+                () -> assertEquals(DocumentType.CONTRACT, document.getDocumentType()),
                 () -> assertArrayEquals(data, document.getDocumentData()),
                 () -> assertEquals(uploadedAt, document.getCreatedAt()),
                 () -> assertSame(worker, document.getUploadedByWorker()),
