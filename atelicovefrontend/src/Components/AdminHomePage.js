@@ -30,7 +30,6 @@ const AdminHomePage = () => {
             key: 'projects',
             children: [
                 { label: 'Draft Studio', path: '/admin/projects/draft-studio' },
-                { label: 'Launch Queue', path: '/admin/projects/launch-queue' },
                 { label: 'Active Projects', path: '/admin/projects/active' },
                 { label: 'My Assignments', path: '/admin/my-assignments' },
             ],

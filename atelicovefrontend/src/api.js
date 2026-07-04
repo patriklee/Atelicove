@@ -1,7 +1,11 @@
 import { mockApiDownload, mockApiFetch } from './mockApi';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
-const USE_MOCK_API = process.env.REACT_APP_USE_MOCK_API === 'true';
+const USE_MOCK_API = process.env.REACT_APP_USE_MOCK_API === 'true' ||
+  (process.env.NODE_ENV === 'development' &&
+    process.env.REACT_APP_USE_MOCK_API !== 'false' &&
+    !process.env.REACT_APP_API_URL);
+const CAN_FALL_BACK_TO_MOCK = process.env.NODE_ENV === 'development';
 
 export class ApiError extends Error {
   constructor(message, status, data) {
@@ -24,11 +28,19 @@ export const apiFetch = async (path, options = {}) => {
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+  } catch (error) {
+    if (CAN_FALL_BACK_TO_MOCK) {
+      return mockApiFetch(path, options);
+    }
+    throw error;
+  }
 
   const contentType = response.headers.get('content-type') || '';
   const data = response.status === 204
@@ -50,9 +62,17 @@ export const apiDownload = async (path) => {
     return mockApiDownload(path);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: 'include',
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      credentials: 'include',
+    });
+  } catch (error) {
+    if (CAN_FALL_BACK_TO_MOCK) {
+      return mockApiDownload(path);
+    }
+    throw error;
+  }
 
   if (!response.ok) {
     const message = await response.text();

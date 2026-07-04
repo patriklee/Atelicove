@@ -104,6 +104,15 @@ public class ProjectController {
 	}
 
 	@PreAuthorize("hasRole('ADMIN')")
+	@PostMapping("/{id}/workorders")
+	public Project createWorkOrderForProject(@PathVariable Integer id, @RequestBody Map<String, Object> request) {
+		Integer teamID = optionalInteger(request.get("teamID"));
+		Integer companyID = optionalInteger(request.get("companyID"));
+		String comment = request.get("comment") == null ? null : request.get("comment").toString();
+		return projectService.createWorkOrderForProject(id, teamID, companyID, comment);
+	}
+
+	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping("/{id}/workorders/{workOrderID}")
 	public Project removeWorkOrder(@PathVariable Integer id, @PathVariable Integer workOrderID) {
 		return projectService.removeWorkOrder(id, workOrderID);

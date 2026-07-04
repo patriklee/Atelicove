@@ -9,12 +9,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
 import com.atelicove.entities.Company;
+import com.atelicove.entities.Project;
 import com.atelicove.entities.WorkOrder;
-import com.atelicove.entities.WorkOrderDocument;
+import com.atelicove.entities.Document;
 import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.DocumentType;
 import com.atelicove.repositories.CompanyRepository;
+import com.atelicove.repositories.ProjectRepository;
 import com.atelicove.repositories.WODocumentRepository;
 import com.atelicove.repositories.WOItemRepository;
 import com.atelicove.repositories.WorkOrderRepository;
@@ -46,6 +48,9 @@ class EntityRelationshipZombiesTest {
 
     @Autowired
     private WODocumentRepository documentRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
 
     @Autowired
     private EntityManager entityManager;
@@ -242,7 +247,7 @@ class EntityRelationshipZombiesTest {
         void documentReferencesWorkOrderAndUploadingWorkerAfterReload() {
             WorkOrder workOrder = workOrderRepository.saveAndFlush(new WorkOrder());
             Worker worker = workerRepository.saveAndFlush(worker("uploader"));
-            WorkOrderDocument document = new WorkOrderDocument(
+            Document document = new Document(
                     workOrder,
                     "receipt.pdf",
                     DocumentType.RECEIPT,
@@ -256,10 +261,35 @@ class EntityRelationshipZombiesTest {
             int workerId = worker.getWorkerID();
             clearPersistenceContext();
 
-            WorkOrderDocument reloaded =
+            Document reloaded =
                     documentRepository.findById(documentId).orElseThrow();
 
             assertThat(reloaded.getWorkOrder().getWorkOrderID()).isEqualTo(workOrderId);
+            assertThat(reloaded.getUploadedByWorker().getWorkerID()).isEqualTo(workerId);
+        }
+
+        @Test
+        void documentReferencesProjectAndUploadingWorkerAfterReload() {
+            Project project = projectRepository.saveAndFlush(new Project());
+            Worker worker = workerRepository.saveAndFlush(worker("project-uploader"));
+            Document document = new Document(
+                    project,
+                    "project.pdf",
+                    DocumentType.REPORT,
+                    new byte[] { 1, 2, 3 },
+                    worker,
+                    "application/pdf",
+                    3);
+            document = documentRepository.saveAndFlush(document);
+            int documentId = document.getDocumentID();
+            int projectId = project.getProjectID();
+            int workerId = worker.getWorkerID();
+            clearPersistenceContext();
+
+            Document reloaded =
+                    documentRepository.findById(documentId).orElseThrow();
+
+            assertThat(reloaded.getProject().getProjectID()).isEqualTo(projectId);
             assertThat(reloaded.getUploadedByWorker().getWorkerID()).isEqualTo(workerId);
         }
     }
@@ -302,7 +332,7 @@ class EntityRelationshipZombiesTest {
             workOrder.addItem(new WorkOrderItem("Service", 2, 50.00, workOrder));
             workOrder = workOrderRepository.saveAndFlush(workOrder);
 
-            WorkOrderDocument document = new WorkOrderDocument(
+            Document document = new Document(
                     workOrder,
                     "form.txt",
                     DocumentType.FORM,
@@ -318,7 +348,7 @@ class EntityRelationshipZombiesTest {
 
             WorkOrder reloadedOrder =
                     workOrderRepository.findById(workOrderId).orElseThrow();
-            WorkOrderDocument reloadedDocument =
+            Document reloadedDocument =
                     documentRepository.findById(documentId).orElseThrow();
 
             assertThat(reloadedOrder.getCompany().getCompanyName())

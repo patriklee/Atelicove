@@ -12,8 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.atelicove.dto.TeamDTO;
 import com.atelicove.entities.Project;
 import com.atelicove.entities.Team;
+import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.ProjectStatus;
+import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.ProjectRepository;
 import com.atelicove.repositories.TeamRepository;
 import com.atelicove.repositories.WorkerRepository;
@@ -60,11 +62,18 @@ public class TeamService {
 	@Transactional
 	public Team updateTeam(Integer teamID, TeamDTO teamDTO) {
 		Team team = getRequiredTeam(teamID);
+		Set<Worker> previousWorkers = new HashSet<>(team.getWorkers());
 		applyDTO(team, teamDTO);
+		syncUpdatedTeamWorkers(team, previousWorkers);
 
 		return teamRepository.save(team);
 	}
 
+	/**
+	 * Deletes a team after first removing it from every project that references it.
+	 *
+	 * @param teamID team to delete
+	 */
 	@Transactional
 	public void deleteTeam(Integer teamID) {
 		Team team = getRequiredTeam(teamID);
@@ -72,6 +81,7 @@ public class TeamService {
 		for (Project project : projectRepository.findAll()) {
 			if (project.getTeams().contains(team)) {
 				project.removeTeam(team);
+				removeTeamWorkersFromActiveProjectWorkOrders(project, team);
 				projectRepository.save(project);
 			}
 		}
@@ -79,6 +89,13 @@ public class TeamService {
 		teamRepository.delete(team);
 	}
 
+	/**
+	 * Applies team request data, resolves project and worker IDs, and enforces that
+	 * every saved team has at least one worker.
+	 *
+	 * @param team team being created or updated
+	 * @param teamDTO incoming team details
+	 */
 	private void applyDTO(Team team, TeamDTO teamDTO) {
 		if (teamDTO == null) {
 			throw new IllegalArgumentException("Team details are required");
@@ -123,6 +140,79 @@ public class TeamService {
 	private Team getRequiredTeam(Integer teamID) {
 		return teamRepository.findById(teamID)
 				.orElseThrow(() -> new IllegalArgumentException("Team not found"));
+	}
+
+	private void removeTeamWorkersFromActiveProjectWorkOrders(Project project, Team team) {
+		if (project.getProjectStatus() != ProjectStatus.ACTIVE) {
+			return;
+		}
+
+		Set<Worker> remainingProjectWorkers = new HashSet<>();
+		for (Team remainingTeam : project.getTeams()) {
+			remainingProjectWorkers.addAll(remainingTeam.getWorkers());
+		}
+
+		Set<Worker> workersToRemove = new HashSet<>(team.getWorkers());
+		workersToRemove.removeAll(remainingProjectWorkers);
+
+		for (WorkOrder workOrder : project.getWorkOrders()) {
+			if (workOrder.getStatus() != WorkOrderStatus.OPEN &&
+					workOrder.getStatus() != WorkOrderStatus.IN_PROCESS) {
+				continue;
+			}
+
+			for (Worker worker : workersToRemove) {
+				workOrder.removeWorker(worker);
+			}
+
+			workOrder.setStatus(workOrder.getWorkers().isEmpty()
+					? WorkOrderStatus.OPEN
+					: WorkOrderStatus.IN_PROCESS);
+		}
+	}
+
+	private void syncUpdatedTeamWorkers(Team team, Set<Worker> previousWorkers) {
+		Set<Worker> currentWorkers = new HashSet<>(team.getWorkers());
+		Set<Worker> removedWorkers = new HashSet<>(previousWorkers);
+		removedWorkers.removeAll(currentWorkers);
+		Set<Worker> addedWorkers = new HashSet<>(currentWorkers);
+		addedWorkers.removeAll(previousWorkers);
+
+		for (Project project : projectRepository.findAll()) {
+			if (!project.getTeams().contains(team) ||
+					project.getProjectStatus() != ProjectStatus.ACTIVE) {
+				continue;
+			}
+
+			Set<Worker> remainingProjectWorkers = new HashSet<>();
+			for (Team projectTeam : project.getTeams()) {
+				remainingProjectWorkers.addAll(projectTeam.getWorkers());
+			}
+
+			Set<Worker> projectRemovedWorkers = new HashSet<>(removedWorkers);
+			projectRemovedWorkers.removeAll(remainingProjectWorkers);
+
+			for (WorkOrder workOrder : project.getWorkOrders()) {
+				if (workOrder.getStatus() != WorkOrderStatus.OPEN &&
+						workOrder.getStatus() != WorkOrderStatus.IN_PROCESS) {
+					continue;
+				}
+
+				for (Worker worker : projectRemovedWorkers) {
+					workOrder.removeWorker(worker);
+				}
+
+				for (Worker worker : addedWorkers) {
+					workOrder.addWorker(worker);
+				}
+
+				workOrder.setStatus(workOrder.getWorkers().isEmpty()
+						? WorkOrderStatus.OPEN
+						: WorkOrderStatus.IN_PROCESS);
+			}
+
+			projectRepository.save(project);
+		}
 	}
 
 }

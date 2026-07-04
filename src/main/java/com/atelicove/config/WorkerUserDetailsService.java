@@ -19,6 +19,13 @@ public class WorkerUserDetailsService implements UserDetailsService{
 		this.workerRepository = workerRepository;
 	}
 	
+	/**
+	 * Loads an active worker for Spring Security and maps the worker's admin flag to
+	 * either the ADMIN or WORKER role.
+	 *
+	 * @param username username entered during login
+	 * @return Spring Security user details for authentication
+	 */
 	@Override
 	public UserDetails loadUserByUsername(String username) {
 		Optional<Worker> result = workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(username);

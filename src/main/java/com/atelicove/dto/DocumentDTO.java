@@ -2,15 +2,19 @@ package com.atelicove.dto;
 
 import java.time.LocalDateTime;
 
-import com.atelicove.entities.WorkOrderDocument;
+import com.atelicove.entities.Document;
 import com.atelicove.enums.DocumentType;
+import com.atelicove.enums.ProjectStatus;
 import com.atelicove.enums.WorkOrderStatus;
 
-public class WorkOrderDocumentDTO {
+public class DocumentDTO {
 
     private int documentID;
-    private int workOrderID;
+    private Integer workOrderID;
     private WorkOrderStatus workOrderStatus;
+    private Integer projectID;
+    private String projectName;
+    private ProjectStatus projectStatus;
     private String companyName;
     private String fileName;
     private DocumentType documentType;
@@ -21,14 +25,21 @@ public class WorkOrderDocumentDTO {
     private LocalDateTime createdAt;
     private LocalDateTime lastModifiedAt;
 
-    public WorkOrderDocumentDTO() {}
+    public DocumentDTO() {}
 
-    public WorkOrderDocumentDTO(WorkOrderDocument document) {
+    public DocumentDTO(Document document) {
         this.documentID = document.getDocumentID();
-        this.workOrderID = document.getWorkOrder().getWorkOrderID();
-        this.workOrderStatus = document.getWorkOrder().getStatus();
-        if (document.getWorkOrder().getCompany() != null) {
-            this.companyName = document.getWorkOrder().getCompany().getCompanyName();
+        if (document.getWorkOrder() != null) {
+            this.workOrderID = document.getWorkOrder().getWorkOrderID();
+            this.workOrderStatus = document.getWorkOrder().getStatus();
+            if (document.getWorkOrder().getCompany() != null) {
+                this.companyName = document.getWorkOrder().getCompany().getCompanyName();
+            }
+        }
+        if (document.getProject() != null) {
+            this.projectID = document.getProject().getProjectID();
+            this.projectName = document.getProject().getProjectName();
+            this.projectStatus = document.getProject().getProjectStatus();
         }
         this.fileName = document.getFileName();
         this.documentType = document.getDocumentType();
@@ -55,12 +66,24 @@ public class WorkOrderDocumentDTO {
         return documentID;
     }
 
-    public int getWorkOrderID() {
+    public Integer getWorkOrderID() {
         return workOrderID;
     }
 
     public WorkOrderStatus getWorkOrderStatus() {
         return workOrderStatus;
+    }
+
+    public Integer getProjectID() {
+        return projectID;
+    }
+
+    public String getProjectName() {
+        return projectName;
+    }
+
+    public ProjectStatus getProjectStatus() {
+        return projectStatus;
     }
 
     public String getCompanyName() {

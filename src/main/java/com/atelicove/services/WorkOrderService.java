@@ -34,6 +34,13 @@ public class WorkOrderService{
         this.companyRepository = companyRepository;
     }
     
+    /**
+     * Moves an open work order into active work. Only work orders that have not
+     * already been started, submitted, completed, or drafted can enter this state.
+     *
+     * @param workOrderID work order to start
+     * @return the saved work order with an in-process status
+     */
     @Transactional
     public WorkOrder startWorkOrder(Integer workOrderID) {
     	WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
@@ -71,6 +78,14 @@ public class WorkOrderService{
         return workOrderRepository.findByArchivedTrue();
     }
 
+    /**
+     * Creates a normal work order and attaches only active workers and companies.
+     * New work orders are opened when no worker is assigned and moved directly to
+     * in-process when workers are provided.
+     *
+     * @param workOrder work order details from the request
+     * @return the saved work order
+     */
     public WorkOrder createWorkOrder(WorkOrder workOrder) {
     	workOrder.setWorkOrderID(0);
     	workOrder.setArchived(false);
@@ -116,6 +131,14 @@ public class WorkOrderService{
         return workOrderRepository.save(workOrder);
     }
 
+    /**
+     * Adds a worker to an editable work order. If the worker is already assigned,
+     * the work order is returned unchanged.
+     *
+     * @param workOrderID work order receiving the worker
+     * @param workerID worker to assign
+     * @return the saved work order
+     */
     @Transactional
     public WorkOrder reassignWorkOrder(Integer workOrderID, Integer workerID) {
         WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
@@ -141,6 +164,14 @@ public class WorkOrderService{
         return workOrderRepository.save(workOrder);
     }
 
+    /**
+     * Removes a worker from an editable work order and reopens the work order when
+     * no workers remain.
+     *
+     * @param workOrderID work order being changed
+     * @param workerID worker to remove
+     * @return the saved work order
+     */
     @Transactional
     public WorkOrder removeWorkerFromWorkOrder(Integer workOrderID, Integer workerID) {
         WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
@@ -248,6 +279,12 @@ public class WorkOrderService{
         return workOrderRepository.save(workOrder);
     }
 
+    /**
+     * Archives a completed work order instead of deleting it. Open, in-process,
+     * review, and draft work orders stay visible so unfinished work is not hidden.
+     *
+     * @param id completed work order to archive
+     */
     @Transactional
     public void archiveById(Integer id) {
         WorkOrder workOrder = getRequiredWorkOrder(id);
@@ -265,6 +302,12 @@ public class WorkOrderService{
         workOrderRepository.save(workOrder);
     }
 
+    /**
+     * Deletes a draft work order that belongs to Draft Studio. The project link and
+     * worker assignments are cleared first so JPA can remove the draft cleanly.
+     *
+     * @param id draft work order to delete
+     */
     @Transactional
     public void deleteDraftById(Integer id) {
         WorkOrder workOrder = getRequiredWorkOrder(id);
@@ -288,6 +331,12 @@ public class WorkOrderService{
         return workOrderRepository.save(workOrder);
     }
 
+    /**
+     * Permanently removes a work order only when it is already archived or appears
+     * to be an accidental empty open record.
+     *
+     * @param id work order to permanently delete
+     */
     @Transactional
     public void deletePermanentlyById(Integer id) {
         WorkOrder workOrder = getRequiredWorkOrder(id);
@@ -314,6 +363,13 @@ public class WorkOrderService{
     
     // Work order add/delete/submit stuff
     
+    /**
+     * Sends an editable work order to admin review after the worker-facing edits are
+     * finished.
+     *
+     * @param workOrderID work order to submit
+     * @return the saved work order with an in-review status
+     */
     @Transactional
     public WorkOrder submitForReview(Integer workOrderID) {
     	WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
@@ -329,6 +385,13 @@ public class WorkOrderService{
     	return workOrderRepository.save(workOrder);
     }
     
+    /**
+     * Completes a work order after review. Completion requires a valid company,
+     * worker assignment, dates, and at least one item.
+     *
+     * @param workOrderID work order to approve
+     * @return the saved completed work order
+     */
     @Transactional
     public WorkOrder approveWorkOrder(Integer workOrderID) {
     	WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
@@ -374,6 +437,11 @@ public class WorkOrderService{
         }
     }
     
+    /**
+     * Checks the required fields that make a work order complete enough to seal.
+     *
+     * @param workOrder work order being approved
+     */
     private void validateForCompletion(WorkOrder workOrder) {
         if (workOrder.getWorkOrderID() <= 0) {
             throw new IllegalStateException("Work order ID is required");

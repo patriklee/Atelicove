@@ -76,6 +76,15 @@ public class WorkerController {
     	return workerService.updateWorker(id, worker);
     }
 
+    /**
+     * Allows workers to update their own profile while still allowing admins to
+     * make the same profile-only update for any worker.
+     *
+     * @param id worker profile to update
+     * @param worker profile fields to apply
+     * @param authentication current logged-in user
+     * @return the saved worker profile
+     */
     @PutMapping("/{id}/profile")
     public Worker updateProfile(@PathVariable Integer id, @RequestBody Worker worker, Authentication authentication) {
         Optional<Worker> currentWorker = workerService.findByUsername(authentication.getName());

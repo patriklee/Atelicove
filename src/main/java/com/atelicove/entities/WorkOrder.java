@@ -10,6 +10,7 @@ import jakarta.persistence.*;
 
 import com.atelicove.enums.WorkOrderStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
@@ -34,7 +35,16 @@ public class WorkOrder extends ArchivableEntity {
 
 	@ManyToOne
 	@JoinColumn(name = "project_id")
-	@JsonIgnore
+	@JsonIgnoreProperties({
+		"associatedActiveProject",
+		"associatedDrafts",
+		"comments",
+		"actionItems",
+		"snapshots",
+		"workOrders",
+		"teams",
+		"documents"
+	})
 	private Project project;
     
 	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
@@ -54,7 +64,7 @@ public class WorkOrder extends ArchivableEntity {
 
 	@JsonIgnore
 	@OneToMany(mappedBy = "workOrder", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<WorkOrderDocument> documents = new ArrayList<>();
+	private List<Document> documents = new ArrayList<>();
 	
 	public WorkOrder() {}
 	
@@ -124,6 +134,12 @@ public class WorkOrder extends ArchivableEntity {
 		this.workOrderID = workOrderID;
 	}
 	
+	/**
+	 * Replaces assigned workers while keeping each worker's work order collection in
+	 * sync.
+	 *
+	 * @param workers new worker assignments
+	 */
 	public void setWorkers(Set<Worker> workers) {
 		for (Worker worker : new HashSet<>(this.workers)) {
 			removeWorker(worker);
@@ -160,6 +176,11 @@ public class WorkOrder extends ArchivableEntity {
 		this.comment = comment;
 	}
 	
+	/**
+	 * Replaces work order items while keeping each item's parent work order in sync.
+	 *
+	 * @param items new item list
+	 */
 	public void setItems(List<WorkOrderItem> items) {
 		for (WorkOrderItem item : new ArrayList<>(this.items)) {
 			removeItem(item);
@@ -172,23 +193,42 @@ public class WorkOrder extends ArchivableEntity {
 		}
 	}
 	
-	// Helper methods to add/delete items
+	/**
+	 * Adds an item and points that item back to this work order.
+	 *
+	 * @param item item to add
+	 */
 	public void addItem(WorkOrderItem item) {
 	    items.add(item);
 	    item.setWorkOrder(this);
 	}
 
+	/**
+	 * Removes an item and clears its work order reference.
+	 *
+	 * @param item item to remove
+	 */
 	public void removeItem(WorkOrderItem item) {
 	    items.remove(item);
 	    item.setWorkOrder(null);
 	}
 
+	/**
+	 * Adds a worker assignment on both sides of the relationship.
+	 *
+	 * @param worker worker to assign
+	 */
 	public void addWorker(Worker worker) {
 		if (worker != null && workers.add(worker)) {
 			worker.getWorkOrders().add(this);
 		}
 	}
 
+	/**
+	 * Removes a worker assignment on both sides of the relationship.
+	 *
+	 * @param worker worker to remove
+	 */
 	public void removeWorker(Worker worker) {
 		if (worker != null && workers.remove(worker)) {
 			worker.getWorkOrders().remove(this);

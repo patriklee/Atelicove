@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.atelicove.dto.WorkOrderDocumentDTO;
+import com.atelicove.dto.DocumentDTO;
 import com.atelicove.services.WODocumentService;
 
 @RestController
@@ -18,9 +18,9 @@ public class DocumentController {
     }
 
     @GetMapping("/documents")
-    public List<WorkOrderDocumentDTO> getAllDocuments() {
+    public List<DocumentDTO> getAllDocuments() {
         return service.findAll().stream()
-                .map(WorkOrderDocumentDTO::new)
+                .map(DocumentDTO::new)
                 .toList();
     }
 }

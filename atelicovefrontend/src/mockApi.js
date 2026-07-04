@@ -44,6 +44,7 @@ const hydrateState = (rawState) => ({
       workOrders: cleanProject.workOrders || [],
       comments: cleanProject.comments || [],
       actionItems: cleanProject.actionItems || [],
+      documents: (cleanProject.documents || []).map(withAuditDefaults),
       snapshots: cleanProject.snapshots || [],
       associatedActiveProject: cleanProject.associatedActiveProject || null,
     };
@@ -131,6 +132,17 @@ const findCompany = (companyID) => state.companies.find(company => company.compa
 const findWorkOrder = (workOrderID) => state.workOrders.find(order => order.workOrderID === Number(workOrderID));
 const findTeam = (teamID) => state.teams.find(team => team.teamID === Number(teamID));
 const findProject = (projectID) => state.projects.find(project => project.projectID === Number(projectID));
+const projectReferenceForWorkOrder = (workOrderID) => {
+  const project = state.projects.find(item =>
+    (item.workOrders || []).some(order => order.workOrderID === Number(workOrderID))
+  );
+
+  return project ? {
+    projectID: project.projectID,
+    projectName: project.projectName,
+    projectStatus: project.projectStatus,
+  } : null;
+};
 const isOpenWorkOrder = (order) => order.status !== 'COMPLETE';
 const syncWorkOrderIntoProjects = (workOrder) => {
   state.projects = state.projects.map(project => ({
@@ -180,6 +192,9 @@ const toDocumentResponse = (document) => ({
   documentID: document.documentID,
   workOrderID: document.workOrderID,
   workOrderStatus: document.workOrderStatus,
+  projectID: document.projectID,
+  projectName: document.projectName,
+  projectStatus: document.projectStatus,
   companyName: document.companyName,
   fileName: document.fileName,
   documentType: document.documentType || 'OTHER',
@@ -191,14 +206,24 @@ const toDocumentResponse = (document) => ({
   lastModifiedAt: document.lastModifiedAt,
 });
 
-const allDocuments = () => state.workOrders.flatMap(order => (
-  (order.documents || []).map(document => toDocumentResponse({
-    ...document,
-    workOrderID: order.workOrderID,
-    workOrderStatus: order.status,
-    companyName: order.company?.companyName || null,
-  }))
-));
+const allDocuments = () => [
+  ...state.workOrders.flatMap(order => (
+    (order.documents || []).map(document => toDocumentResponse({
+      ...document,
+      workOrderID: order.workOrderID,
+      workOrderStatus: order.status,
+      companyName: order.company?.companyName || null,
+    }))
+  )),
+  ...state.projects.flatMap(project => (
+    (project.documents || []).map(document => toDocumentResponse({
+      ...document,
+      projectID: project.projectID,
+      projectName: project.projectName,
+      projectStatus: project.projectStatus,
+    }))
+  )),
+].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
 const sumWorkOrderItems = (workOrders, status) => (workOrders || [])
   .filter(order => order.status === status)
@@ -605,12 +630,80 @@ const handleWorkOrderDocuments = (workOrder, segments, method, options) => {
   throw new MockApiError('Mock work order document route not found', 404);
 };
 
+const handleProjectDocuments = (project, segments, method, options) => {
+  if (method !== 'GET' && (project.archived || !['DRAFT', 'ACTIVE'].includes(project.projectStatus))) {
+    throw new MockApiError('Project documents can only be changed while the project is draft or active', 409);
+  }
+
+  project.documents = project.documents || [];
+
+  if (segments.length === 3 && method === 'GET') {
+    return [...project.documents]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .map(document => toDocumentResponse({
+        ...document,
+        projectID: project.projectID,
+        projectName: project.projectName,
+        projectStatus: project.projectStatus,
+      }));
+  }
+
+  if (segments.length === 3 && method === 'POST') {
+    const file = options.body instanceof FormData ? options.body.get('file') : null;
+    const documentType = options.body instanceof FormData ? options.body.get('documentType') : null;
+    ensureDocumentFileIsAllowed(file);
+    if (!documentType) {
+      throw new MockApiError('Document type is required', 400);
+    }
+
+    const uploader = project.teams?.flatMap(team => team.workers || [])?.[0]
+      || state.workers.find(worker => worker.admin)
+      || state.workers[0];
+    const uploadedBy = uploader
+      ? `${uploader.workerFName || ''} ${uploader.workerLName || ''}`.trim() || uploader.workerUser
+      : 'Mock User';
+    const document = {
+      documentID: nextId(allDocuments(), 'documentID'),
+      projectID: project.projectID,
+      projectName: project.projectName,
+      projectStatus: project.projectStatus,
+      fileName: file.name,
+      documentType,
+      mimeType: file.type || 'application/octet-stream',
+      fileSize: file.size,
+      uploadedByWorkerID: uploader?.workerID || 0,
+      uploadedBy,
+      createdAt: now(),
+      lastModifiedAt: now(),
+    };
+
+    project.documents = [document, ...project.documents];
+    touch(project);
+    saveState();
+    return toDocumentResponse(document);
+  }
+
+  const documentID = Number(segments[3]);
+  const document = project.documents.find(item => item.documentID === documentID);
+  if (!document) throw new MockApiError('Document not found', 404);
+
+  if (segments.length === 4 && method === 'DELETE') {
+    project.documents = project.documents.filter(item => item.documentID !== documentID);
+    touch(project);
+    saveState();
+    return null;
+  }
+
+  throw new MockApiError('Mock project document route not found', 404);
+};
+
 const handleWorkOrders = (segments, method, options) => {
   if (segments.length === 1 && method === 'GET') {
     return activeOnly(state.workOrders)
       .filter(order => order.status !== 'DRAFT')
       .map(order => ({
         ...order,
+        project: order.project || projectReferenceForWorkOrder(order.workOrderID),
         fileNo: order.documents?.length || 0,
       }));
   }
@@ -618,6 +711,7 @@ const handleWorkOrders = (segments, method, options) => {
   if (segments[1] === 'all-with-archived' && method === 'GET') {
     return state.workOrders.map(order => ({
       ...order,
+      project: order.project || projectReferenceForWorkOrder(order.workOrderID),
       fileNo: order.documents?.length || 0,
     }));
   }
@@ -625,6 +719,7 @@ const handleWorkOrders = (segments, method, options) => {
   if (segments[1] === 'archived' && method === 'GET') {
     return archivedOnly(state.workOrders).map(order => ({
       ...order,
+      project: order.project || projectReferenceForWorkOrder(order.workOrderID),
       fileNo: order.documents?.length || 0,
     }));
   }
@@ -671,6 +766,7 @@ const handleWorkOrders = (segments, method, options) => {
       .filter(order => order.status !== 'DRAFT')
       .map(order => ({
         ...order,
+        project: order.project || projectReferenceForWorkOrder(order.workOrderID),
         fileNo: order.documents?.length || 0,
       }));
   }
@@ -682,6 +778,7 @@ const handleWorkOrders = (segments, method, options) => {
   if (segments.length === 2 && method === 'GET') {
     return {
       ...workOrder,
+      project: workOrder.project || projectReferenceForWorkOrder(workOrder.workOrderID),
       fileNo: workOrder.documents?.length || 0,
     };
   }
@@ -927,6 +1024,7 @@ const handleTeams = (segments, method, options) => {
     if (!workers.length) {
       throw new MockApiError('A team must have at least one worker', 409);
     }
+    const previousTeam = clone(team);
 
     Object.assign(team, {
       teamName: payload.teamName || '',
@@ -938,6 +1036,12 @@ const handleTeams = (segments, method, options) => {
       ...project,
       teams: (project.teams || []).map(item => item.teamID === team.teamID ? clone(team) : item),
     }));
+    state.projects = state.projects.map(project => (
+      (project.teams || []).some(item => item.teamID === team.teamID)
+        ? syncActiveProjectTeamWorkers(project, [previousTeam], project.teams || [])
+        : project
+    ));
+    state.projects.forEach(syncProjectWorkOrdersIntoState);
     saveState();
     return team;
   }
@@ -948,11 +1052,60 @@ const handleTeams = (segments, method, options) => {
       ...project,
       teams: (project.teams || []).filter(item => item.teamID !== team.teamID),
     }));
+    state.projects = state.projects.map(project => syncActiveProjectTeamWorkers(
+      project,
+      [team],
+      project.teams || [],
+    ));
+    state.projects.forEach(syncProjectWorkOrdersIntoState);
     saveState();
     return null;
   }
 
   throw new MockApiError('Mock team route not found', 404);
+};
+
+const teamWorkers = (teams) => {
+  const workersByID = new Map();
+  (teams || []).forEach(team => {
+    (team.workers || []).forEach(worker => workersByID.set(worker.workerID, worker));
+  });
+  return workersByID;
+};
+
+const syncActiveProjectTeamWorkers = (project, previousTeams, currentTeams) => {
+  if (project.projectStatus !== 'ACTIVE') return project;
+
+  const previousWorkers = teamWorkers(previousTeams);
+  const currentWorkers = teamWorkers(currentTeams);
+  const removedWorkerIDs = [...previousWorkers.keys()].filter(workerID => !currentWorkers.has(workerID));
+  const addedWorkers = [...currentWorkers.values()].filter(worker => !previousWorkers.has(worker.workerID));
+
+  return {
+    ...project,
+    workOrders: (project.workOrders || []).map(order => {
+      if (!['OPEN', 'IN_PROCESS'].includes(order.status)) return order;
+
+      const existingWorkers = new Map((order.workers || [])
+        .filter(worker => !removedWorkerIDs.includes(worker.workerID))
+        .map(worker => [worker.workerID, worker]));
+      addedWorkers.forEach(worker => existingWorkers.set(worker.workerID, worker));
+      const workers = [...existingWorkers.values()];
+
+      return {
+        ...order,
+        workers,
+        status: workers.length ? 'IN_PROCESS' : 'OPEN',
+      };
+    }),
+  };
+};
+
+const syncProjectWorkOrdersIntoState = (project) => {
+  state.workOrders = state.workOrders.map(order => {
+    const projectOrder = (project.workOrders || []).find(item => item.workOrderID === order.workOrderID);
+    return projectOrder ? clone(projectOrder) : order;
+  });
 };
 
 const handleProjects = (segments, method, options) => {
@@ -995,6 +1148,7 @@ const handleProjects = (segments, method, options) => {
       workOrders: [],
       comments: [],
       actionItems: [],
+      documents: [],
       snapshots: [],
       associatedActiveProject: null,
     });
@@ -1023,6 +1177,10 @@ const handleProjects = (segments, method, options) => {
     return projectResponse(project);
   }
 
+  if (segments[2] === 'documents') {
+    return handleProjectDocuments(project, segments, method, options);
+  }
+
   if (segments.length === 2 && method === 'PUT') {
     const payload = bodyAsJson(options);
     Object.assign(project, {
@@ -1033,7 +1191,11 @@ const handleProjects = (segments, method, options) => {
       actualCost: payload.actualCost ?? project.actualCost ?? null,
     });
     if (Array.isArray(payload.teamIDs)) {
-      project.teams = payload.teamIDs.map(findTeam).filter(Boolean).map(clone);
+      const previousTeams = project.teams || [];
+      const nextTeams = payload.teamIDs.map(findTeam).filter(Boolean).map(clone);
+      project.teams = nextTeams;
+      Object.assign(project, syncActiveProjectTeamWorkers(project, previousTeams, nextTeams));
+      syncProjectWorkOrdersIntoState(project);
     }
     if (payload.associatedActiveProjectID) {
       if (project.projectStatus !== 'DRAFT') {
@@ -1104,7 +1266,6 @@ const handleProjects = (segments, method, options) => {
         ...order,
         status,
         comment: '',
-        company: null,
         items: [],
         endDateTime: null,
         startDateTime: now(),
@@ -1117,13 +1278,103 @@ const handleProjects = (segments, method, options) => {
     return projectResponse(project);
   }
 
+  if (segments[2] === 'submit' && method === 'PUT') {
+    if (project.projectStatus !== 'ACTIVE') {
+      throw new MockApiError('Only active projects can be submitted for review', 409);
+    }
+    if (!(project.workOrders || []).every(order => order.status === 'COMPLETE')) {
+      throw new MockApiError('Projects can only be submitted when all work orders are complete', 409);
+    }
+    project.projectStatus = 'IN_REVIEW';
+    touch(project);
+    saveState();
+    return projectResponse(project);
+  }
+
+  if (segments[2] === 'complete' && method === 'PUT') {
+    if (project.projectStatus !== 'IN_REVIEW') {
+      throw new MockApiError('Only projects under review can be completed', 409);
+    }
+    if (!(project.workOrders || []).every(order => order.status === 'COMPLETE')) {
+      throw new MockApiError('Projects can only be completed when all work orders are complete', 409);
+    }
+    project.projectStatus = 'COMPLETED';
+    project.completedAt = now();
+    touch(project);
+    saveState();
+    return projectResponse(project);
+  }
+
+  if (segments[2] === 'reject' && method === 'PUT') {
+    if (project.projectStatus !== 'IN_REVIEW') {
+      throw new MockApiError('Only projects under review can be rejected', 409);
+    }
+    project.projectStatus = 'ACTIVE';
+    touch(project);
+    saveState();
+    return projectResponse(project);
+  }
+
   if (segments[2] === 'workorders' && method === 'PUT') {
     const { workOrderID } = bodyAsJson(options);
     const workOrder = findWorkOrder(workOrderID);
     if (!workOrder) throw new MockApiError('Work order not found', 404);
+    workOrder.project = {
+      projectID: project.projectID,
+      projectName: project.projectName,
+      projectStatus: project.projectStatus,
+    };
     if (!(project.workOrders || []).some(order => order.workOrderID === workOrder.workOrderID)) {
       project.workOrders = [...(project.workOrders || []), clone(workOrder)];
     }
+    touch(project);
+    saveState();
+    return projectResponse(project);
+  }
+
+  if (segments[2] === 'workorders' && method === 'POST') {
+    if (project.archived || project.projectStatus !== 'ACTIVE') {
+      throw new MockApiError('Active project work orders can only be created for active projects', 409);
+    }
+
+    const payload = bodyAsJson(options);
+    const team = payload.teamID ? findTeam(payload.teamID) : null;
+    if (payload.teamID && !team) throw new MockApiError('Team not found', 404);
+    const company = payload.companyID ? findCompany(payload.companyID) : null;
+    if (payload.companyID && !company) throw new MockApiError('Company not found', 404);
+    if (company?.archived) throw new MockApiError('Archived companies cannot be assigned', 409);
+
+    if (team && !(project.teams || []).some(item => item.teamID === team.teamID)) {
+      const previousTeams = project.teams || [];
+      project.teams = [...(project.teams || []), clone(team)];
+      Object.assign(project, syncActiveProjectTeamWorkers(project, previousTeams, project.teams));
+      syncProjectWorkOrdersIntoState(project);
+    }
+
+    const workers = team ? (team.workers || []).map(withoutPassword) : [];
+    const workOrder = {
+      workOrderID: nextId(state.workOrders, 'workOrderID'),
+      workers,
+      company: company ? clone(company) : null,
+      project: {
+        projectID: project.projectID,
+        projectName: project.projectName,
+        projectStatus: project.projectStatus,
+      },
+      status: workers.length ? 'IN_PROCESS' : 'OPEN',
+      startDateTime: now(),
+      endDateTime: null,
+      comment: payload.comment || '',
+      items: [],
+      documents: [],
+      createdAt: now(),
+      lastModifiedAt: now(),
+      archived: false,
+      archivedAt: null,
+    };
+
+    state.workOrders.push(workOrder);
+    project.workOrders = [...(project.workOrders || []), clone(workOrder)];
     touch(project);
     saveState();
     return projectResponse(project);
@@ -1156,6 +1407,11 @@ const handleProjects = (segments, method, options) => {
       workOrderID: nextId(state.workOrders, 'workOrderID'),
       workers: (team.workers || []).map(withoutPassword),
       company: company ? clone(company) : null,
+      project: {
+        projectID: project.projectID,
+        projectName: project.projectName,
+        projectStatus: project.projectStatus,
+      },
       status: 'DRAFT',
       startDateTime: null,
       endDateTime: null,
@@ -1262,9 +1518,6 @@ const handleProjects = (segments, method, options) => {
       if (project.archived || project.projectStatus === 'COMPLETED') {
         throw new MockApiError('Action items cannot be completed on completed or archived projects', 409);
       }
-      if (project.projectStatus === 'DRAFT') {
-        throw new MockApiError('Action items can only be completed after a project is active', 409);
-      }
       const { completed } = bodyAsJson(options);
       actionItem.completed = Boolean(completed);
       actionItem.completedAt = actionItem.completed ? now() : null;
@@ -1289,8 +1542,6 @@ export const resetMockApiState = () => {
 };
 
 export const mockApiFetch = async (path, options = {}) => {
-  await new Promise(resolve => setTimeout(resolve, 150));
-
   const method = (options.method || 'GET').toUpperCase();
   const segments = path.split('?')[0].split('/').filter(Boolean);
 
@@ -1310,17 +1561,19 @@ export const mockApiFetch = async (path, options = {}) => {
 };
 
 export const mockApiDownload = async (path) => {
-  await new Promise(resolve => setTimeout(resolve, 150));
-
   const segments = path.split('?')[0].split('/').filter(Boolean);
-  if (segments[0] !== 'workorders' || segments[2] !== 'documents' || segments[4] !== 'download') {
+  if (
+    !['workorders', 'projects'].includes(segments[0]) ||
+    segments[2] !== 'documents' ||
+    segments[4] !== 'download'
+  ) {
     throw new MockApiError(`Mock download route not found: ${path}`, 404);
   }
 
-  const workOrder = findWorkOrder(segments[1]);
-  if (!workOrder) throw new MockApiError('Work order not found', 404);
+  const owner = segments[0] === 'workorders' ? findWorkOrder(segments[1]) : findProject(segments[1]);
+  if (!owner) throw new MockApiError(`${segments[0] === 'workorders' ? 'Work order' : 'Project'} not found`, 404);
 
-  const document = (workOrder.documents || []).find(item => item.documentID === Number(segments[3]));
+  const document = (owner.documents || []).find(item => item.documentID === Number(segments[3]));
   if (!document) throw new MockApiError('Document not found', 404);
 
   return new Blob(

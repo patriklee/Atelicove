@@ -6,10 +6,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
+import com.atelicove.entities.Project;
 import com.atelicove.entities.WorkOrder;
-import com.atelicove.entities.WorkOrderDocument;
+import com.atelicove.entities.Document;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.DocumentType;
+import com.atelicove.repositories.ProjectRepository;
 import com.atelicove.repositories.WODocumentRepository;
 import com.atelicove.repositories.WorkOrderRepository;
 import com.atelicove.repositories.WorkerRepository;
@@ -26,17 +28,20 @@ class WODocumentRepositoryTest {
     @Autowired
     private WorkerRepository workerRepository;
 
+    @Autowired
+    private ProjectRepository projectRepository;
+
     @Test
     void saveAndFindByIdPersistsDocumentMetadataAndRelationships() {
         WorkOrder workOrder = workOrderRepository.saveAndFlush(new WorkOrder());
         Worker worker = workerRepository.saveAndFlush(
                 new Worker("Pat", "Lee", "plee", "plee@test.com", "encoded-password", false));
         byte[] data = { 1, 2, 3 };
-        WorkOrderDocument document = new WorkOrderDocument(
+        Document document = new Document(
                 workOrder, "receipt.pdf", DocumentType.RECEIPT, data,
                 worker, "application/pdf", data.length);
 
-        WorkOrderDocument saved = documentRepository.saveAndFlush(document);
+        Document saved = documentRepository.saveAndFlush(document);
 
         assertThat(saved.getDocumentID()).isPositive();
         assertThat(documentRepository.findById(saved.getDocumentID()))
@@ -58,8 +63,8 @@ class WODocumentRepositoryTest {
         WorkOrder workOrder = workOrderRepository.saveAndFlush(new WorkOrder());
         Worker worker = workerRepository.saveAndFlush(
                 new Worker("Pat", "Lee", "patlee", "patlee@test.com", "encoded-password", false));
-        WorkOrderDocument saved = documentRepository.saveAndFlush(
-                new WorkOrderDocument(
+        Document saved = documentRepository.saveAndFlush(
+                new Document(
                         workOrder, "note.txt", DocumentType.OTHER, new byte[] { 1 },
                         worker, "text/plain", 1));
 
@@ -76,15 +81,34 @@ class WODocumentRepositoryTest {
         Worker worker = workerRepository.saveAndFlush(
                 new Worker("Pat", "Lee", "pat", "pat@test.com", "encoded-password", false));
 
-        WorkOrderDocument first = documentRepository.saveAndFlush(
-                new WorkOrderDocument(workOrder, "first.pdf", DocumentType.OTHER,
+        Document first = documentRepository.saveAndFlush(
+                new Document(workOrder, "first.pdf", DocumentType.OTHER,
                         new byte[] { 1 }, worker, "application/pdf", 1));
         documentRepository.saveAndFlush(
-                new WorkOrderDocument(otherWorkOrder, "other.pdf", DocumentType.OTHER,
+                new Document(otherWorkOrder, "other.pdf", DocumentType.OTHER,
                         new byte[] { 2 }, worker, "application/pdf", 1));
 
         assertThat(documentRepository.findByWorkOrder_WorkOrderIDOrderByCreatedAtDesc(workOrder.getWorkOrderID()))
-                .extracting(WorkOrderDocument::getDocumentID)
+                .extracting(Document::getDocumentID)
+                .containsExactly(first.getDocumentID());
+    }
+
+    @Test
+    void findByProjectReturnsDocumentsForThatProject() {
+        Project project = projectRepository.saveAndFlush(new Project());
+        Project otherProject = projectRepository.saveAndFlush(new Project());
+        Worker worker = workerRepository.saveAndFlush(
+                new Worker("Pat", "Lee", "projectpat", "projectpat@test.com", "encoded-password", false));
+
+        Document first = documentRepository.saveAndFlush(
+                new Document(project, "project.pdf", DocumentType.REPORT,
+                        new byte[] { 1 }, worker, "application/pdf", 1));
+        documentRepository.saveAndFlush(
+                new Document(otherProject, "other-project.pdf", DocumentType.OTHER,
+                        new byte[] { 2 }, worker, "application/pdf", 1));
+
+        assertThat(documentRepository.findByProject_ProjectIDOrderByCreatedAtDesc(project.getProjectID()))
+                .extracting(Document::getDocumentID)
                 .containsExactly(first.getDocumentID());
     }
 }

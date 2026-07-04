@@ -95,6 +95,11 @@ const MyWorkOrderDetail = () => {
     .sort((a, b) => new Date(b.createdAt || b.lastModifiedAt) - new Date(a.createdAt || a.lastModifiedAt));
   const total = [...displayedSavedItems, ...editItems]
     .reduce((sum, item) => sum + (Number(item.quantity) * Number(item.price)), 0);
+  const project = workOrder.project;
+  const openProject = () => {
+    if (!project?.projectID) return;
+    navigate(`/admin/projects/draft-studio?projectId=${project.projectID}`);
+  };
   const requestPassword = (action) => {
     setPendingAction(action);
     setPassword('');
@@ -263,6 +268,22 @@ const MyWorkOrderDetail = () => {
             <TableRow><TableCell sx={{ fontWeight: 600, width: 220 }}>Status</TableCell><TableCell>{workOrder.status.replaceAll('_', ' ')}</TableCell></TableRow>
             <TableRow><TableCell sx={{ fontWeight: 600 }}>Start</TableCell><TableCell>{formatDateTime(workOrder.startDateTime)}</TableCell></TableRow>
             <TableRow><TableCell sx={{ fontWeight: 600 }}>Company</TableCell><TableCell>{workOrder.company?.companyName || 'No company'}</TableCell></TableRow>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>Project</TableCell>
+              <TableCell>
+                {project?.projectID ? (
+                  user?.isAdmin ? (
+                    <Button size="small" onClick={openProject} sx={{ p: 0, minWidth: 0 }}>
+                      {project.projectName || `Project #${project.projectID}`}
+                    </Button>
+                  ) : (
+                    project.projectName || `Project #${project.projectID}`
+                  )
+                ) : (
+                  'No project'
+                )}
+              </TableCell>
+            </TableRow>
             <TableRow><TableCell sx={{ fontWeight: 600 }}>Assigned Workers</TableCell><TableCell>{workers.map(worker => `${worker.firstName} ${worker.lastName}`).join(', ')}</TableCell></TableRow>
           </TableBody>
         </Table>

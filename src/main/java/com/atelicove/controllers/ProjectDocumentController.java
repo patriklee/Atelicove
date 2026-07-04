@@ -23,56 +23,38 @@ import com.atelicove.enums.DocumentType;
 import com.atelicove.services.WODocumentService;
 
 @RestController
-@RequestMapping("/workorders/{workOrderID}/documents")
-public class WODocumentController {
+@RequestMapping("/projects/{projectID}/documents")
+public class ProjectDocumentController {
 
     private final WODocumentService service;
 
-    public WODocumentController(WODocumentService service) {
+    public ProjectDocumentController(WODocumentService service) {
         this.service = service;
     }
 
     @GetMapping
-    public List<DocumentDTO> getDocuments(@PathVariable Integer workOrderID) {
-        return service.findByWorkOrder(workOrderID).stream()
+    public List<DocumentDTO> getDocuments(@PathVariable Integer projectID) {
+        return service.findByProject(projectID).stream()
                 .map(DocumentDTO::new)
                 .toList();
     }
 
-    /**
-     * Accepts a multipart document upload for the current work order and tags the
-     * saved file with the authenticated uploader.
-     *
-     * @param workOrderID work order receiving the document
-     * @param file uploaded file
-     * @param documentType selected document category
-     * @param principal authenticated user
-     * @return document metadata without the raw file bytes
-     */
     @PostMapping
     public DocumentDTO uploadDocument(
-            @PathVariable Integer workOrderID,
+            @PathVariable Integer projectID,
             @RequestParam("file") MultipartFile file,
             @RequestParam("documentType") DocumentType documentType,
             Principal principal) {
 
-        return new DocumentDTO(service.upload(workOrderID, file, documentType, principal.getName()));
+        return new DocumentDTO(service.uploadToProject(projectID, file, documentType, principal.getName()));
     }
 
-    /**
-     * Streams a stored document back to the browser with its original filename,
-     * content type, and size.
-     *
-     * @param workOrderID work order that owns the document
-     * @param documentID document to download
-     * @return downloadable file response
-     */
     @GetMapping("/{documentID}/download")
     public ResponseEntity<ByteArrayResource> downloadDocument(
-            @PathVariable Integer workOrderID,
+            @PathVariable Integer projectID,
             @PathVariable Integer documentID) {
 
-        Document document = service.getRequiredDocument(workOrderID, documentID);
+        Document document = service.getRequiredProjectDocument(projectID, documentID);
         ByteArrayResource resource = new ByteArrayResource(document.getDocumentData());
 
         return ResponseEntity.ok()
@@ -87,10 +69,11 @@ public class WODocumentController {
 
     @DeleteMapping("/{documentID}")
     public ResponseEntity<Void> deleteDocument(
-            @PathVariable Integer workOrderID,
-            @PathVariable Integer documentID) {
+            @PathVariable Integer projectID,
+            @PathVariable Integer documentID,
+            Principal principal) {
 
-        service.deleteFromWorkOrder(workOrderID, documentID);
+        service.deleteFromProject(projectID, documentID, principal.getName());
         return ResponseEntity.noContent().build();
     }
 }

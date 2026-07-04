@@ -68,9 +68,9 @@ function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="my-assignments" element={<MyAssignments />} />
               <Route path="my-assignments/:workOrderID" element={<MyWorkOrderDetail />} />
-              <Route path="projects/draft-studio" element={<ProjectsPage mode="studio" title="Projects" subtitle="Create teams, draft projects, add comments, attach work orders, and launch approved drafts." />} />
-              <Route path="projects/launch-queue" element={<ProjectsPage mode="queue" title="Projects" subtitle="Draft projects saved for later." />} />
+              <Route path="projects/draft-studio" element={<ProjectsPage mode="studio" title="Projects" subtitle="Create teams, draft projects, and prepare draft work orders." />} />
               <Route path="projects/active" element={<ProjectsPage mode="active" title="Projects" subtitle="Projects currently in active status." />} />
+              <Route path="projects/:projectID/edit" element={<ProjectsPage mode="edit" title="Edit Active Project" subtitle="Update project details, work orders, comments, and action items." />} />
 			  <Route path="workorders" element={<WorkOrders />} />
               <Route path="workorders/:workOrderID" element={<WorkOrderDetail />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
@@ -84,6 +84,7 @@ function App() {
               <Route path="assigned" element={<InspectorAssignedWork />} />
               <Route path="my-assignments" element={<MyAssignments />} />
               <Route path="my-assignments/:workOrderID" element={<MyWorkOrderDetail />} />
+              <Route path="projects/:projectID/edit" element={<ProjectsPage mode="worker-edit" title="Project" subtitle="Review project details and action items." />} />
               <Route path="billing" element={<InspectorBillingPage />} />
               <Route path="settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/worker" replace />} />

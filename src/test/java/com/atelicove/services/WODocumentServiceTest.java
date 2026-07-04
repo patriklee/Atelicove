@@ -17,11 +17,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
+import com.atelicove.entities.Project;
 import com.atelicove.entities.WorkOrder;
-import com.atelicove.entities.WorkOrderDocument;
+import com.atelicove.entities.Document;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.DocumentType;
+import com.atelicove.enums.ProjectStatus;
 import com.atelicove.enums.WorkOrderStatus;
+import com.atelicove.repositories.ProjectRepository;
 import com.atelicove.repositories.WODocumentRepository;
 import com.atelicove.repositories.WorkOrderRepository;
 import com.atelicove.repositories.WorkerRepository;
@@ -38,13 +41,16 @@ class WODocumentServiceTest {
     @Mock
     private WorkerRepository workerRepository;
 
+    @Mock
+    private ProjectRepository projectRepository;
+
     @InjectMocks
     private WODocumentService service;
 
     @Test
     void findAllReturnsDocumentsFromRepository() {
-        List<WorkOrderDocument> documents =
-                List.of(new WorkOrderDocument(), new WorkOrderDocument());
+        List<Document> documents =
+                List.of(new Document(), new Document());
         when(repository.findAll()).thenReturn(documents);
 
         assertSame(documents, service.findAll());
@@ -52,7 +58,7 @@ class WODocumentServiceTest {
 
     @Test
     void findByIdReturnsRepositoryResult() {
-        WorkOrderDocument document = new WorkOrderDocument();
+        Document document = new Document();
         when(repository.findById(1)).thenReturn(Optional.of(document));
 
         assertEquals(Optional.of(document), service.findById(1));
@@ -60,7 +66,7 @@ class WODocumentServiceTest {
 
     @Test
     void saveReturnsSavedDocument() {
-        WorkOrderDocument document = new WorkOrderDocument();
+        Document document = new Document();
         when(repository.save(document)).thenReturn(document);
 
         assertSame(document, service.save(document));
@@ -84,16 +90,50 @@ class WODocumentServiceTest {
 
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
         when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse("plee")).thenReturn(Optional.of(worker));
-        when(repository.save(any(WorkOrderDocument.class)))
+        when(repository.save(any(Document.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        WorkOrderDocument saved = service.upload(1, file, DocumentType.OTHER, "plee");
+        Document saved = service.upload(1, file, DocumentType.OTHER, "plee");
 
         assertEquals("inspection.pdf", saved.getFileName());
         assertEquals("application/pdf", saved.getMimeType());
         assertEquals(3, saved.getFileSize());
         assertSame(workOrder, saved.getWorkOrder());
         assertSame(worker, saved.getUploadedByWorker());
+    }
+
+    @Test
+    void uploadToProjectSavesValidatedDocumentForDraftProject() {
+        Project project = new Project();
+        project.setProjectID(7);
+        project.setProjectStatus(ProjectStatus.DRAFT);
+        Worker worker = new Worker("Pat", "Lee", "plee", "plee@test.com", "encoded-password", true);
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "proposal.pdf", "application/pdf", new byte[] { 4, 5, 6 });
+
+        when(projectRepository.findById(7)).thenReturn(Optional.of(project));
+        when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse("plee")).thenReturn(Optional.of(worker));
+        when(repository.save(any(Document.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Document saved = service.uploadToProject(7, file, DocumentType.REPORT, "plee");
+
+        assertEquals("proposal.pdf", saved.getFileName());
+        assertEquals(DocumentType.REPORT, saved.getDocumentType());
+        assertSame(project, saved.getProject());
+        assertSame(worker, saved.getUploadedByWorker());
+    }
+
+    @Test
+    void uploadToProjectRejectsActiveProject() {
+        Project project = new Project();
+        project.setProjectStatus(ProjectStatus.ACTIVE);
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "proposal.pdf", "application/pdf", new byte[] { 4 });
+
+        when(projectRepository.findById(7)).thenReturn(Optional.of(project));
+
+        assertThrows(IllegalStateException.class, () -> service.uploadToProject(7, file, DocumentType.REPORT, "plee"));
     }
 
     @Test

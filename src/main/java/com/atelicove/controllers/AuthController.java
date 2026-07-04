@@ -32,6 +32,15 @@ public class AuthController {
         this.authenticationManager = authenticationManager;
     }
 
+    /**
+     * Authenticates a worker, stores the Spring Security context in the HTTP
+     * session, records the login time, and returns the worker profile used by the
+     * frontend.
+     *
+     * @param req submitted username and password
+     * @param request current HTTP request used to create the session
+     * @return login response or an error message
+     */
     @PostMapping("/login")
     public ResponseEntity<Object> login(@RequestBody LoginRequest req,HttpServletRequest request) {
 

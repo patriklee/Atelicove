@@ -24,6 +24,13 @@ public class WorkerService {
 		this.passwordEncoder = passwordEncoder;
     }
     
+    /**
+     * Creates an active worker account after checking required profile fields,
+     * unique login details, and password strength.
+     *
+     * @param worker worker profile and plain-text password from the request
+     * @return the saved worker with an encoded password
+     */
     public Worker createWorker(Worker worker) {
     	validateWorkerRequiredFields(worker);
     	validateUniqueUsername(worker.getWorkerUser(), null);
@@ -67,6 +74,14 @@ public class WorkerService {
         return workerRepository.findById(id);
     }
 
+    /**
+     * Updates admin-controlled worker details, including username and admin flag.
+     * Email and username changes are checked for uniqueness before saving.
+     *
+     * @param id worker to update
+     * @param request fields to apply
+     * @return the saved worker
+     */
     public Worker updateWorker(Integer id, Worker request) {
     	Worker worker = workerRepository.findById(id)
     			.orElseThrow(() -> new IllegalArgumentException("Worker not found"));
@@ -86,6 +101,14 @@ public class WorkerService {
     	return workerRepository.save(worker);
     }
 
+    /**
+     * Updates the profile fields a worker can change without altering role or
+     * username.
+     *
+     * @param id worker profile to update
+     * @param request profile fields to apply
+     * @return the saved worker
+     */
     public Worker updateProfile(Integer id, Worker request) {
     	Worker worker = workerRepository.findById(id)
     			.orElseThrow(() -> new IllegalArgumentException("Worker not found"));
@@ -95,6 +118,12 @@ public class WorkerService {
     	return workerRepository.save(worker);
     }
 
+    /**
+     * Stores the latest successful login time for an active worker account.
+     *
+     * @param username authenticated username
+     * @return the saved worker with an updated login timestamp
+     */
     public Worker recordLogin(String username) {
         Worker worker = workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(username)
                 .orElseThrow(() -> new IllegalArgumentException("Worker not found"));
@@ -124,6 +153,12 @@ public class WorkerService {
     	}
     }
 
+    /**
+     * Archives a worker only when they are not assigned to any unfinished work
+     * orders.
+     *
+     * @param id worker to archive
+     */
     @Transactional
     public void archiveById(Integer id) {
     	Optional<Worker> result = workerRepository.findById(id);
@@ -171,6 +206,13 @@ public class WorkerService {
     	workerRepository.delete(worker);
     }
     
+    /**
+     * Replaces a worker password after validating length and stores only the encoded
+     * value.
+     *
+     * @param workerID worker whose password is being reset
+     * @param newPassword new plain-text password from the request
+     */
     public void resetPassword(Integer workerID, String newPassword) {
     	if (newPassword == null || newPassword.isBlank()) {
     		throw new IllegalArgumentException("Password is required");

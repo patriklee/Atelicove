@@ -85,6 +85,10 @@ public class Project extends ArchivableEntity {
 	@OneToMany(mappedBy = "project")
 	private List<WorkOrder> workOrders = new ArrayList<>();
 
+	@JsonIgnore
+	@OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<Document> documents = new ArrayList<>();
+
 	@ManyToMany(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@JoinTable(
 			name = "project_team",
@@ -154,6 +158,10 @@ public class Project extends ArchivableEntity {
 		return workOrders;
 	}
 
+	public List<Document> getDocuments() {
+		return documents;
+	}
+
 	public List<Team> getTeams() {
 		return teams;
 	}
@@ -170,6 +178,12 @@ public class Project extends ArchivableEntity {
 		return teams == null ? 0 : teams.size();
 	}
 
+	/**
+	 * Calculates project age from creation until completion, or until now when the
+	 * project is still active.
+	 *
+	 * @return age in whole days
+	 */
 	@JsonProperty("ageInDays")
 	@Transient
 	public long getAgeInDays() {
@@ -181,6 +195,12 @@ public class Project extends ArchivableEntity {
 		return Duration.between(getCreatedAt(), end).toDays();
 	}
 
+	/**
+	 * Shows the remaining draft budget by subtracting estimated draft work order
+	 * cost from the project budget.
+	 *
+	 * @return budget minus estimated cost
+	 */
 	@JsonProperty("budgetDifference")
 	@Transient
 	public BigDecimal getBudgetDifference() {
@@ -268,6 +288,12 @@ public class Project extends ArchivableEntity {
 		this.associatedDrafts = associatedDrafts == null ? new ArrayList<>() : associatedDrafts;
 	}
 
+	/**
+	 * Replaces the project's work orders while keeping each work order's back
+	 * reference in sync for JPA.
+	 *
+	 * @param workOrders new work order list
+	 */
 	public void setWorkOrders(List<WorkOrder> workOrders) {
 		for (WorkOrder workOrder : new ArrayList<>(this.workOrders)) {
 			removeWorkOrder(workOrder);
@@ -276,6 +302,18 @@ public class Project extends ArchivableEntity {
 		if (workOrders != null) {
 			for (WorkOrder workOrder : workOrders) {
 				addWorkOrder(workOrder);
+			}
+		}
+	}
+
+	public void setDocuments(List<Document> documents) {
+		for (Document document : new ArrayList<>(this.documents)) {
+			removeDocument(document);
+		}
+
+		if (documents != null) {
+			for (Document document : documents) {
+				addDocument(document);
 			}
 		}
 	}
@@ -328,18 +366,46 @@ public class Project extends ArchivableEntity {
 		}
 	}
 
+	/**
+	 * Adds a work order and points that work order back to this project.
+	 *
+	 * @param workOrder work order to add
+	 */
 	public void addWorkOrder(WorkOrder workOrder) {
 		if (workOrder != null && workOrders.add(workOrder)) {
 			workOrder.setProject(this);
 		}
 	}
 
+	/**
+	 * Removes a work order and clears its project reference.
+	 *
+	 * @param workOrder work order to remove
+	 */
 	public void removeWorkOrder(WorkOrder workOrder) {
 		if (workOrder != null && workOrders.remove(workOrder)) {
 			workOrder.setProject(null);
 		}
 	}
 
+	public void addDocument(Document document) {
+		if (document != null && documents.add(document)) {
+			document.setProject(this);
+		}
+	}
+
+	public void removeDocument(Document document) {
+		if (document != null && documents.remove(document)) {
+			document.setProject(null);
+		}
+	}
+
+	/**
+	 * Adds a team to the project and records a project start time when the project
+	 * is already active.
+	 *
+	 * @param team team to add
+	 */
 	public void addTeam(Team team) {
 		if (team != null && teams.add(team)) {
 			if (projectStatus == ProjectStatus.ACTIVE && team.getProjectStartedAt() == null) {
@@ -352,6 +418,12 @@ public class Project extends ArchivableEntity {
 		teams.remove(team);
 	}
 
+	/**
+	 * Totals item cost for work orders in the requested status.
+	 *
+	 * @param status work order status to include
+	 * @return rounded total item cost
+	 */
 	private BigDecimal sumWorkOrderItems(WorkOrderStatus status) {
 		return workOrders.stream()
 				.filter(workOrder -> workOrder.getStatus() == status)

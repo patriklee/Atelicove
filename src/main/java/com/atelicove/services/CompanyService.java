@@ -57,6 +57,11 @@ public class CompanyService{
 	        return companyRepository.save(company);
 	    }
 
+	    /**
+	     * Archives a company only after all work orders tied to it are complete.
+	     *
+	     * @param id company to archive
+	     */
 	    @Transactional
 	    public void archiveById(Integer id) {
 	        Company company = companyRepository.findById(id)
@@ -83,6 +88,12 @@ public class CompanyService{
 	        return companyRepository.save(company);
 	    }
 
+	    /**
+	     * Permanently deletes a company only when it is active and has no work order
+	     * history attached.
+	     *
+	     * @param id company to permanently delete
+	     */
 	    @Transactional
 	    public void deletePermanentlyById(Integer id) {
 	        Company company = companyRepository.findById(id)

@@ -24,6 +24,13 @@ public class SecurityConfig {
     	return configuration.getAuthenticationManager();
     }
     
+    /**
+     * Configures session-based security for the API. Login is public, every other
+     * route requires authentication, and logout clears the server session cookie.
+     *
+     * @param http Spring Security builder
+     * @return configured security filter chain
+     */
     @Bean
     @SuppressWarnings("removal")
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

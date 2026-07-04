@@ -95,6 +95,13 @@ public class ProjectService {
 		return projectRepository.save(project);
 	}
 
+	/**
+	 * Creates a new draft project from request data and records a snapshot when the
+	 * draft is attached to an existing active project.
+	 *
+	 * @param projectDTO project fields and relationship IDs from the request
+	 * @return the saved draft project
+	 */
 	@Transactional
 	public Project createProject(ProjectDTO projectDTO) {
 		Project project = new Project();
@@ -105,6 +112,14 @@ public class ProjectService {
 		return saved;
 	}
 
+	/**
+	 * Updates an editable project and refreshes the active project's snapshot when
+	 * this project is an associated draft.
+	 *
+	 * @param projectID project being updated
+	 * @param projectDTO replacement project details
+	 * @return the saved project
+	 */
 	@Transactional
 	public Project updateProject(Integer projectID, ProjectDTO projectDTO) {
 		Project project = getRequiredProject(projectID);
@@ -115,6 +130,14 @@ public class ProjectService {
 		return projectRepository.save(project);
 	}
 
+	/**
+	 * Launches a draft project. A launch snapshot is kept, attached teams receive a
+	 * start time, and draft work orders are converted into usable open or in-process
+	 * work orders.
+	 *
+	 * @param projectID draft project to activate
+	 * @return the activated project
+	 */
 	@Transactional
 	public Project activateProject(Integer projectID) {
 		Project project = getRequiredProject(projectID);
@@ -145,6 +168,12 @@ public class ProjectService {
 		return projectRepository.save(project);
 	}
 
+	/**
+	 * Moves an active project into review after all of its work orders are complete.
+	 *
+	 * @param projectID active project to submit
+	 * @return the saved project with an in-review status
+	 */
 	@Transactional
 	public Project submitForReview(Integer projectID) {
 		Project project = getRequiredProject(projectID);
@@ -163,6 +192,12 @@ public class ProjectService {
 		return projectRepository.save(project);
 	}
 
+	/**
+	 * Marks a reviewed project complete once every linked work order is complete.
+	 *
+	 * @param projectID project under review
+	 * @return the completed project
+	 */
 	@Transactional
 	public Project completeProject(Integer projectID) {
 		Project project = getRequiredProject(projectID);
@@ -194,6 +229,12 @@ public class ProjectService {
 		return projectRepository.save(project);
 	}
 
+	/**
+	 * Archives a non-draft project after all work orders are complete, then removes
+	 * any temporary draft projects that were attached to it.
+	 *
+	 * @param projectID project to archive
+	 */
 	@Transactional
 	public void archiveById(Integer projectID) {
 		Project project = getRequiredProject(projectID);
@@ -224,6 +265,12 @@ public class ProjectService {
 		return projectRepository.save(project);
 	}
 
+	/**
+	 * Permanently deletes a project only when it is archived or still a draft. Work
+	 * orders are detached before deletion so their project relationship is cleared.
+	 *
+	 * @param projectID project to permanently delete
+	 */
 	@Transactional
 	public void deletePermanentlyById(Integer projectID) {
 		Project project = getRequiredProject(projectID);
@@ -252,6 +299,67 @@ public class ProjectService {
 		return projectRepository.save(project);
 	}
 
+	@Transactional
+	public Project createWorkOrderForProject(
+			Integer projectID,
+			Integer teamID,
+			Integer companyID,
+			String comment) {
+		Project project = getRequiredProject(projectID);
+		ensureProjectCanBeEdited(project);
+
+		if (project.getProjectStatus() != ProjectStatus.ACTIVE) {
+			throw new IllegalStateException("Active project work orders can only be created for active projects");
+		}
+
+		Team team = null;
+		if (teamID != null) {
+			team = teamRepository.findById(teamID)
+					.orElseThrow(() -> new IllegalArgumentException("Team not found"));
+			if (!project.getTeams().contains(team)) {
+				Set<Team> previousTeams = new HashSet<>(project.getTeams());
+				project.addTeam(team);
+				syncActiveProjectTeamWorkers(project, previousTeams, new HashSet<>(project.getTeams()));
+			}
+		}
+
+		WorkOrder workOrder = new WorkOrder();
+		workOrder.setStatus(WorkOrderStatus.OPEN);
+		workOrder.setComment(comment);
+		workOrder.setStartDateTime(LocalDateTime.now());
+		workOrder.setEndDateTime(null);
+
+		if (team != null && !team.getWorkers().isEmpty()) {
+			workOrder.setWorkers(new HashSet<>(team.getWorkers()));
+			workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
+		}
+
+		if (companyID != null) {
+			Company company = companyRepository.findById(companyID)
+					.orElseThrow(() -> new IllegalArgumentException("Company not found"));
+			if (company.isArchived()) {
+				throw new IllegalStateException("Archived companies cannot be assigned");
+			}
+			workOrder.setCompany(company);
+		}
+
+		workOrder = workOrderRepository.save(workOrder);
+		project.addWorkOrder(workOrder);
+
+		return projectRepository.save(project);
+	}
+
+	/**
+	 * Creates a draft work order from a team while the project is still in draft.
+	 * The work order starts with the team's workers and can optionally carry a
+	 * company and planning comment.
+	 *
+	 * @param projectID draft project that owns the work order
+	 * @param teamID team providing the initial workers
+	 * @param companyID optional company to assign
+	 * @param comment optional planning note
+	 * @return the saved project with the new draft work order
+	 */
 	@Transactional
 	public Project createDraftWorkOrderForTeam(
 			Integer projectID,
@@ -309,6 +417,15 @@ public class ProjectService {
 		return projectRepository.save(project);
 	}
 
+	/**
+	 * Adds a project comment after verifying that the author is either an admin or
+	 * assigned to the project through a team or work order.
+	 *
+	 * @param projectID project receiving the comment
+	 * @param comment comment details
+	 * @param authorWorkerID worker creating the comment
+	 * @return the saved project
+	 */
 	@Transactional
 	public Project addComment(Integer projectID, ProjectComments comment, Integer authorWorkerID) {
 		Project project = getRequiredProject(projectID);
@@ -391,16 +508,21 @@ public class ProjectService {
 		return projectRepository.save(project);
 	}
 
+	/**
+	 * Marks an action item complete or incomplete. Action items can be checked off
+	 * before the project is completed or archived.
+	 *
+	 * @param projectID project containing the action item
+	 * @param actionItemID action item to update
+	 * @param completed true when the item is finished
+	 * @return the saved project
+	 */
 	@Transactional
 	public Project setActionItemCompleted(Integer projectID, Integer actionItemID, boolean completed) {
 		Project project = getRequiredProject(projectID);
 
 		if (project.isArchived() || project.getProjectStatus() == ProjectStatus.COMPLETED) {
 			throw new IllegalStateException("Action items cannot be completed on completed or archived projects");
-		}
-
-		if (project.getProjectStatus() == ProjectStatus.DRAFT) {
-			throw new IllegalStateException("Action items can only be completed after a project is active");
 		}
 
 		ProjectActionItem actionItem = getRequiredActionItem(project, actionItemID);
@@ -410,6 +532,13 @@ public class ProjectService {
 		return projectRepository.save(project);
 	}
 
+	/**
+	 * Applies editable DTO fields and resolves relationship IDs into managed
+	 * entities before the project is saved.
+	 *
+	 * @param project project being changed
+	 * @param projectDTO incoming fields and IDs
+	 */
 	private void applyDTO(Project project, ProjectDTO projectDTO) {
 		if (projectDTO == null) {
 			return;
@@ -428,11 +557,13 @@ public class ProjectService {
 		}
 
 		if (projectDTO.getTeamIDs() != null) {
+			Set<Team> previousTeams = new HashSet<>(project.getTeams());
 			Set<Team> teams = new HashSet<>(teamRepository.findAllById(projectDTO.getTeamIDs()));
 			if (teams.size() != projectDTO.getTeamIDs().size()) {
 				throw new IllegalArgumentException("One or more teams were not found");
 			}
 			project.setTeams(List.copyOf(teams));
+			syncActiveProjectTeamWorkers(project, previousTeams, teams);
 		}
 
 		if (projectDTO.getAssociatedActiveProjectID() != null) {
@@ -475,6 +606,12 @@ public class ProjectService {
 				.orElseThrow(() -> new IllegalArgumentException("Action item not found"));
 	}
 
+	/**
+	 * Validates action item text and resolves assignment to one active worker or one
+	 * team.
+	 *
+	 * @param actionItem action item to validate and normalize
+	 */
 	private void prepareActionItem(ProjectActionItem actionItem) {
 		if (actionItem == null || actionItem.getItemText() == null || actionItem.getItemText().isBlank()) {
 			throw new IllegalArgumentException("Action item text is required");
@@ -537,13 +674,60 @@ public class ProjectService {
 				.allMatch(workOrder -> workOrder.getStatus() == WorkOrderStatus.COMPLETE);
 	}
 
+	private void syncActiveProjectTeamWorkers(Project project, Set<Team> previousTeams, Set<Team> currentTeams) {
+		if (project.getProjectStatus() != ProjectStatus.ACTIVE) {
+			return;
+		}
+
+		Set<Worker> previousWorkers = workersForTeams(previousTeams);
+		Set<Worker> currentWorkers = workersForTeams(currentTeams);
+
+		Set<Worker> removedWorkers = new HashSet<>(previousWorkers);
+		removedWorkers.removeAll(currentWorkers);
+
+		Set<Worker> addedWorkers = new HashSet<>(currentWorkers);
+		addedWorkers.removeAll(previousWorkers);
+
+		for (WorkOrder workOrder : project.getWorkOrders()) {
+			if (workOrder.getStatus() != WorkOrderStatus.OPEN &&
+					workOrder.getStatus() != WorkOrderStatus.IN_PROCESS) {
+				continue;
+			}
+
+			for (Worker worker : removedWorkers) {
+				workOrder.removeWorker(worker);
+			}
+
+			for (Worker worker : addedWorkers) {
+				workOrder.addWorker(worker);
+			}
+
+			workOrder.setStatus(workOrder.getWorkers().isEmpty()
+					? WorkOrderStatus.OPEN
+					: WorkOrderStatus.IN_PROCESS);
+		}
+	}
+
+	private Set<Worker> workersForTeams(Set<Team> teams) {
+		Set<Worker> workers = new HashSet<>();
+		for (Team team : teams) {
+			workers.addAll(team.getWorkers());
+		}
+		return workers;
+	}
+
+	/**
+	 * Converts a planning work order into active work. Company and workers carry
+	 * over, while draft-only notes and item estimates are cleared.
+	 *
+	 * @param workOrder draft work order to launch
+	 */
 	private void launchDraftWorkOrder(WorkOrder workOrder) {
 		for (var item : new ArrayList<>(workOrder.getItems())) {
 			workOrder.removeItem(item);
 		}
 
 		workOrder.setComment(null);
-		workOrder.setCompany(null);
 		workOrder.setEndDateTime(null);
 		workOrder.setStartDateTime(LocalDateTime.now());
 		workOrder.setStatus(workOrder.getWorkers().isEmpty() ? WorkOrderStatus.OPEN : WorkOrderStatus.IN_PROCESS);
@@ -561,6 +745,14 @@ public class ProjectService {
 		createDraftSnapshot(project, project, snapshotName);
 	}
 
+	/**
+	 * Captures the current draft project details as a snapshot owned by either the
+	 * draft itself or its associated active project.
+	 *
+	 * @param snapshotOwner project that stores the snapshot
+	 * @param draftProject draft content being captured
+	 * @param snapshotName display name for the snapshot
+	 */
 	private void createDraftSnapshot(Project snapshotOwner, Project draftProject, String snapshotName) {
 		ProjectSnapshot snapshot = new ProjectSnapshot();
 		snapshot.setSnapshotName(snapshotName);
@@ -574,6 +766,12 @@ public class ProjectService {
 		snapshotOwner.addSnapshot(snapshot);
 	}
 
+	/**
+	 * Builds a compact JSON copy of draft work order planning data for later review.
+	 *
+	 * @param project draft project to serialize
+	 * @return JSON snapshot data
+	 */
 	private String buildSnapshotData(Project project) {
 		try {
 			ObjectNode root = objectMapper.createObjectNode();

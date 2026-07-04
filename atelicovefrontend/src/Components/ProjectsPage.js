@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonGroup,
   Checkbox,
   Chip,
   CircularProgress,
@@ -35,10 +36,11 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import SaveIcon from '@mui/icons-material/Save';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../model';
 import { useAuth } from './AuthContext';
+import WorkOrderDocuments from './WorkOrderDocuments';
 
 const emptyProjectForm = {
   projectID: '',
@@ -132,6 +134,7 @@ const actionItemPayload = (form) => ({
 const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { projectID: routeProjectID } = useParams();
   const [searchParams] = useSearchParams();
   const [projects, setProjects] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -146,9 +149,19 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const [commentType, setCommentType] = useState('');
   const [commentText, setCommentText] = useState('');
   const [snapshotDialog, setSnapshotDialog] = useState(null);
+  const [studioView, setStudioView] = useState('draft');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const isWorkerEdit = mode === 'worker-edit';
+  const isProjectEdit = mode === 'edit' || isWorkerEdit;
+  const canManageProject = user?.isAdmin === true && !isWorkerEdit;
+  const isStudioDraftView = mode === 'studio' && studioView === 'draft';
+  const isStudioEditView = mode === 'studio' && studioView === 'edit';
+  const isEditorView = isProjectEdit || isStudioEditView;
+  const showCreationStudio = isStudioDraftView;
+  const showAdminEditTools = showCreationStudio || (isEditorView && canManageProject);
+  const showProjectList = !isProjectEdit && mode !== 'studio';
 
   const loadData = () => {
     setLoading(true);
@@ -172,14 +185,14 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
   const visibleProjects = useMemo(() => {
     const activeProjects = projects.filter(project => !project.archived);
-    if (mode === 'active') {
-      return activeProjects.filter(project => project.projectStatus === 'ACTIVE');
+    if (isProjectEdit) {
+      return activeProjects.filter(project => project.projectID === Number(routeProjectID));
     }
-    if (mode === 'queue') {
-      return activeProjects.filter(project => project.projectStatus === 'DRAFT');
+    if (mode === 'active') {
+      return activeProjects.filter(project => ['ACTIVE', 'IN_REVIEW'].includes(project.projectStatus));
     }
     return activeProjects;
-  }, [mode, projects]);
+  }, [isProjectEdit, mode, projects, routeProjectID]);
 
   const selectedProject = projects.find(project => project.projectID === Number(projectForm.projectID));
   const selectedTeam = teams.find(team => team.teamID === Number(teamForm.teamID));
@@ -190,13 +203,19 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     .filter(workOrder => workOrder.status === 'DRAFT');
   const selectedDraftWorkOrder = selectedProjectDraftWorkOrders
     .find(workOrder => workOrder.workOrderID === Number(selectedDraftWorkOrderID));
+  const projectWorkOrdersAreComplete = (project) =>
+    Boolean(project) && (project.workOrders || []).every(workOrder => workOrder.status === 'COMPLETE');
+  const hasPricedItemsForStatuses = (project, statuses) =>
+    Boolean(project) && (project.workOrders || [])
+      .filter(workOrder => statuses.includes(workOrder.status))
+      .some(workOrder => (workOrder.items || []).some(item => Number(item.price) > 0 && Number(item.quantity || 1) > 0));
+  const showProjectCostBox = isEditorView && selectedProject && (
+    (selectedProject.projectStatus === 'DRAFT' && hasPricedItemsForStatuses(selectedProject, ['DRAFT'])) ||
+    (selectedProject.projectStatus === 'ACTIVE' && hasPricedItemsForStatuses(selectedProject, ['COMPLETE']))
+  );
 
   const resetProjectForm = () => setProjectForm(emptyProjectForm);
   const resetTeamForm = () => setTeamForm(emptyTeamForm);
-  const resetWorkOrderForm = () => {
-    setWorkOrderForm(emptyWorkOrderForm);
-    setSelectedDraftWorkOrderID('');
-  };
   const resetActionItemForm = () => setActionItemForm(emptyActionItemForm);
 
   const loadProjectIntoForm = (project) => {
@@ -215,7 +234,23 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   };
 
   useEffect(() => {
-    if (mode !== 'studio' || !projects.length) {
+    if (!isProjectEdit || !projects.length) {
+      return;
+    }
+
+    const projectID = Number(routeProjectID);
+    if (!projectID || Number(projectForm.projectID) === projectID) {
+      return;
+    }
+
+    const project = projects.find(item => item.projectID === projectID);
+    if (project) {
+      loadProjectIntoForm(project);
+    }
+  }, [isProjectEdit, projects, routeProjectID, projectForm.projectID]);
+
+  useEffect(() => {
+    if (mode !== 'studio' || !projects.length || isProjectEdit) {
       return;
     }
 
@@ -228,7 +263,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     if (project) {
       loadProjectIntoForm(project);
     }
-  }, [mode, projects, searchParams, projectForm.projectID]);
+  }, [mode, isProjectEdit, projects, searchParams, projectForm.projectID]);
 
   const loadActionItemIntoForm = (project, actionItem) => {
     setActionItemForm({
@@ -257,8 +292,17 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       const saved = projectForm.projectID
         ? await apiFetch(`/projects/${projectForm.projectID}`, { method: 'PUT', body: JSON.stringify(payload) })
         : await apiFetch('/projects', { method: 'POST', body: JSON.stringify(payload) });
+      const normalized = normalizeProject(saved);
       setMessage({ severity: 'success', text: `Project ${saved.projectName || `#${saved.projectID}`} saved.` });
-      loadProjectIntoForm(normalizeProject(saved));
+      setProjects(current => [
+        normalized,
+        ...current.filter(project => project.projectID !== normalized.projectID),
+      ]);
+      if (showCreationStudio) {
+        resetProjectForm();
+      } else {
+        loadProjectIntoForm(normalized);
+      }
       loadData();
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
@@ -313,20 +357,24 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setSaving(true);
     setMessage(null);
     try {
-      await apiFetch(`/projects/${selectedWorkOrderProject.projectID}/draft-workorders`, {
+      const isDraftProject = selectedWorkOrderProject.projectStatus === 'DRAFT';
+      const updated = await apiFetch(`/projects/${selectedWorkOrderProject.projectID}/${isDraftProject ? 'draft-workorders' : 'workorders'}`, {
         method: 'POST',
         body: JSON.stringify({
-          teamID: team?.teamID,
+          teamID: team?.teamID || null,
           companyID: company?.companyID || null,
           comment: workOrderForm.comment.trim(),
         }),
       });
+      const normalized = normalizeProject(updated);
 
       setMessage({
         severity: 'success',
-        text: `Draft work order created for ${team?.teamName || 'team'} in ${selectedWorkOrderProject.projectName || 'project'}.`,
+        text: `${isDraftProject ? 'Draft work order' : 'Work order'} created for ${team?.teamName || 'unassigned work'} in ${selectedWorkOrderProject.projectName || 'project'}.`,
       });
-      resetWorkOrderForm();
+      setProjects(current => current.map(project => project.projectID === normalized.projectID ? normalized : project));
+      setWorkOrderForm(current => ({ ...emptyWorkOrderForm, projectID: current.projectID }));
+      setSelectedDraftWorkOrderID('');
       loadData();
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
@@ -413,13 +461,13 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     }
   };
 
-  const removeActionItem = async () => {
-    if (!actionItemForm.projectID || !actionItemForm.actionItemID) return;
+  const removeActionItem = async (projectID = actionItemForm.projectID, actionItemID = actionItemForm.actionItemID) => {
+    if (!projectID || !actionItemID) return;
 
     setSaving(true);
     setMessage(null);
     try {
-      await apiFetch(`/projects/${actionItemForm.projectID}/action-items/${actionItemForm.actionItemID}`, {
+      await apiFetch(`/projects/${projectID}/action-items/${actionItemID}`, {
         method: 'DELETE',
       });
       setMessage({ severity: 'success', text: 'Action item removed.' });
@@ -489,6 +537,54 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     }
   };
 
+  const submitProjectForReview = async (project) => {
+    if (!project) return;
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      const submitted = await apiFetch(`/projects/${project.projectID}/submit`, { method: 'PUT' });
+      setMessage({ severity: 'success', text: `${submitted.projectName || 'Project'} submitted for review.` });
+      loadData();
+    } catch (error) {
+      setMessage({ severity: 'error', text: error.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const approveProject = async (project) => {
+    if (!project) return;
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      const completed = await apiFetch(`/projects/${project.projectID}/complete`, { method: 'PUT' });
+      setMessage({ severity: 'success', text: `${completed.projectName || 'Project'} approved.` });
+      loadData();
+    } catch (error) {
+      setMessage({ severity: 'error', text: error.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const denyProject = async (project) => {
+    if (!project) return;
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      const rejected = await apiFetch(`/projects/${project.projectID}/reject`, { method: 'PUT' });
+      setMessage({ severity: 'success', text: `${rejected.projectName || 'Project'} returned to active status.` });
+      loadData();
+    } catch (error) {
+      setMessage({ severity: 'error', text: error.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const associatedDraftsFor = (activeProject) =>
     projects.filter(project => project.associatedActiveProject?.projectID === activeProject.projectID);
 
@@ -537,6 +633,140 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     }
   };
 
+  const actionItemAssigneeName = (item) => {
+    if (item.assignedWorker) {
+      return workerName(normalizeWorker(item.assignedWorker));
+    }
+    if (item.assignedTeam) {
+      return item.assignedTeam.teamName || `Team #${item.assignedTeam.teamID}`;
+    }
+    return 'General';
+  };
+
+  const isEditingActionItem = selectedProject && Number(actionItemForm.projectID) === selectedProject.projectID;
+  const actionItemsPanel = selectedProject && (
+    <Paper sx={{ p: 3, mt: isWorkerEdit ? 0 : 3 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ mb: 2 }}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <PlaylistAddCheckIcon color="primary" />
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>Action Items</Typography>
+        </Stack>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          disabled={saving || selectedProject.archived || selectedProject.projectStatus === 'COMPLETED'}
+          onClick={() => setActionItemForm({ ...emptyActionItemForm, projectID: selectedProject.projectID })}
+        >
+          Add Action Item
+        </Button>
+      </Stack>
+
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Done</TableCell>
+              <TableCell>Action Item</TableCell>
+              <TableCell>Assigned To</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isEditingActionItem && (
+              <TableRow>
+                <TableCell />
+                <TableCell>
+                  <TextField
+                    label="Action item"
+                    fullWidth
+                    size="small"
+                    value={actionItemForm.itemText}
+                    onChange={event => setActionItemForm(current => ({ ...current, itemText: event.target.value }))}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Worker</InputLabel>
+                      <Select
+                        value={actionItemForm.assignedWorkerID}
+                        label="Worker"
+                        onChange={event => setActionItemForm(current => ({ ...current, assignedWorkerID: event.target.value, assignedTeamID: event.target.value ? '' : current.assignedTeamID }))}
+                      >
+                        <MenuItem value="">No worker</MenuItem>
+                        {workers.map(worker => (
+                          <MenuItem key={worker.workerID} value={worker.workerID}>{workerName(worker)}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Team</InputLabel>
+                      <Select
+                        value={actionItemForm.assignedTeamID}
+                        label="Team"
+                        onChange={event => setActionItemForm(current => ({ ...current, assignedTeamID: event.target.value, assignedWorkerID: event.target.value ? '' : current.assignedWorkerID }))}
+                      >
+                        <MenuItem value="">No team</MenuItem>
+                        {teams.map(team => (
+                          <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Stack>
+                </TableCell>
+                <TableCell align="right">
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <Button variant="contained" size="small" startIcon={<SaveIcon />} disabled={saving || !actionItemForm.itemText.trim()} onClick={saveActionItem}>
+                      {actionItemForm.actionItemID ? 'Save Action Item' : 'Save'}
+                    </Button>
+                    <Button variant="outlined" size="small" onClick={resetActionItemForm}>
+                      Cancel
+                    </Button>
+                  </Stack>
+                </TableCell>
+              </TableRow>
+            )}
+            {(selectedProject.actionItems || []).map(item => (
+              <TableRow key={item.actionItemID} hover>
+                <TableCell>
+                  <Checkbox
+                    size="small"
+                    checked={Boolean(item.completed)}
+                    disabled={saving || selectedProject.projectStatus === 'COMPLETED' || selectedProject.archived}
+                    onChange={event => setActionItemCompleted(selectedProject, item, event.target.checked)}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ textDecoration: item.completed ? 'line-through' : 'none' }}>
+                    {item.itemText}
+                  </Typography>
+                </TableCell>
+                <TableCell>{actionItemAssigneeName(item)}</TableCell>
+                <TableCell align="right">
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <Button size="small" variant="outlined" startIcon={<EditIcon />} disabled={saving || selectedProject.archived || selectedProject.projectStatus === 'COMPLETED'} onClick={() => loadActionItemIntoForm(selectedProject, item)}>
+                      Edit
+                    </Button>
+                    {canManageProject && (
+                      <Button size="small" variant="outlined" color="error" startIcon={<DeleteIcon />} disabled={saving} onClick={() => removeActionItem(selectedProject.projectID, item.actionItemID)}>
+                        Delete
+                      </Button>
+                    )}
+                  </Stack>
+                </TableCell>
+              </TableRow>
+            ))}
+            {!(selectedProject.actionItems || []).length && !isEditingActionItem && (
+              <TableRow>
+                <TableCell colSpan={4}>No action items for this project.</TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Paper>
+  );
+
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
   }
@@ -547,53 +777,109 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{title}</Typography>
           <Typography color="text.secondary">{subtitle}</Typography>
+          {mode === 'studio' && (
+            <ButtonGroup variant="outlined" aria-label="Draft Studio view" sx={{ mt: 1 }}>
+              <Button
+                variant={studioView === 'draft' ? 'contained' : 'outlined'}
+                onClick={() => setStudioView('draft')}
+              >
+                Draft
+              </Button>
+              <Button
+                variant={studioView === 'edit' ? 'contained' : 'outlined'}
+                onClick={() => setStudioView('edit')}
+              >
+                Edit
+              </Button>
+            </ButtonGroup>
+          )}
         </Box>
       </Stack>
 
       {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
 
-      {mode === 'studio' && (
+      {isProjectEdit && (
+        <Button variant="outlined" onClick={() => navigate(-1)} sx={{ mb: 2 }}>
+          Back
+        </Button>
+      )}
+
+      {isProjectEdit && !selectedProject && (
+        <Alert severity="warning" sx={{ mb: 2 }}>Project not found.</Alert>
+      )}
+
+      {showProjectCostBox && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
+            <Box>
+              <Typography variant="overline" color="text.secondary">
+                {selectedProject.projectStatus === 'DRAFT' ? 'Estimated Cost' : 'Actual Cost'}
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                {selectedProject.projectStatus === 'DRAFT'
+                  ? formatMoney(selectedProject.estimatedCost)
+                  : formatMoney(selectedProject.actualCost)}
+              </Typography>
+            </Box>
+            <Chip label={selectedProject.projectStatus.replaceAll('_', ' ')} />
+          </Stack>
+        </Paper>
+      )}
+
+      {showAdminEditTools && (
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} lg={7}>
+          <Grid item xs={12} lg={showCreationStudio ? 12 : 7}>
             <Paper component="form" onSubmit={saveProject} sx={{ p: 3, height: '100%' }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                 <EditIcon color="primary" />
                 <Typography variant="h5" sx={{ fontWeight: 700 }}>Project</Typography>
               </Stack>
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Edit project</InputLabel>
-                    <Select
-                      value={projectForm.projectID}
-                      label="Edit project"
-                      onChange={event => {
-                        const project = projects.find(item => item.projectID === Number(event.target.value));
-                        project ? loadProjectIntoForm(project) : resetProjectForm();
-                      }}
-                    >
-                      <MenuItem value="">New project</MenuItem>
-                      {projects.filter(project => !project.archived).map(project => (
-                        <MenuItem key={project.projectID} value={project.projectID}>
-                          {project.projectName || `Project #${project.projectID}`} ({project.projectStatus})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
+                {isStudioEditView && (
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Draft Project</InputLabel>
+                      <Select
+                        value={projectForm.projectID}
+                        label="Draft Project"
+                        onChange={event => {
+                          const project = projects.find(item => item.projectID === Number(event.target.value));
+                          project ? loadProjectIntoForm(project) : resetProjectForm();
+                        }}
+                      >
+                        <MenuItem value="">Select draft project</MenuItem>
+                        {projects.filter(project => !project.archived && project.projectStatus === 'DRAFT').map(project => (
+                          <MenuItem key={project.projectID} value={project.projectID}>
+                            {project.projectName || `Project #${project.projectID}`}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
+                {isProjectEdit && (
+                  <Grid item xs={12} md={6}>
+                    <TextField label="Project ID" fullWidth value={projectForm.projectID ? `#${projectForm.projectID}` : ''} InputProps={{ readOnly: true }} />
+                  </Grid>
+                )}
+                <Grid item xs={12} md={isEditorView ? 6 : 12}>
                   <TextField label="Project name" fullWidth value={projectForm.projectName} onChange={event => setProjectForm(current => ({ ...current, projectName: event.target.value }))} />
                 </Grid>
                 <Grid item xs={12}>
                   <TextField label="Description" fullWidth multiline minRows={3} value={projectForm.description} onChange={event => setProjectForm(current => ({ ...current, description: event.target.value }))} />
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} md={6}>
                   <TextField label="Budget" type="number" fullWidth value={projectForm.budget} onChange={event => setProjectForm(current => ({ ...current, budget: event.target.value }))} />
                 </Grid>
-                <Grid item xs={12} md={8}>
-                  <Alert severity="info">
-                    Estimated cost is calculated from draft work order items. Actual cost is calculated from completed work order items.
-                  </Alert>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label={selectedProject?.projectStatus === 'ACTIVE' ? 'Actual Cost' : 'Estimated Cost'}
+                    fullWidth
+                    value={selectedProject?.projectStatus === 'ACTIVE'
+                      ? formatMoney(selectedProject.actualCost)
+                      : formatMoney(selectedProject?.estimatedCost ?? 0)}
+                    InputProps={{ readOnly: true }}
+                  />
                 </Grid>
                 <Grid item xs={12}>
                   <FormControl fullWidth>
@@ -613,40 +899,68 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <InputLabel>Attach to active project</InputLabel>
-                    <Select
-                      value={projectForm.associatedActiveProjectID}
-                      label="Attach to active project"
-                      onChange={event => setProjectForm(current => ({ ...current, associatedActiveProjectID: event.target.value }))}
-                    >
-                      <MenuItem value="">Not attached</MenuItem>
-                      {activeProjectOptions
-                        .filter(project => project.projectID !== Number(projectForm.projectID))
-                        .map(project => (
-                          <MenuItem key={project.projectID} value={project.projectID}>
-                            {project.projectName || `Project #${project.projectID}`}
-                          </MenuItem>
-                        ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
+                {(!selectedProject || selectedProject.projectStatus === 'DRAFT') && (
+                  <Grid item xs={12}>
+                    <FormControl fullWidth>
+                      <InputLabel>Attach to active project</InputLabel>
+                      <Select
+                        value={projectForm.associatedActiveProjectID}
+                        label="Attach to active project"
+                        onChange={event => setProjectForm(current => ({ ...current, associatedActiveProjectID: event.target.value }))}
+                      >
+                        <MenuItem value="">Not attached</MenuItem>
+                        {activeProjectOptions
+                          .filter(project => project.projectID !== Number(projectForm.projectID))
+                          .map(project => (
+                            <MenuItem key={project.projectID} value={project.projectID}>
+                              {project.projectName || `Project #${project.projectID}`}
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
               </Grid>
               <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
-                <Button type="submit" variant="contained" startIcon={<SaveIcon />} disabled={saving}>
-                  Save
-                </Button>
-                <Button variant="outlined" startIcon={<AddIcon />} onClick={resetProjectForm}>
+                {showCreationStudio ? (
+                  <Button type="submit" variant="contained" startIcon={<AddIcon />} disabled={saving}>
                   New
-                </Button>
-                <Button variant="outlined" color="warning" startIcon={<ArchiveIcon />} disabled={!selectedProject || selectedProject.projectStatus === 'DRAFT' || saving} onClick={() => archiveProject(selectedProject)}>
-                  Archive
-                </Button>
+                  </Button>
+                ) : (
+                  <Button type="submit" variant="contained" startIcon={<SaveIcon />} disabled={saving || (isStudioEditView && !selectedProject)}>
+                    Save
+                  </Button>
+                )}
+                {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && !selectedProject.associatedActiveProject && (
+                  <Button variant="contained" startIcon={<RocketLaunchIcon />} disabled={saving} onClick={() => launchProject(selectedProject)}>
+                    Launch
+                  </Button>
+                )}
+                {isProjectEdit && selectedProject?.projectStatus === 'ACTIVE' && (
+                  <Button variant="outlined" color="warning" startIcon={<ArchiveIcon />} disabled={saving} onClick={() => archiveProject(selectedProject)}>
+                    Archive
+                  </Button>
+                )}
+                {isProjectEdit && selectedProject?.projectStatus === 'ACTIVE' && (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    disabled={saving || !projectWorkOrdersAreComplete(selectedProject)}
+                    onClick={() => submitProjectForReview(selectedProject)}
+                  >
+                    Submit for Review
+                  </Button>
+                )}
               </Stack>
+              {isProjectEdit && selectedProject?.projectStatus === 'ACTIVE' && !projectWorkOrdersAreComplete(selectedProject) && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  All work orders must be complete before this project can be submitted for review.
+                </Typography>
+              )}
             </Paper>
           </Grid>
 
+          {isEditorView && selectedProject && (
           <Grid item xs={12} lg={5}>
             <Paper component="form" onSubmit={saveTeam} sx={{ p: 3, height: '100%' }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
@@ -697,10 +1011,14 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
               </Stack>
             </Paper>
           </Grid>
+          )}
 
+          {isEditorView && selectedProject && (
           <Grid item xs={12} lg={7}>
             <Paper component="form" onSubmit={createAndAttachWorkOrder} sx={{ p: 3, height: '100%' }}>
-              <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Create Draft Work Order For Team</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
+                {selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'Create Work Order For Project' : 'Create Draft Work Order For Team'}
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth>
@@ -708,13 +1026,14 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     <Select
                       value={workOrderForm.projectID}
                       label="Project"
+                      disabled={isEditorView}
                       onChange={event => {
                         setWorkOrderForm(current => ({ ...current, projectID: event.target.value }));
                         setSelectedDraftWorkOrderID('');
                       }}
                     >
                       <MenuItem value="">No project</MenuItem>
-                      {projects.filter(project => !project.archived && !['COMPLETED', 'IN_REVIEW'].includes(project.projectStatus)).map(project => (
+                      {(isEditorView && selectedProject ? [selectedProject] : projects.filter(project => !project.archived && project.projectStatus === 'DRAFT')).map(project => (
                         <MenuItem key={project.projectID} value={project.projectID}>{project.projectName || `Project #${project.projectID}`}</MenuItem>
                       ))}
                     </Select>
@@ -724,7 +1043,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   <FormControl fullWidth>
                     <InputLabel>Team</InputLabel>
                     <Select value={workOrderForm.teamID} label="Team" onChange={event => setWorkOrderForm(current => ({ ...current, teamID: event.target.value }))}>
-                      <MenuItem value="">No team selected</MenuItem>
+                      <MenuItem value="">{selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'No team selected (open)' : 'No team selected'}</MenuItem>
                       {teams.map(team => (
                         <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>
                       ))}
@@ -779,43 +1098,58 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   </Stack>
                 </Grid>
                 <Grid item xs={12}>
-                  <TextField label="Work order note" fullWidth multiline minRows={2} value={workOrderForm.comment} onChange={event => setWorkOrderForm(current => ({ ...current, comment: event.target.value }))} />
+                  <TextField label={selectedWorkOrderProject?.projectStatus === 'DRAFT' ? 'Draft work order note' : 'Work order note'} fullWidth multiline minRows={2} value={workOrderForm.comment} onChange={event => setWorkOrderForm(current => ({ ...current, comment: event.target.value }))} />
                 </Grid>
               </Grid>
-              <Button type="submit" variant="contained" startIcon={<AddIcon />} sx={{ mt: 2 }} disabled={saving || !workOrderForm.projectID || !workOrderForm.teamID}>
-                Create Draft
+              <Button
+                type="submit"
+                variant="contained"
+                startIcon={<AddIcon />}
+                sx={{ mt: 2 }}
+                disabled={
+                  saving ||
+                  !workOrderForm.projectID ||
+                  (selectedWorkOrderProject?.projectStatus === 'DRAFT' && !workOrderForm.teamID) ||
+                  !['DRAFT', 'ACTIVE'].includes(selectedWorkOrderProject?.projectStatus)
+                }
+              >
+                {selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'Create Work Order' : 'Create Draft'}
               </Button>
               {selectedWorkOrderProject && (
                 <Box sx={{ mt: 2 }}>
-                  <Typography variant="subtitle2">Drafted Work Orders</Typography>
+                  <Typography variant="subtitle2">Associated Work Orders</Typography>
                   <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-                    {selectedProjectDraftWorkOrders.map(workOrder => (
+                    {(selectedWorkOrderProject.workOrders || []).map(workOrder => (
                       <Button
                         key={workOrder.workOrderID}
                         size="small"
                         variant="outlined"
-                        onClick={() => navigate(`/admin/my-assignments/${workOrder.workOrderID}`)}
+                        onClick={() => navigate(workOrder.status === 'DRAFT'
+                          ? `/admin/my-assignments/${workOrder.workOrderID}`
+                          : `/admin/workorders/${workOrder.workOrderID}`)}
                       >
-                        #{workOrder.workOrderID} {workOrder.company?.companyName || 'No company'}
+                        #{workOrder.workOrderID} {workOrder.company?.companyName || 'No company'} ({workOrder.status.replaceAll('_', ' ')})
                       </Button>
                     ))}
-                    {!selectedProjectDraftWorkOrders.length && (
-                      <Typography variant="body2" color="text.secondary">No drafted work orders for this project.</Typography>
+                    {!(selectedWorkOrderProject.workOrders || []).length && (
+                      <Typography variant="body2" color="text.secondary">No work orders for this project.</Typography>
                     )}
                   </Stack>
                 </Box>
               )}
             </Paper>
           </Grid>
+          )}
 
+          {isEditorView && selectedProject && (
           <Grid item xs={12} lg={5}>
             <Paper component="form" onSubmit={addComment} sx={{ p: 3, height: '100%' }}>
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Project Comment</Typography>
               <FormControl fullWidth margin="normal">
                 <InputLabel>Project</InputLabel>
-                <Select value={commentProjectID} label="Project" onChange={event => setCommentProjectID(event.target.value)}>
+                <Select value={commentProjectID} label="Project" disabled={isEditorView} onChange={event => setCommentProjectID(event.target.value)}>
                   <MenuItem value="">No project</MenuItem>
-                  {projects.filter(project => !project.archived && project.projectStatus !== 'COMPLETED').map(project => (
+                  {(isEditorView && selectedProject ? [selectedProject] : projects.filter(project => !project.archived && project.projectStatus !== 'COMPLETED')).map(project => (
                     <MenuItem key={project.projectID} value={project.projectID}>{project.projectName || `Project #${project.projectID}`}</MenuItem>
                   ))}
                 </Select>
@@ -835,108 +1169,80 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
               </Button>
             </Paper>
           </Grid>
+          )}
 
-          <Grid item xs={12}>
-            <Paper component="form" onSubmit={saveActionItem} sx={{ p: 3 }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                <PlaylistAddCheckIcon color="primary" />
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>Action Items</Typography>
-              </Stack>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
-                  <FormControl fullWidth>
-                    <InputLabel>Project</InputLabel>
-                    <Select
-                      value={actionItemForm.projectID}
-                      label="Project"
-                      onChange={event => setActionItemForm({ ...emptyActionItemForm, projectID: event.target.value })}
-                    >
-                      <MenuItem value="">No project</MenuItem>
-                      {projects.filter(project => !project.archived && project.projectStatus !== 'COMPLETED').map(project => (
-                        <MenuItem key={project.projectID} value={project.projectID}>
-                          {project.projectName || `Project #${project.projectID}`}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <FormControl fullWidth disabled={!selectedActionProject}>
-                    <InputLabel>Edit item</InputLabel>
-                    <Select
-                      value={actionItemForm.actionItemID}
-                      label="Edit item"
-                      onChange={event => {
-                        const actionItem = selectedActionProject?.actionItems?.find(item => item.actionItemID === Number(event.target.value));
-                        actionItem ? loadActionItemIntoForm(selectedActionProject, actionItem) : setActionItemForm(current => ({ ...emptyActionItemForm, projectID: current.projectID }));
-                      }}
-                    >
-                      <MenuItem value="">New item</MenuItem>
-                      {(selectedActionProject?.actionItems || []).map(item => (
-                        <MenuItem key={item.actionItemID} value={item.actionItemID}>{item.itemText}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    label="Action item"
-                    fullWidth
-                    value={actionItemForm.itemText}
-                    onChange={event => setActionItemForm(current => ({ ...current, itemText: event.target.value }))}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Assigned worker</InputLabel>
-                    <Select
-                      value={actionItemForm.assignedWorkerID}
-                      label="Assigned worker"
-                      onChange={event => setActionItemForm(current => ({ ...current, assignedWorkerID: event.target.value, assignedTeamID: event.target.value ? '' : current.assignedTeamID }))}
-                    >
-                      <MenuItem value="">General item</MenuItem>
-                      {workers.map(worker => (
-                        <MenuItem key={worker.workerID} value={worker.workerID}>{workerName(worker)}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Assigned team</InputLabel>
-                    <Select
-                      value={actionItemForm.assignedTeamID}
-                      label="Assigned team"
-                      onChange={event => setActionItemForm(current => ({ ...current, assignedTeamID: event.target.value, assignedWorkerID: event.target.value ? '' : current.assignedWorkerID }))}
-                    >
-                      <MenuItem value="">General item</MenuItem>
-                      {teams.map(team => (
-                        <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-              <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                <Button type="submit" variant="contained" startIcon={<SaveIcon />} disabled={saving || !selectedActionProject || !actionItemForm.itemText.trim()}>
-                  Save
-                </Button>
-                <Button variant="outlined" startIcon={<AddIcon />} onClick={resetActionItemForm}>
-                  New
-                </Button>
-                <Button variant="outlined" color="error" startIcon={<DeleteIcon />} disabled={saving || !actionItemForm.actionItemID} onClick={removeActionItem}>
-                  Delete
-                </Button>
-              </Stack>
-            </Paper>
-          </Grid>
+          {isEditorView && selectedProject && ['DRAFT', 'ACTIVE'].includes(selectedProject.projectStatus) && (
+            <Grid item xs={12}>
+              <WorkOrderDocuments
+                basePath={`/projects/${selectedProject.projectID}/documents`}
+                canManage={!selectedProject.archived}
+                title="Project Documents"
+                emptyMessage="No documents are attached to this project."
+              />
+            </Grid>
+          )}
         </Grid>
       )}
 
+      {showCreationStudio && (
+        <Paper sx={{ p: 3, mb: 4 }}>
+          <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>Draft Projects</Typography>
+            <Chip label={`${projects.filter(project => !project.archived && project.projectStatus === 'DRAFT').length} drafts`} />
+          </Stack>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Project</TableCell>
+                  <TableCell>Budget</TableCell>
+                  <TableCell>Estimated</TableCell>
+                  <TableCell>Teams</TableCell>
+                  <TableCell>Work Orders</TableCell>
+                  <TableCell>Updated</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {projects.filter(project => !project.archived && project.projectStatus === 'DRAFT').map(project => (
+                  <TableRow key={project.projectID} hover>
+                    <TableCell>
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          loadProjectIntoForm(project);
+                          setStudioView('edit');
+                        }}
+                        sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}
+                      >
+                        {project.projectName || `Project #${project.projectID}`}
+                      </Button>
+                      <Typography variant="caption" color="text.secondary">{project.description || 'No description'}</Typography>
+                    </TableCell>
+                    <TableCell>{formatMoney(project.budget)}</TableCell>
+                    <TableCell>{formatMoney(project.estimatedCost)}</TableCell>
+                    <TableCell>{(project.teams || []).length}</TableCell>
+                    <TableCell>{(project.workOrders || []).length || project.workOrderCount || 0}</TableCell>
+                    <TableCell>{formatDateTime(project.lastModifiedAt)}</TableCell>
+                  </TableRow>
+                ))}
+                {!projects.filter(project => !project.archived && project.projectStatus === 'DRAFT').length && (
+                  <TableRow>
+                    <TableCell colSpan={6}>No draft projects found.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
+      {isEditorView && actionItemsPanel}
+
+      {showProjectList && (
       <Paper sx={{ p: 3 }}>
         <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            {mode === 'active' ? 'Active Projects' : mode === 'queue' ? 'Launch Queue' : 'Projects'}
+            {mode === 'active' ? 'Active Projects' : isStudioEditView ? 'Edit Projects' : 'Projects'}
           </Typography>
           <Chip label={`${visibleProjects.length} shown`} />
         </Stack>
@@ -961,10 +1267,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
               {visibleProjects.map(project => (
                 <TableRow key={project.projectID} hover>
                   <TableCell>
-                    {mode === 'queue' ? (
+                    {mode === 'active' || isStudioEditView ? (
                       <Button
                         size="small"
-                        onClick={() => navigate(`/admin/projects/draft-studio?projectId=${project.projectID}`)}
+                        onClick={() => navigate(`/admin/projects/${project.projectID}/edit`)}
                         sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}
                       >
                         {project.projectName || `Project #${project.projectID}`}
@@ -1031,14 +1337,19 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                           Launch
                         </Button>
                       )}
-                      {mode === 'studio' && (
-                        <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => loadProjectIntoForm(project)}>
-                          Edit
-                        </Button>
+                      {mode === 'active' && project.projectStatus === 'IN_REVIEW' && (
+                        <>
+                          <Button size="small" variant="contained" color="success" disabled={saving} onClick={() => approveProject(project)}>
+                            Approve
+                          </Button>
+                          <Button size="small" variant="outlined" color="error" disabled={saving} onClick={() => denyProject(project)}>
+                            Deny
+                          </Button>
+                        </>
                       )}
-                      {mode === 'studio' && project.projectStatus !== 'DRAFT' && (
-                        <Button size="small" color="warning" startIcon={<ArchiveIcon />} disabled={saving} onClick={() => archiveProject(project)}>
-                          Archive
+                      {isStudioEditView && (
+                        <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => navigate(`/admin/projects/${project.projectID}/edit`)}>
+                          Edit
                         </Button>
                       )}
                     </Stack>
@@ -1054,13 +1365,14 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
           </Table>
         </TableContainer>
       </Paper>
+      )}
 
-      {mode === 'studio' && (
+      {isEditorView && selectedProject && (
         <Paper sx={{ p: 3, mt: 3 }}>
           <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Project Details</Typography>
           <Grid container spacing={2}>
-            {visibleProjects.map(project => (
-              <Grid item xs={12} md={6} lg={4} key={project.projectID}>
+            {[selectedProject].map(project => (
+              <Grid item xs={12} key={project.projectID}>
                 <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 2, height: '100%' }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{project.projectName || `Project #${project.projectID}`}</Typography>
@@ -1089,13 +1401,8 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   <Divider sx={{ my: 1 }} />
                   <Typography variant="caption" color="text.secondary">Action items</Typography>
                   {(project.actionItems || []).map(item => (
-                    <Stack key={item.actionItemID} direction="row" spacing={1} alignItems="center">
-                      <Checkbox
-                        size="small"
-                        checked={Boolean(item.completed)}
-                        disabled={saving || project.projectStatus === 'DRAFT' || project.projectStatus === 'COMPLETED' || project.archived}
-                        onChange={event => setActionItemCompleted(project, item, event.target.checked)}
-                      />
+                    <Stack key={item.actionItemID} direction="row" spacing={1} alignItems="center" sx={{ py: 0.25 }}>
+                      <Chip size="small" label={item.completed ? 'Done' : 'Open'} />
                       <Typography variant="body2" sx={{ textDecoration: item.completed ? 'line-through' : 'none' }}>
                         {item.itemText}
                       </Typography>

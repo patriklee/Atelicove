@@ -29,7 +29,13 @@ const formatFileSize = (bytes = 0) => {
   return `${bytes} B`;
 };
 
-const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
+const WorkOrderDocuments = ({
+  workOrderID,
+  basePath,
+  canManage = false,
+  title = 'Documents',
+  emptyMessage = 'No documents are attached to this work order.',
+}) => {
   const inputRef = useRef(null);
   const [documents, setDocuments] = useState([]);
   const [pendingDocuments, setPendingDocuments] = useState([]);
@@ -37,15 +43,17 @@ const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
+  const documentPath = basePath || `/workorders/${workOrderID}/documents`;
+
   const loadDocuments = () => {
     setLoading(true);
-    apiFetch(`/workorders/${workOrderID}/documents`)
+    apiFetch(documentPath)
       .then(setDocuments)
       .catch(error => setMessage({ severity: 'error', text: error.message }))
       .finally(() => setLoading(false));
   };
 
-  useEffect(loadDocuments, [workOrderID]);
+  useEffect(loadDocuments, [documentPath]);
 
   const addDocument = (event) => {
     const files = Array.from(event.target.files || []);
@@ -94,7 +102,7 @@ const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
         formData.append('file', document.file);
         formData.append('documentType', document.documentType);
 
-        await apiFetch(`/workorders/${workOrderID}/documents`, {
+        await apiFetch(documentPath, {
           method: 'POST',
           body: formData,
         });
@@ -113,7 +121,7 @@ const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
     setBusy(true);
     setMessage(null);
     try {
-      const blob = await apiDownload(`/workorders/${workOrderID}/documents/${document.documentID}/download`);
+      const blob = await apiDownload(`${documentPath}/${document.documentID}/download`);
       const url = URL.createObjectURL(blob);
       const link = window.document.createElement('a');
       link.href = url;
@@ -135,7 +143,7 @@ const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
     setBusy(true);
     setMessage(null);
     try {
-      await apiFetch(`/workorders/${workOrderID}/documents/${document.documentID}`, { method: 'DELETE' });
+      await apiFetch(`${documentPath}/${document.documentID}`, { method: 'DELETE' });
       setMessage({ severity: 'success', text: 'Document deleted.' });
       loadDocuments();
     } catch (error) {
@@ -152,7 +160,7 @@ const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
-            <TableTitleRow title="Documents" colSpan={6} />
+            <TableTitleRow title={title} colSpan={6} />
             <TableRow>
               <TableCell>File</TableCell>
               <TableCell>Document Type</TableCell>
@@ -211,7 +219,7 @@ const WorkOrderDocuments = ({ workOrderID, canManage = false }) => {
             ))}
             {!loading && !documents.length && !pendingDocuments.length && (
               <TableRow>
-                <TableCell colSpan={6}>No documents are attached to this work order.</TableCell>
+                <TableCell colSpan={6}>{emptyMessage}</TableCell>
               </TableRow>
             )}
             {loading && (

@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import com.atelicove.entities.Company;
 import com.atelicove.entities.WorkOrder;
-import com.atelicove.entities.WorkOrderDocument;
+import com.atelicove.entities.Document;
 import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
 
@@ -42,7 +42,7 @@ class EntityZombiesTest {
             assertEquals(0, new Worker().getWorkerID());
             assertEquals(0, new WorkOrder().getWorkOrderID());
             assertEquals(0, new WorkOrderItem().getWorkOrderItemID());
-            assertEquals(0, new WorkOrderDocument().getDocumentID());
+            assertEquals(0, new Document().getDocumentID());
         }
     }
 
@@ -111,7 +111,7 @@ class EntityZombiesTest {
 
         @Test
         void documentAcceptsEmptyDataAndZeroFileSize() {
-            WorkOrderDocument document = new WorkOrderDocument();
+            Document document = new Document();
 
             document.setDocumentData(new byte[0]);
             document.setFileSize(0);

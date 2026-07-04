@@ -6,15 +6,19 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "work_order_document")
-public class WorkOrderDocument extends BaseEntity {
+public class Document extends BaseEntity {
 	
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int documentID;
 
     @ManyToOne
-    @JoinColumn(name = "work_order_id", nullable = false)
+    @JoinColumn(name = "work_order_id")
     private WorkOrder workOrder;
+
+    @ManyToOne
+    @JoinColumn(name = "project_id")
+    private Project project;
 
     @Column(nullable = false)
     private String fileName;
@@ -36,9 +40,9 @@ public class WorkOrderDocument extends BaseEntity {
     
     private long fileSize;
     
-    public WorkOrderDocument() {}
+    public Document() {}
     
-    public WorkOrderDocument(
+    public Document(
     		WorkOrder workOrder, 
     		String fileName, 
     		DocumentType documentType, 
@@ -56,6 +60,24 @@ public class WorkOrderDocument extends BaseEntity {
     	this.fileSize=fileSize;
     	
     }
+
+    public Document(
+            Project project,
+            String fileName,
+            DocumentType documentType,
+            byte[] documentData,
+            Worker uploadedByWorker,
+            String mimeType,
+            long fileSize)
+    {
+        this.project = project;
+        this.fileName = fileName;
+        this.documentType = documentType;
+        this.documentData = documentData;
+        this.uploadedByWorker = uploadedByWorker;
+        this.mimeType = mimeType;
+        this.fileSize = fileSize;
+    }
     
 	public int getDocumentID() {
 		return documentID;
@@ -64,6 +86,10 @@ public class WorkOrderDocument extends BaseEntity {
 	public WorkOrder getWorkOrder() {
 		return workOrder;
 	}
+
+    public Project getProject() {
+        return project;
+    }
 	
 	public String getFileName() {
 		return fileName;
@@ -96,6 +122,10 @@ public class WorkOrderDocument extends BaseEntity {
 	public void setWorkOrder(WorkOrder workOrder) {
 		this.workOrder = workOrder;
 	}
+
+    public void setProject(Project project) {
+        this.project = project;
+    }
 	public void setFileName(String fileName) {
 		this.fileName = fileName;
 	}

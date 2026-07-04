@@ -12,14 +12,14 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import com.atelicove.entities.WorkOrder;
-import com.atelicove.entities.WorkOrderDocument;
+import com.atelicove.entities.Document;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.DocumentType;
 
-class WorkOrderDocumentTest {
+class DocumentTest {
 
     @Test
-    void documentTypeIncludesExpandedWorkOrderDocumentTypes() {
+    void documentTypeIncludesExpandedDocumentTypes() {
         assertEquals(
                 List.of(
                         DocumentType.GENERAL,
@@ -39,7 +39,7 @@ class WorkOrderDocumentTest {
         Worker worker = new Worker();
         byte[] data = { 1, 2, 3 };
 
-        WorkOrderDocument document = new WorkOrderDocument(
+        Document document = new Document(
                 workOrder, "receipt.pdf", DocumentType.RECEIPT, data,
                 worker, "application/pdf", data.length);
 
@@ -55,7 +55,8 @@ class WorkOrderDocumentTest {
 
     @Test
     void settersUpdateDocumentDetails() {
-        WorkOrderDocument document = new WorkOrderDocument();
+        Document document = new Document();
+        Project project = new Project();
         WorkOrder workOrder = new WorkOrder();
         Worker worker = new Worker();
         byte[] data = { 4, 5 };
@@ -63,6 +64,7 @@ class WorkOrderDocumentTest {
 
         document.setDocumentID(20);
         document.setWorkOrder(workOrder);
+        document.setProject(project);
         document.setFileName("contract.txt");
         document.setDocumentType(DocumentType.CONTRACT);
         document.setDocumentData(data);
@@ -74,6 +76,7 @@ class WorkOrderDocumentTest {
         assertAll(
                 () -> assertEquals(20, document.getDocumentID()),
                 () -> assertSame(workOrder, document.getWorkOrder()),
+                () -> assertSame(project, document.getProject()),
                 () -> assertEquals("contract.txt", document.getFileName()),
                 () -> assertEquals(DocumentType.CONTRACT, document.getDocumentType()),
                 () -> assertArrayEquals(data, document.getDocumentData()),

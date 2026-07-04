@@ -38,7 +38,10 @@ const Documents = () => {
     setBusy(true);
     setMessage(null);
     try {
-      const blob = await apiDownload(`/workorders/${document.workOrderID}/documents/${document.documentID}/download`);
+      const ownerPath = document.projectID
+        ? `/projects/${document.projectID}/documents`
+        : `/workorders/${document.workOrderID}/documents`;
+      const blob = await apiDownload(`${ownerPath}/${document.documentID}/download`);
       const url = URL.createObjectURL(blob);
       const link = window.document.createElement('a');
       link.href = url;
@@ -57,7 +60,7 @@ const Documents = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Documents</Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>Browse uploaded work order documents.</Typography>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>Browse uploaded work order and project documents.</Typography>
       {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
 
       <TableContainer component={Paper}>
@@ -66,6 +69,7 @@ const Documents = () => {
             <TableRow>
               <TableCell>Document</TableCell>
               <TableCell>Type</TableCell>
+              <TableCell>Project</TableCell>
               <TableCell>Work Order</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Company</TableCell>
@@ -77,11 +81,12 @@ const Documents = () => {
           </TableHead>
           <TableBody>
             {documents.map(document => (
-              <TableRow key={document.documentID}>
+              <TableRow key={`${document.projectID ? 'project' : 'workorder'}-${document.projectID || document.workOrderID}-${document.documentID}`}>
                 <TableCell>{document.fileName}</TableCell>
                 <TableCell>{document.documentType?.replaceAll('_', ' ') || 'Not set'}</TableCell>
-                <TableCell>#{document.workOrderID}</TableCell>
-                <TableCell>{document.workOrderStatus?.replaceAll('_', ' ') || 'Not set'}</TableCell>
+                <TableCell>{document.projectID ? document.projectName || `Project #${document.projectID}` : 'No project'}</TableCell>
+                <TableCell>{document.workOrderID ? `#${document.workOrderID}` : 'No work order'}</TableCell>
+                <TableCell>{(document.projectStatus || document.workOrderStatus)?.replaceAll('_', ' ') || 'Not set'}</TableCell>
                 <TableCell>{document.companyName || 'No company'}</TableCell>
                 <TableCell>{document.uploadedBy || 'Not recorded'}</TableCell>
                 <TableCell>{formatDateTime(document.createdAt)}</TableCell>
@@ -95,12 +100,12 @@ const Documents = () => {
             ))}
             {!loading && !documents.length && (
               <TableRow>
-                <TableCell colSpan={9}>No documents have been uploaded.</TableCell>
+                <TableCell colSpan={10}>No documents have been uploaded.</TableCell>
               </TableRow>
             )}
             {loading && (
               <TableRow>
-                <TableCell colSpan={9}>Loading documents...</TableCell>
+                <TableCell colSpan={10}>Loading documents...</TableCell>
               </TableRow>
             )}
           </TableBody>
