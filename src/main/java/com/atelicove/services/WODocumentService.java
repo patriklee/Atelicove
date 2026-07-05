@@ -235,16 +235,8 @@ public class WODocumentService {
     }
 
     private boolean isAssignedToProject(Project project, int workerID) {
-        boolean assignedThroughTeam = project.getTeams().stream()
+        return project.getTeams().stream()
                 .flatMap(team -> team.getWorkers().stream())
-                .anyMatch(worker -> worker.getWorkerID() == workerID);
-
-        if (assignedThroughTeam) {
-            return true;
-        }
-
-        return project.getWorkOrders().stream()
-                .flatMap(workOrder -> workOrder.getWorkers().stream())
                 .anyMatch(worker -> worker.getWorkerID() == workerID);
     }
 

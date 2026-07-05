@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonGroup,
   Checkbox,
   Chip,
   Dialog,
@@ -44,6 +45,12 @@ const emptyWorker = {
   isAdmin: false,
 };
 
+const emptyTeam = {
+  teamID: '',
+  teamName: '',
+  workerIDs: [],
+};
+
 const WorkerFields = ({ form, onChange, mode }) => (
   <>
     <TextField label="First Name" name="firstName" value={form.firstName} onChange={onChange} fullWidth margin="normal" />
@@ -65,8 +72,12 @@ const ManageWorkers = () => {
   const { user } = useAuth();
   const { workerID: routeWorkerID } = useParams();
   const [workers, setWorkers] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
+  const [view, setView] = useState('workers');
   const [workerID, setWorkerID] = useState(routeWorkerID || '');
+  const [teamForm, setTeamForm] = useState(emptyTeam);
+  const [teamSummary, setTeamSummary] = useState(null);
   const [createForm, setCreateForm] = useState(emptyWorker);
   const [editForm, setEditForm] = useState(emptyWorker);
   const [password, setPassword] = useState('');
@@ -77,8 +88,9 @@ const ManageWorkers = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const fetchWorkers = useCallback(async () => {
-    const [data, workOrderData] = await Promise.all([
+    const [data, teamData, workOrderData] = await Promise.all([
       apiFetch('/workers'),
+      apiFetch('/teams'),
       apiFetch('/workorders/all-with-archived'),
     ]);
     const normalizedWorkers = data
@@ -86,6 +98,7 @@ const ManageWorkers = () => {
       .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
     setWorkers(normalizedWorkers);
+    setTeams(teamData);
     setWorkOrders(workOrderData);
   }, []);
 
@@ -116,6 +129,10 @@ const ManageWorkers = () => {
     [attachedWorkOrders]
   );
   const canDeleteSelectedWorker = Boolean(selectedWorker && attachedWorkOrders.length === 0);
+  const selectedTeam = useMemo(
+    () => teams.find(team => team.teamID === Number(teamForm.teamID)),
+    [teams, teamForm.teamID]
+  );
 
   useEffect(() => {
     if (selectedWorker) {
@@ -143,6 +160,58 @@ const ManageWorkers = () => {
   const handleEditChange = (event) => {
     const { name, value } = event.target;
     setEditForm(current => ({ ...current, [name]: value }));
+  };
+
+  const resetTeamForm = () => setTeamForm(emptyTeam);
+
+  const saveTeam = async (event) => {
+    event?.preventDefault?.();
+    if (!teamForm.teamName.trim() || !teamForm.workerIDs.length) {
+      showMessage('Team name and workers are required.', 'error');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await apiFetch(teamForm.teamID ? `/teams/${teamForm.teamID}` : '/teams', {
+        method: teamForm.teamID ? 'PUT' : 'POST',
+        body: JSON.stringify({
+          teamName: teamForm.teamName.trim(),
+          workerIDs: teamForm.workerIDs.map(Number),
+        }),
+      });
+      resetTeamForm();
+      await fetchWorkers();
+      showMessage('Team saved successfully.');
+    } catch (error) {
+      showMessage(error.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const loadTeamIntoForm = (team) => {
+    setTeamForm({
+      teamID: team.teamID,
+      teamName: team.teamName || '',
+      workerIDs: (team.workers || []).map(worker => worker.workerID),
+    });
+  };
+
+  const deleteTeam = async (team) => {
+    if (!team || !window.confirm(`Delete ${team.teamName || `team #${team.teamID}`}?`)) return;
+
+    setSaving(true);
+    try {
+      await apiFetch(`/teams/${team.teamID}`, { method: 'DELETE' });
+      if (Number(teamForm.teamID) === team.teamID) resetTeamForm();
+      await fetchWorkers();
+      showMessage('Team deleted successfully.');
+    } catch (error) {
+      showMessage(error.message, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const showMessage = (message, severity = 'success') => {
@@ -284,8 +353,17 @@ const ManageWorkers = () => {
     <Box sx={{ p: 3, pb: 8 }}>
       <Button onClick={() => navigate(-1)} sx={{ mb: 2 }}>Back</Button>
       <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Worker</Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>Create and edit active workers.</Typography>
+      <Typography color="text.secondary">Create and edit active workers and teams.</Typography>
+      <ButtonGroup variant="outlined" aria-label="Manage workers view" sx={{ mt: 1, mb: 3 }}>
+        <Button variant={view === 'workers' ? 'contained' : 'outlined'} onClick={() => setView('workers')}>
+          Workers
+        </Button>
+        <Button variant={view === 'teams' ? 'contained' : 'outlined'} onClick={() => setView('teams')}>
+          Teams
+        </Button>
+      </ButtonGroup>
 
+      {view === 'workers' && (
       <Grid container spacing={3} alignItems="stretch">
         <Grid item xs={12} md={6}>
           <Paper component="form" onSubmit={createWorker} sx={{ p: 3, height: '100%' }}>
@@ -417,6 +495,143 @@ const ManageWorkers = () => {
           </Paper>
         </Grid>
       </Grid>
+      )}
+
+      {view === 'teams' && (
+      <Grid container spacing={3} alignItems="stretch">
+        <Grid item xs={12} md={6}>
+          <Paper component="form" onSubmit={saveTeam} sx={{ p: 3, height: '100%' }}>
+            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>
+              {teamForm.teamID ? 'Edit Team' : 'Create Team'}
+            </Typography>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Edit team</InputLabel>
+              <Select
+                value={teamForm.teamID}
+                label="Edit team"
+                onChange={event => {
+                  const team = teams.find(item => item.teamID === Number(event.target.value));
+                  team ? loadTeamIntoForm(team) : resetTeamForm();
+                }}
+              >
+                <MenuItem value="">New team</MenuItem>
+                {teams.map(team => (
+                  <MenuItem key={team.teamID} value={team.teamID}>
+                    {team.teamName || `Team #${team.teamID}`}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="Team name"
+              fullWidth
+              margin="normal"
+              value={teamForm.teamName}
+              onChange={event => setTeamForm(current => ({ ...current, teamName: event.target.value }))}
+            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Workers</InputLabel>
+              <Select
+                multiple
+                value={teamForm.workerIDs}
+                label="Workers"
+                onChange={event => setTeamForm(current => ({ ...current, workerIDs: event.target.value }))}
+                renderValue={selected => selected.map(workerID => {
+                  const worker = workers.find(item => item.workerID === Number(workerID));
+                  return worker ? `${worker.firstName} ${worker.lastName}` : `Worker #${workerID}`;
+                }).join(', ')}
+              >
+                {workers.map(worker => (
+                  <MenuItem key={worker.workerID} value={worker.workerID}>
+                    {worker.firstName} {worker.lastName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+              <Button type="submit" variant="contained" disabled={saving || !teamForm.teamName.trim() || !teamForm.workerIDs.length}>
+                Save Team
+              </Button>
+              <Button variant="outlined" disabled={Boolean(teamForm.teamID)} onClick={resetTeamForm}>
+                New
+              </Button>
+              {selectedTeam && (
+                <Button variant="outlined" color="error" disabled={saving} onClick={() => deleteTeam(selectedTeam)}>
+                  Delete
+                </Button>
+              )}
+            </Stack>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, height: '100%' }}>
+            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Team Preview</Typography>
+            {selectedTeam ? (
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{selectedTeam.teamName}</Typography>
+                <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+                  {(selectedTeam.workers || []).map(worker => {
+                    const normalized = normalizeWorker(worker);
+                    return <Chip key={normalized.workerID} label={`${normalized.firstName} ${normalized.lastName}`} />;
+                  })}
+                </Stack>
+              </Box>
+            ) : (
+              <Typography color="text.secondary">Select a team from the list below to edit it.</Typography>
+            )}
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} sx={{ mt: 6 }}>
+          <Paper sx={{ p: 3 }}>
+            <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
+              <Table stickyHeader>
+                <TableHead>
+                  <TableTitleRow title="Teams" colSpan={4} />
+                  <TableRow>
+                    <TableCell>Team</TableCell>
+                    <TableCell>People</TableCell>
+                    <TableCell>Workers</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {teams.map(team => (
+                    <TableRow key={team.teamID}>
+                      <TableCell>
+                        <Button size="small" onClick={() => setTeamSummary(team)}>
+                          {team.teamName || `Team #${team.teamID}`}
+                        </Button>
+                      </TableCell>
+                      <TableCell>{(team.workers || []).length}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+                          {(team.workers || []).map(worker => {
+                            const normalized = normalizeWorker(worker);
+                            return <Chip key={normalized.workerID} size="small" label={`${normalized.firstName} ${normalized.lastName}`} />;
+                          })}
+                        </Stack>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button size="small" color="error" disabled={saving} onClick={() => deleteTeam(team)}>
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!teams.length && (
+                    <TableRow>
+                      <TableCell colSpan={4}>No teams found.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </Grid>
+      </Grid>
+      )}
 
       <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar(current => ({ ...current, open: false }))}>
         <Alert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</Alert>
@@ -449,6 +664,45 @@ const ManageWorkers = () => {
           >
             {pendingAction === 'delete' ? 'Delete' : 'Confirm'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(teamSummary)} onClose={() => setTeamSummary(null)} fullWidth maxWidth="sm">
+        <DialogTitle>{teamSummary?.teamName || 'Team Summary'}</DialogTitle>
+        <DialogContent dividers>
+          <TableContainer component={Paper} sx={{ mb: 2 }}>
+            <Table size="small">
+              <TableBody>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600, width: 180 }}>Team ID</TableCell>
+                  <TableCell>{teamSummary?.teamID || 'Not set'}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Team Name</TableCell>
+                  <TableCell>{teamSummary?.teamName || 'Not set'}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Worker IDs</TableCell>
+                  <TableCell>{(teamSummary?.workers || []).map(worker => normalizeWorker(worker).workerID).join(', ') || 'None'}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Project Started</TableCell>
+                  <TableCell>{formatDateTime(teamSummary?.projectStartedAt)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>Workers</Typography>
+          <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+            {(teamSummary?.workers || []).map(worker => {
+              const normalized = normalizeWorker(worker);
+              return <Chip key={normalized.workerID} label={`${normalized.firstName} ${normalized.lastName}`} />;
+            })}
+            {!(teamSummary?.workers || []).length && <Typography color="text.secondary">No workers on this team.</Typography>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTeamSummary(null)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>

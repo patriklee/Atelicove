@@ -12,6 +12,11 @@ import {
     Chip,
     Alert,
     Button,
+    ButtonGroup,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
     Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -26,12 +31,14 @@ const WorkOrders = ({
     const navigate = useNavigate();
     const { user } = useAuth();
     const [workOrders, setWorkOrders] = useState([]);
+    const [view, setView] = useState('active');
+    const [itemsDialogWorkOrder, setItemsDialogWorkOrder] = useState(null);
     const [orderBy, setOrderBy] = useState('workOrderID');
     const [order, setOrder] = useState('asc');
     const [error, setError] = useState('');
 
     useEffect(() => {
-        apiFetch('/workorders')
+        apiFetch('/workorders/all-with-archived')
             .then(setWorkOrders)
             .catch(err => setError(err.message));
     }, []);
@@ -59,6 +66,9 @@ const WorkOrders = ({
         }
         return 0;
     });
+    const visibleWorkOrders = sortedWorkOrders.filter(workOrder => (
+        !workOrder.archived && (view === 'draft' ? workOrder.status === 'DRAFT' : workOrder.status !== 'DRAFT')
+    ));
 
     const openWorkOrder = (workOrder) => {
         const assignedToUser = getWorkOrderWorkers(workOrder).some(worker => worker.workerID === user?.workerID);
@@ -73,7 +83,15 @@ const WorkOrders = ({
     return (
         <Box sx={{ p: 3 }}>
             <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{title}</Typography>
-            <Typography color="text.secondary" sx={{ mb: 3 }}>{subtitle}</Typography>
+            <Typography color="text.secondary">{subtitle}</Typography>
+            <ButtonGroup variant="outlined" aria-label="Work order view" sx={{ mt: 1, mb: 3 }}>
+                <Button variant={view === 'active' ? 'contained' : 'outlined'} onClick={() => setView('active')}>
+                    Active
+                </Button>
+                <Button variant={view === 'draft' ? 'contained' : 'outlined'} onClick={() => setView('draft')}>
+                    Draft
+                </Button>
+            </ButtonGroup>
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
             <TableContainer component={Paper}>
@@ -121,13 +139,14 @@ const WorkOrders = ({
                             </TableCell>
                             <TableCell>Start</TableCell>
                             <TableCell>Close</TableCell>
+                            <TableCell>Items</TableCell>
                             <TableCell>
                                 <TableSortLabel
                                     active={orderBy === 'actualPrice'}
                                     direction={orderBy === 'actualPrice' ? order : 'asc'}
                                     onClick={() => handleSort('actualPrice')}
                                 >
-                                    Actual Price
+                                    Price
                                 </TableSortLabel>
                             </TableCell>
                             <TableCell>Files</TableCell>
@@ -135,7 +154,7 @@ const WorkOrders = ({
                     </TableHead>
 
                     <TableBody>
-                        {sortedWorkOrders.map((wo) => (
+                        {visibleWorkOrders.map((wo) => (
                             <TableRow key={wo.workOrderID}>
                                 <TableCell>
                                     <Button
@@ -152,13 +171,57 @@ const WorkOrders = ({
                                 <TableCell><Chip label={formatStatus(wo.status)} size="small" /></TableCell>
                                 <TableCell>{formatDateTime(wo.startDateTime)}</TableCell>
                                 <TableCell>{formatDateTime(wo.endDateTime)}</TableCell>
+                                <TableCell>
+                                    <Button size="small" onClick={() => setItemsDialogWorkOrder(wo)}>
+                                        {wo.items?.length ?? 0}
+                                    </Button>
+                                </TableCell>
                                 <TableCell>{formatMoney(getWorkOrderActualPrice(wo))}</TableCell>
                                 <TableCell>{wo.fileNo ?? ''}</TableCell>
                             </TableRow>
                         ))}
+                        {!visibleWorkOrders.length && (
+                            <TableRow>
+                                <TableCell colSpan={9}>No {view} work orders found.</TableCell>
+                            </TableRow>
+                        )}
                     </TableBody>
                 </Table>
             </TableContainer>
+
+            <Dialog open={Boolean(itemsDialogWorkOrder)} onClose={() => setItemsDialogWorkOrder(null)} fullWidth maxWidth="sm">
+                <DialogTitle>Work Order #{itemsDialogWorkOrder?.workOrderID} Items</DialogTitle>
+                <DialogContent dividers>
+                    <TableContainer>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell>Item</TableCell>
+                                    <TableCell align="right">Quantity</TableCell>
+                                    <TableCell align="right">Price</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {(itemsDialogWorkOrder?.items || []).map(item => (
+                                    <TableRow key={item.workOrderItemID || item.itemName}>
+                                        <TableCell>{item.itemName || 'Item'}</TableCell>
+                                        <TableCell align="right">{item.quantity ?? 0}</TableCell>
+                                        <TableCell align="right">{formatMoney(item.price)}</TableCell>
+                                    </TableRow>
+                                ))}
+                                {!(itemsDialogWorkOrder?.items || []).length && (
+                                    <TableRow>
+                                        <TableCell colSpan={3}>No items are associated with this work order.</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setItemsDialogWorkOrder(null)}>Close</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

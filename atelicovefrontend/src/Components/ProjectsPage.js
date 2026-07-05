@@ -29,14 +29,13 @@ import {
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import ArchiveIcon from '@mui/icons-material/Archive';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import GroupsIcon from '@mui/icons-material/Groups';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import SaveIcon from '@mui/icons-material/Save';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../model';
 import { useAuth } from './AuthContext';
@@ -51,16 +50,11 @@ const emptyProjectForm = {
   associatedActiveProjectID: '',
 };
 
-const emptyTeamForm = {
-  teamID: '',
-  teamName: '',
-  workerIDs: [],
-};
-
 const emptyWorkOrderForm = {
   projectID: '',
   teamID: '',
   companyID: '',
+  existingWorkOrderID: '',
   comment: '',
 };
 
@@ -86,10 +80,12 @@ const normalizeProject = (project = {}) => ({
   projectStatus: project.projectStatus ?? 'DRAFT',
   comments: Array.isArray(project.comments) ? project.comments : [],
   actionItems: Array.isArray(project.actionItems) ? project.actionItems : [],
+  documents: Array.isArray(project.documents) ? project.documents : [],
   snapshots: Array.isArray(project.snapshots) ? project.snapshots : [],
   associatedActiveProject: project.associatedActiveProject || null,
   teams: Array.isArray(project.teams) ? project.teams : [],
   workOrders: Array.isArray(project.workOrders) ? project.workOrders : [],
+  draftWorkOrders: Array.isArray(project.draftWorkOrders) ? project.draftWorkOrders : [],
 });
 
 const normalizeTeam = (team = {}) => ({
@@ -112,17 +108,24 @@ const workerName = (worker) =>
 const formatMoney = (value) =>
   value === '' || value === null || value === undefined ? 'Not set' : `$${Number(value).toLocaleString()}`;
 
+const workOrderCost = (workOrder = {}) =>
+  (workOrder.items || []).reduce((total, item) => (
+    total + (Number(item.price) || 0) * (Number(item.quantity ?? 1) || 0)
+  ), 0);
+
+const projectWorkOrderCount = (project = {}) =>
+  (project.workOrders || []).length +
+  (project.draftWorkOrders || []).length ||
+  project.workOrderCount ||
+  project.draftWorkOrderCount ||
+  0;
+
 const projectPayload = (form) => ({
   projectName: form.projectName.trim() || null,
   description: form.description.trim() || null,
   budget: moneyOrBlank(form.budget),
   teamIDs: form.teamIDs.map(Number),
   associatedActiveProjectID: form.associatedActiveProjectID ? Number(form.associatedActiveProjectID) : null,
-});
-
-const teamPayload = (form) => ({
-  teamName: form.teamName.trim() || null,
-  workerIDs: form.workerIDs.map(Number),
 });
 
 const actionItemPayload = (form) => ({
@@ -134,45 +137,53 @@ const actionItemPayload = (form) => ({
 const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { projectID: routeProjectID } = useParams();
-  const [searchParams] = useSearchParams();
   const [projects, setProjects] = useState([]);
+  const [workOrders, setWorkOrders] = useState([]);
   const [teams, setTeams] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [projectForm, setProjectForm] = useState(emptyProjectForm);
-  const [teamForm, setTeamForm] = useState(emptyTeamForm);
   const [workOrderForm, setWorkOrderForm] = useState(emptyWorkOrderForm);
-  const [selectedDraftWorkOrderID, setSelectedDraftWorkOrderID] = useState('');
   const [actionItemForm, setActionItemForm] = useState(emptyActionItemForm);
   const [commentProjectID, setCommentProjectID] = useState('');
   const [commentType, setCommentType] = useState('');
   const [commentText, setCommentText] = useState('');
   const [snapshotDialog, setSnapshotDialog] = useState(null);
+  const [projectActionItemsDialog, setProjectActionItemsDialog] = useState(null);
+  const [projectWorkOrdersDialog, setProjectWorkOrdersDialog] = useState(null);
+  const [launchSignatureProject, setLaunchSignatureProject] = useState(null);
+  const [launchSignature, setLaunchSignature] = useState('');
   const [studioView, setStudioView] = useState('draft');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
   const isWorkerEdit = mode === 'worker-edit';
   const isProjectEdit = mode === 'edit' || isWorkerEdit;
+  const isProjectStudio = mode === 'active';
+  const isProjectStudioEditView = isProjectStudio && studioView === 'edit';
+  const isActiveProjectEditor = isProjectEdit || isProjectStudioEditView;
   const canManageProject = user?.isAdmin === true && !isWorkerEdit;
   const isStudioDraftView = mode === 'studio' && studioView === 'draft';
   const isStudioEditView = mode === 'studio' && studioView === 'edit';
-  const isEditorView = isProjectEdit || isStudioEditView;
+  const isEditorView = isProjectEdit || isStudioEditView || isProjectStudioEditView;
   const showCreationStudio = isStudioDraftView;
   const showAdminEditTools = showCreationStudio || (isEditorView && canManageProject);
-  const showProjectList = !isProjectEdit && mode !== 'studio';
+  const showProjectList = !isProjectEdit && mode !== 'studio' && !isProjectStudioEditView;
 
   const loadData = () => {
     setLoading(true);
     Promise.all([
       apiFetch('/projects/all-with-archived'),
+      apiFetch('/workorders'),
       apiFetch('/teams'),
       apiFetch('/workers'),
       apiFetch('/companies'),
     ])
-      .then(([projectData, teamData, workerData, companyData]) => {
+      .then(([projectData, workOrderData, teamData, workerData, companyData]) => {
         setProjects(projectData.map(normalizeProject));
+        setWorkOrders(workOrderData);
         setTeams(teamData.map(normalizeTeam));
         setWorkers(workerData.map(normalizeWorker));
         setCompanies(companyData.filter(company => !company.archived));
@@ -195,28 +206,55 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   }, [isProjectEdit, mode, projects, routeProjectID]);
 
   const selectedProject = projects.find(project => project.projectID === Number(projectForm.projectID));
-  const selectedTeam = teams.find(team => team.teamID === Number(teamForm.teamID));
   const selectedWorkOrderProject = projects.find(project => project.projectID === Number(workOrderForm.projectID));
   const selectedActionProject = projects.find(project => project.projectID === Number(actionItemForm.projectID));
   const activeProjectOptions = projects.filter(project => !project.archived && project.projectStatus === 'ACTIVE');
-  const selectedProjectDraftWorkOrders = (selectedWorkOrderProject?.workOrders || [])
-    .filter(workOrder => workOrder.status === 'DRAFT');
-  const selectedDraftWorkOrder = selectedProjectDraftWorkOrders
-    .find(workOrder => workOrder.workOrderID === Number(selectedDraftWorkOrderID));
+  const attachableWorkOrders = workOrders.filter(workOrder =>
+    !workOrder.archived &&
+    ['OPEN', 'IN_PROCESS'].includes(workOrder.status) &&
+    (!workOrder.project || workOrder.project.projectID === Number(workOrderForm.projectID))
+  );
   const projectWorkOrdersAreComplete = (project) =>
     Boolean(project) && (project.workOrders || []).every(workOrder => workOrder.status === 'COMPLETE');
+  const reviewProjects = projects.filter(project => !project.archived && project.projectStatus === 'IN_REVIEW');
+  const archiveProjects = projects.filter(project => !project.archived && project.projectStatus !== 'DRAFT');
+  const projectReadyToArchive = (project) =>
+    Boolean(project) && project.projectStatus === 'COMPLETED' && projectWorkOrdersAreComplete(project);
+  const associatedWorkOrdersFor = (project = {}) => [
+    ...(project.workOrders || []),
+    ...(project.draftWorkOrders || []),
+  ];
   const hasPricedItemsForStatuses = (project, statuses) =>
-    Boolean(project) && (project.workOrders || [])
+    Boolean(project) && [
+      ...(project.workOrders || []),
+      ...(project.draftWorkOrders || []),
+    ]
       .filter(workOrder => statuses.includes(workOrder.status))
       .some(workOrder => (workOrder.items || []).some(item => Number(item.price) > 0 && Number(item.quantity || 1) > 0));
-  const showProjectCostBox = isEditorView && selectedProject && (
+  const showProjectCostBox = isEditorView && selectedProject && !isStudioEditView && (
     (selectedProject.projectStatus === 'DRAFT' && hasPricedItemsForStatuses(selectedProject, ['DRAFT'])) ||
     (selectedProject.projectStatus === 'ACTIVE' && hasPricedItemsForStatuses(selectedProject, ['COMPLETE']))
   );
 
   const resetProjectForm = () => setProjectForm(emptyProjectForm);
-  const resetTeamForm = () => setTeamForm(emptyTeamForm);
   const resetActionItemForm = () => setActionItemForm(emptyActionItemForm);
+  const clearLoadedProject = () => {
+    resetProjectForm();
+    setWorkOrderForm(emptyWorkOrderForm);
+    resetActionItemForm();
+    setCommentProjectID('');
+    setCommentType('');
+    setCommentText('');
+  };
+
+  useEffect(() => {
+    if (!['studio', 'active'].includes(mode)) {
+      return;
+    }
+
+    setStudioView('draft');
+    clearLoadedProject();
+  }, [mode, location.state?.studioResetKey]);
 
   const loadProjectIntoForm = (project) => {
     setProjectForm({
@@ -229,9 +267,54 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     });
     setCommentProjectID(project.projectID);
     setWorkOrderForm(current => ({ ...current, projectID: project.projectID }));
-    setSelectedDraftWorkOrderID('');
     setActionItemForm(current => ({ ...current, projectID: project.projectID, actionItemID: '' }));
   };
+
+  const rememberProjectStudioSelection = (project) => {
+    if (!project || !isProjectStudioEditView) {
+      return;
+    }
+
+    navigate('/admin/projects/active', {
+      replace: true,
+      state: { projectStudioEditProjectID: project.projectID },
+    });
+  };
+
+  const openWorkOrderSummary = (project, workOrder) => {
+    if (!workOrder?.workOrderID || workOrder.status === 'DRAFT') {
+      return;
+    }
+
+    rememberProjectStudioSelection(project);
+    navigate(`/admin/workorders/${workOrder.workOrderID}`);
+  };
+
+  const editAssociatedWorkOrder = (project, workOrder) => {
+    if (!workOrder?.workOrderID || workOrder.status === 'DRAFT') {
+      return;
+    }
+
+    rememberProjectStudioSelection(project);
+    navigate(`/admin/my-assignments/${workOrder.workOrderID}`);
+  };
+
+  useEffect(() => {
+    if (mode !== 'active' || !projects.length || !location.state?.projectStudioEditProjectID) {
+      return;
+    }
+
+    const projectID = Number(location.state.projectStudioEditProjectID);
+    if (!projectID || Number(projectForm.projectID) === projectID) {
+      return;
+    }
+
+    const project = projects.find(item => item.projectID === projectID && ['ACTIVE', 'IN_REVIEW'].includes(item.projectStatus) && !item.archived);
+    if (project) {
+      loadProjectIntoForm(project);
+      setStudioView('edit');
+    }
+  }, [mode, projects, location.state?.projectStudioEditProjectID, projectForm.projectID]);
 
   useEffect(() => {
     if (!isProjectEdit || !projects.length) {
@@ -249,22 +332,6 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     }
   }, [isProjectEdit, projects, routeProjectID, projectForm.projectID]);
 
-  useEffect(() => {
-    if (mode !== 'studio' || !projects.length || isProjectEdit) {
-      return;
-    }
-
-    const projectID = Number(searchParams.get('projectId'));
-    if (!projectID || Number(projectForm.projectID) === projectID) {
-      return;
-    }
-
-    const project = projects.find(item => item.projectID === projectID);
-    if (project) {
-      loadProjectIntoForm(project);
-    }
-  }, [mode, isProjectEdit, projects, searchParams, projectForm.projectID]);
-
   const loadActionItemIntoForm = (project, actionItem) => {
     setActionItemForm({
       projectID: project.projectID,
@@ -272,14 +339,6 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       itemText: actionItem.itemText || '',
       assignedWorkerID: actionItem.assignedWorker?.workerID || '',
       assignedTeamID: actionItem.assignedTeam?.teamID || '',
-    });
-  };
-
-  const loadTeamIntoForm = (team) => {
-    setTeamForm({
-      teamID: team.teamID,
-      teamName: team.teamName || '',
-      workerIDs: (team.workers || []).map(worker => worker.workerID),
     });
   };
 
@@ -311,17 +370,23 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     }
   };
 
-  const saveTeam = async (event) => {
-    event.preventDefault();
+  const saveProjectTeamIDs = async (teamIDs) => {
+    if (!selectedProject) return;
+
     setSaving(true);
     setMessage(null);
     try {
-      const payload = teamPayload(teamForm);
-      const saved = teamForm.teamID
-        ? await apiFetch(`/teams/${teamForm.teamID}`, { method: 'PUT', body: JSON.stringify(payload) })
-        : await apiFetch('/teams', { method: 'POST', body: JSON.stringify(payload) });
-      setMessage({ severity: 'success', text: `Team ${saved.teamName || `#${saved.teamID}`} saved.` });
-      loadTeamIntoForm(normalizeTeam(saved));
+      const updated = await apiFetch(`/projects/${selectedProject.projectID}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...projectPayload(projectForm),
+          teamIDs: teamIDs.map(Number),
+        }),
+      });
+      const normalized = normalizeProject(updated);
+      setProjects(current => current.map(project => project.projectID === normalized.projectID ? normalized : project));
+      loadProjectIntoForm(normalized);
+      setMessage({ severity: 'success', text: 'Project teams updated.' });
       loadData();
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
@@ -330,22 +395,16 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     }
   };
 
-  const removeTeam = async () => {
-    if (!selectedTeam) return;
-    if (!window.confirm(`Delete ${selectedTeam.teamName || `team #${selectedTeam.teamID}`}?`)) return;
+  const addProjectTeam = async (teamID) => {
+    if (!teamID || !selectedProject) return;
+    const nextTeamIDs = Array.from(new Set([...projectForm.teamIDs.map(Number), Number(teamID)]));
+    await saveProjectTeamIDs(nextTeamIDs);
+  };
 
-    setSaving(true);
-    setMessage(null);
-    try {
-      await apiFetch(`/teams/${selectedTeam.teamID}`, { method: 'DELETE' });
-      setMessage({ severity: 'success', text: 'Team removed.' });
-      resetTeamForm();
-      loadData();
-    } catch (error) {
-      setMessage({ severity: 'error', text: error.message });
-    } finally {
-      setSaving(false);
-    }
+  const removeProjectTeam = async (teamID) => {
+    if (!selectedProject) return;
+    const nextTeamIDs = projectForm.teamIDs.map(Number).filter(id => id !== Number(teamID));
+    await saveProjectTeamIDs(nextTeamIDs);
   };
 
   const createAndAttachWorkOrder = async (event) => {
@@ -358,9 +417,11 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setMessage(null);
     try {
       const isDraftProject = selectedWorkOrderProject.projectStatus === 'DRAFT';
+      const attachesExisting = Boolean(workOrderForm.existingWorkOrderID);
       const updated = await apiFetch(`/projects/${selectedWorkOrderProject.projectID}/${isDraftProject ? 'draft-workorders' : 'workorders'}`, {
-        method: 'POST',
+        method: isDraftProject || !attachesExisting ? 'POST' : 'PUT',
         body: JSON.stringify({
+          workOrderID: attachesExisting ? Number(workOrderForm.existingWorkOrderID) : null,
           teamID: team?.teamID || null,
           companyID: company?.companyID || null,
           comment: workOrderForm.comment.trim(),
@@ -370,11 +431,12 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
       setMessage({
         severity: 'success',
-        text: `${isDraftProject ? 'Draft work order' : 'Work order'} created for ${team?.teamName || 'unassigned work'} in ${selectedWorkOrderProject.projectName || 'project'}.`,
+        text: attachesExisting
+          ? `${isDraftProject ? 'Draft planning copy' : 'Work order'} attached to ${selectedWorkOrderProject.projectName || 'project'}.`
+          : `${isDraftProject ? 'Draft work order' : 'Work order'} created for ${team?.teamName || 'unassigned work'} in ${selectedWorkOrderProject.projectName || 'project'}.`,
       });
       setProjects(current => current.map(project => project.projectID === normalized.projectID ? normalized : project));
       setWorkOrderForm(current => ({ ...emptyWorkOrderForm, projectID: current.projectID }));
-      setSelectedDraftWorkOrderID('');
       loadData();
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
@@ -383,16 +445,19 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     }
   };
 
-  const deleteSelectedDraftWorkOrder = async () => {
-    if (!selectedDraftWorkOrder) return;
-    if (!window.confirm(`Delete draft work order #${selectedDraftWorkOrder.workOrderID}?`)) return;
+  const removeAssociatedWorkOrder = async (project, workOrder) => {
+    if (!project || !workOrder) return;
+    const isDraftWorkOrder = workOrder.status === 'DRAFT';
+    const label = isDraftWorkOrder ? `draft work order #${workOrder.workOrderID}` : `work order #${workOrder.workOrderID}`;
+    if (!window.confirm(`Remove ${label} from ${project.projectName || 'this project'}?`)) return;
 
     setSaving(true);
     setMessage(null);
     try {
-      await apiFetch(`/workorders/${selectedDraftWorkOrder.workOrderID}/draft`, { method: 'DELETE' });
-      setSelectedDraftWorkOrderID('');
-      setMessage({ severity: 'success', text: 'Draft work order deleted.' });
+      await apiFetch(`/projects/${project.projectID}/${isDraftWorkOrder ? 'draft-workorders' : 'workorders'}/${workOrder.workOrderID}`, {
+        method: 'DELETE',
+      });
+      setMessage({ severity: 'success', text: `${isDraftWorkOrder ? 'Draft work order' : 'Work order'} removed from project.` });
       loadData();
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
@@ -403,13 +468,14 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
   const addComment = async (event) => {
     event.preventDefault();
-    if (!commentProjectID || !commentType || !commentText.trim()) return;
+    const projectID = isEditorView && selectedProject ? selectedProject.projectID : commentProjectID;
+    if (!projectID || !commentType || !commentText.trim()) return;
 
     const author = normalizeWorker(user);
     setSaving(true);
     setMessage(null);
     try {
-      await apiFetch(`/projects/${commentProjectID}/comments`, {
+      await apiFetch(`/projects/${projectID}/comments`, {
         method: 'POST',
         body: JSON.stringify({
           commentText: commentText.trim(),
@@ -513,12 +579,20 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     }
   };
 
-  const launchProject = async (project) => {
+  const requestLaunchProject = (project) => {
     if (!project) return;
-    if (project.associatedActiveProject) {
+    if (project.associatedActiveProject || (project.projectID === Number(projectForm.projectID) && projectForm.associatedActiveProjectID)) {
       setMessage({ severity: 'warning', text: 'Attached draft projects stay as draft references and cannot be launched.' });
       return;
     }
+
+    setLaunchSignatureProject(project);
+    setLaunchSignature('');
+  };
+
+  const launchProject = async () => {
+    const project = launchSignatureProject;
+    if (!project || !launchSignature.trim()) return;
 
     setSaving(true);
     setMessage(null);
@@ -527,8 +601,34 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
       setMessage({
         severity: 'success',
-        text: `${activated.projectName || `Project #${activated.projectID}`} launched.`,
+        text: `${activated.projectName || `Project #${activated.projectID}`} launched with signature.`,
       });
+      setLaunchSignatureProject(null);
+      setLaunchSignature('');
+      resetProjectForm();
+      setStudioView('draft');
+      loadData();
+    } catch (error) {
+      setMessage({ severity: 'error', text: error.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteDraftProject = async (project) => {
+    if (!project || project.projectStatus !== 'DRAFT') return;
+    if (!window.confirm(`Delete the entire draft ${project.projectName || `project #${project.projectID}`}? This cannot be undone.`)) return;
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      await apiFetch(`/projects/${project.projectID}/permanent`, { method: 'DELETE' });
+      setMessage({ severity: 'success', text: 'Draft project deleted.' });
+      resetProjectForm();
+      resetActionItemForm();
+      setCommentProjectID('');
+      setWorkOrderForm(emptyWorkOrderForm);
+      setStudioView('draft');
       loadData();
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
@@ -642,6 +742,88 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     }
     return 'General';
   };
+
+  const projectDetailsPanel = selectedProject && (
+    <Paper sx={{ p: 3, mb: 3 }}>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Project Details</Typography>
+      <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            {selectedProject.projectName || `Project #${selectedProject.projectID}`}
+          </Typography>
+          <Chip size="small" label={selectedProject.projectStatus} />
+        </Stack>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          {selectedProject.description || 'No description'}
+        </Typography>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 1 }}>
+          <Chip size="small" label={`Budget ${formatMoney(selectedProject.budget)}`} />
+          {selectedProject.projectStatus === 'DRAFT' ? (
+            <>
+              <Chip size="small" label={`Estimated ${formatMoney(selectedProject.estimatedCost)}`} />
+              <Chip size="small" label={`Difference ${formatMoney(selectedProject.budgetDifference)}`} />
+            </>
+          ) : (
+            <Chip size="small" label={`Actual ${formatMoney(selectedProject.actualCost)}`} />
+          )}
+        </Stack>
+
+        <Divider sx={{ my: 1 }} />
+        <Typography variant="caption" color="text.secondary">Teams</Typography>
+        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
+          {(selectedProject.teams || []).map(team => (
+            <Chip key={team.teamID} size="small" label={team.teamName || `Team #${team.teamID}`} />
+          ))}
+          {!(selectedProject.teams || []).length && <Typography variant="body2">None</Typography>}
+        </Stack>
+
+        <Divider sx={{ my: 1 }} />
+        <Typography variant="caption" color="text.secondary">Documents</Typography>
+        {(selectedProject.documents || []).map((document, index) => (
+          <Typography key={document.documentID || document.fileNo || document.fileName || index} variant="body2">
+            {document.originalFileName || document.fileName || `Document #${document.documentID || document.fileNo}`}
+          </Typography>
+        ))}
+        {!(selectedProject.documents || []).length && <Typography variant="body2">None</Typography>}
+
+        <Divider sx={{ my: 1 }} />
+        <Typography variant="caption" color="text.secondary">Work orders</Typography>
+        {[...(selectedProject.workOrders || []), ...(selectedProject.draftWorkOrders || [])].map(order => (
+          <Typography key={order.workOrderID} variant="body2">
+            #{order.workOrderID} - {order.status.replaceAll('_', ' ')} - {getWorkOrderWorkers(order).map(workerName).join(', ') || 'Unassigned'} - Cost {formatMoney(workOrderCost(order))}
+          </Typography>
+        ))}
+        {!(selectedProject.workOrders || []).length && !(selectedProject.draftWorkOrders || []).length && <Typography variant="body2">None</Typography>}
+
+        <Divider sx={{ my: 1 }} />
+        <Typography variant="caption" color="text.secondary">Action items</Typography>
+        {(selectedProject.actionItems || []).map(item => (
+          <Stack key={item.actionItemID} direction="row" spacing={1} alignItems="center" sx={{ py: 0.25 }}>
+            <Chip size="small" label={item.completed ? 'Done' : 'Open'} />
+            <Typography variant="body2" sx={{ textDecoration: item.completed ? 'line-through' : 'none' }}>
+              {item.itemText}
+            </Typography>
+          </Stack>
+        ))}
+        {!(selectedProject.actionItems || []).length && <Typography variant="body2">None</Typography>}
+
+        <Divider sx={{ my: 1 }} />
+        <Typography variant="caption" color="text.secondary">Comments</Typography>
+        {(selectedProject.comments || []).slice(-3).map(comment => (
+          <Box key={comment.projectCommentID} sx={{ mb: 1 }}>
+            <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
+              <Chip size="small" label={(comment.commentType || 'UNKNOWN').replaceAll('_', ' ')} />
+              <Typography variant="caption" color="text.secondary">
+                {workerName(normalizeWorker(comment.author || {}))} - {formatDateTime(comment.createdAt)}
+              </Typography>
+            </Stack>
+            <Typography variant="body2">{comment.commentText}</Typography>
+          </Box>
+        ))}
+        {!(selectedProject.comments || []).length && <Typography variant="body2">None</Typography>}
+      </Box>
+    </Paper>
+  );
 
   const isEditingActionItem = selectedProject && Number(actionItemForm.projectID) === selectedProject.projectID;
   const actionItemsPanel = selectedProject && (
@@ -777,13 +959,19 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{title}</Typography>
           <Typography color="text.secondary">{subtitle}</Typography>
-          {mode === 'studio' && (
-            <ButtonGroup variant="outlined" aria-label="Draft Studio view" sx={{ mt: 1 }}>
+          {(mode === 'studio' || mode === 'active') && (
+            <ButtonGroup variant="outlined" aria-label={`${title} view`} sx={{ mt: 1 }}>
               <Button
                 variant={studioView === 'draft' ? 'contained' : 'outlined'}
-                onClick={() => setStudioView('draft')}
+                onClick={() => {
+                  setStudioView('draft');
+                  if (mode === 'active') {
+                    clearLoadedProject();
+                    navigate('/admin/projects/active');
+                  }
+                }}
               >
-                Draft
+                {mode === 'active' ? 'Active' : 'Draft'}
               </Button>
               <Button
                 variant={studioView === 'edit' ? 'contained' : 'outlined'}
@@ -798,7 +986,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
       {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
 
-      {isProjectEdit && (
+      {isProjectEdit && !isProjectStudioEditView && (
         <Button variant="outlined" onClick={() => navigate(-1)} sx={{ mb: 2 }}>
           Back
         </Button>
@@ -826,6 +1014,8 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
         </Paper>
       )}
 
+      {isEditorView && selectedProject && projectDetailsPanel}
+
       {showAdminEditTools && (
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} lg={showCreationStudio ? 12 : 7}>
@@ -835,20 +1025,37 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 <Typography variant="h5" sx={{ fontWeight: 700 }}>Project</Typography>
               </Stack>
               <Grid container spacing={2}>
-                {isStudioEditView && (
+                {(isStudioEditView || isProjectStudioEditView) && (
                   <Grid item xs={12} md={6}>
                     <FormControl fullWidth>
-                      <InputLabel>Draft Project</InputLabel>
+                      <InputLabel>{isProjectStudioEditView ? 'Active Project' : 'Draft Project'}</InputLabel>
                       <Select
                         value={projectForm.projectID}
-                        label="Draft Project"
+                        label={isProjectStudioEditView ? 'Active Project' : 'Draft Project'}
                         onChange={event => {
                           const project = projects.find(item => item.projectID === Number(event.target.value));
-                          project ? loadProjectIntoForm(project) : resetProjectForm();
+                          if (project) {
+                            loadProjectIntoForm(project);
+                            if (isProjectStudioEditView) {
+                              navigate('/admin/projects/active', {
+                                replace: true,
+                                state: { projectStudioEditProjectID: project.projectID },
+                              });
+                            }
+                          } else {
+                            clearLoadedProject();
+                            if (isProjectStudioEditView) {
+                              navigate('/admin/projects/active', { replace: true });
+                            }
+                          }
                         }}
                       >
-                        <MenuItem value="">Select draft project</MenuItem>
-                        {projects.filter(project => !project.archived && project.projectStatus === 'DRAFT').map(project => (
+                        <MenuItem value="">{isProjectStudioEditView ? 'Select active project' : 'Select draft project'}</MenuItem>
+                        {projects.filter(project => !project.archived && (
+                          isProjectStudioEditView
+                            ? ['ACTIVE', 'IN_REVIEW'].includes(project.projectStatus)
+                            : project.projectStatus === 'DRAFT'
+                        )).map(project => (
                           <MenuItem key={project.projectID} value={project.projectID}>
                             {project.projectName || `Project #${project.projectID}`}
                           </MenuItem>
@@ -857,7 +1064,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     </FormControl>
                   </Grid>
                 )}
-                {isProjectEdit && (
+                {isActiveProjectEditor && (
                   <Grid item xs={12} md={6}>
                     <TextField label="Project ID" fullWidth value={projectForm.projectID ? `#${projectForm.projectID}` : ''} InputProps={{ readOnly: true }} />
                   </Grid>
@@ -868,9 +1075,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 <Grid item xs={12}>
                   <TextField label="Description" fullWidth multiline minRows={3} value={projectForm.description} onChange={event => setProjectForm(current => ({ ...current, description: event.target.value }))} />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={showCreationStudio ? 12 : 6}>
                   <TextField label="Budget" type="number" fullWidth value={projectForm.budget} onChange={event => setProjectForm(current => ({ ...current, budget: event.target.value }))} />
                 </Grid>
+                {!showCreationStudio && (
                 <Grid item xs={12} md={6}>
                   <TextField
                     label={selectedProject?.projectStatus === 'ACTIVE' ? 'Actual Cost' : 'Estimated Cost'}
@@ -881,6 +1089,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     InputProps={{ readOnly: true }}
                   />
                 </Grid>
+                )}
                 <Grid item xs={12}>
                   <FormControl fullWidth>
                     <InputLabel>Teams</InputLabel>
@@ -927,21 +1136,32 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   New
                   </Button>
                 ) : (
-                  <Button type="submit" variant="contained" startIcon={<SaveIcon />} disabled={saving || (isStudioEditView && !selectedProject)}>
+                  <Button type="submit" variant="contained" startIcon={<SaveIcon />} disabled={saving || ((isStudioEditView || isProjectStudioEditView) && !selectedProject)}>
                     Save
                   </Button>
                 )}
-                {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && !selectedProject.associatedActiveProject && (
-                  <Button variant="contained" startIcon={<RocketLaunchIcon />} disabled={saving} onClick={() => launchProject(selectedProject)}>
-                    Launch
+                {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && (
+                  <Button
+                    variant="contained"
+                    startIcon={<RocketLaunchIcon />}
+                    disabled={saving || Boolean(selectedProject.associatedActiveProject || projectForm.associatedActiveProjectID)}
+                    onClick={() => requestLaunchProject(selectedProject)}
+                  >
+                    Launch Project
                   </Button>
                 )}
-                {isProjectEdit && selectedProject?.projectStatus === 'ACTIVE' && (
-                  <Button variant="outlined" color="warning" startIcon={<ArchiveIcon />} disabled={saving} onClick={() => archiveProject(selectedProject)}>
-                    Archive
+                {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    disabled={saving}
+                    onClick={() => deleteDraftProject(selectedProject)}
+                  >
+                    Delete
                   </Button>
                 )}
-                {isProjectEdit && selectedProject?.projectStatus === 'ACTIVE' && (
+                {isActiveProjectEditor && selectedProject?.projectStatus === 'ACTIVE' && (
                   <Button
                     variant="contained"
                     color="success"
@@ -952,9 +1172,14 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   </Button>
                 )}
               </Stack>
-              {isProjectEdit && selectedProject?.projectStatus === 'ACTIVE' && !projectWorkOrdersAreComplete(selectedProject) && (
+              {isActiveProjectEditor && selectedProject?.projectStatus === 'ACTIVE' && !projectWorkOrdersAreComplete(selectedProject) && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                   All work orders must be complete before this project can be submitted for review.
+                </Typography>
+              )}
+              {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && selectedProject.associatedActiveProject && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  Attached draft projects cannot be launched as new active projects.
                 </Typography>
               )}
             </Paper>
@@ -962,52 +1187,44 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
           {isEditorView && selectedProject && (
           <Grid item xs={12} lg={5}>
-            <Paper component="form" onSubmit={saveTeam} sx={{ p: 3, height: '100%' }}>
+            <Paper sx={{ p: 3, height: '100%' }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                 <GroupsIcon color="primary" />
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>Team</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>Project Teams</Typography>
               </Stack>
               <FormControl fullWidth margin="normal">
-                <InputLabel>Edit team</InputLabel>
+                <InputLabel>Add existing team</InputLabel>
                 <Select
-                  value={teamForm.teamID}
-                  label="Edit team"
-                  onChange={event => {
-                    const team = teams.find(item => item.teamID === Number(event.target.value));
-                    team ? loadTeamIntoForm(team) : resetTeamForm();
-                  }}
+                  value=""
+                  label="Add existing team"
+                  onChange={event => addProjectTeam(event.target.value)}
                 >
-                  <MenuItem value="">New team</MenuItem>
-                  {teams.map(team => (
+                  <MenuItem value="">Select team</MenuItem>
+                  {teams.filter(team => !projectForm.teamIDs.map(Number).includes(team.teamID)).map(team => (
                     <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
-              <TextField label="Team name" fullWidth margin="normal" value={teamForm.teamName} onChange={event => setTeamForm(current => ({ ...current, teamName: event.target.value }))} />
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Workers</InputLabel>
-                <Select
-                  multiple
-                  value={teamForm.workerIDs}
-                  label="Workers"
-                  onChange={event => setTeamForm(current => ({ ...current, workerIDs: event.target.value }))}
-                  renderValue={selected => selected.map(workerID => workerName(workers.find(worker => worker.workerID === Number(workerID)) || {})).join(', ')}
-                >
-                  {workers.map(worker => (
-                    <MenuItem key={worker.workerID} value={worker.workerID}>{workerName(worker)}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                <Button type="submit" variant="contained" startIcon={<SaveIcon />} disabled={saving || teamForm.workerIDs.length === 0}>
-                  Save
-                </Button>
-                <Button variant="outlined" startIcon={<AddIcon />} onClick={resetTeamForm}>
-                  New
-                </Button>
-                <Button variant="outlined" color="error" startIcon={<DeleteIcon />} disabled={!selectedTeam || saving} onClick={removeTeam}>
-                  Delete
-                </Button>
+              <Stack spacing={2} sx={{ mt: 2 }}>
+                {(selectedProject.teams || []).map(team => (
+                  <Box key={team.teamID} sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 2 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{team.teamName || `Team #${team.teamID}`}</Typography>
+                      <Button size="small" color="error" disabled={saving} onClick={() => removeProjectTeam(team.teamID)}>
+                        Remove
+                      </Button>
+                    </Stack>
+                    <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+                      {(team.workers || []).map(worker => (
+                        <Chip key={worker.workerID} size="small" label={workerName(normalizeWorker(worker))} />
+                      ))}
+                      {!(team.workers || []).length && <Typography variant="body2" color="text.secondary">No workers</Typography>}
+                    </Stack>
+                  </Box>
+                ))}
+                {!(selectedProject.teams || []).length && (
+                  <Typography variant="body2" color="text.secondary">No teams are attached to this project.</Typography>
+                )}
               </Stack>
             </Paper>
           </Grid>
@@ -1017,24 +1234,27 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
           <Grid item xs={12} lg={7}>
             <Paper component="form" onSubmit={createAndAttachWorkOrder} sx={{ p: 3, height: '100%' }}>
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
-                {selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'Create Work Order For Project' : 'Create Draft Work Order For Team'}
+                {selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'Work Orders For Project' : 'Draft Work Orders For Project'}
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth>
-                    <InputLabel>Project</InputLabel>
+                    <InputLabel>Attach existing work order</InputLabel>
                     <Select
-                      value={workOrderForm.projectID}
-                      label="Project"
-                      disabled={isEditorView}
-                      onChange={event => {
-                        setWorkOrderForm(current => ({ ...current, projectID: event.target.value }));
-                        setSelectedDraftWorkOrderID('');
-                      }}
+                      value={workOrderForm.existingWorkOrderID}
+                      label="Attach existing work order"
+                      onChange={event => setWorkOrderForm(current => ({
+                        ...current,
+                        existingWorkOrderID: event.target.value,
+                        teamID: event.target.value ? '' : current.teamID,
+                        companyID: event.target.value ? '' : current.companyID,
+                      }))}
                     >
-                      <MenuItem value="">No project</MenuItem>
-                      {(isEditorView && selectedProject ? [selectedProject] : projects.filter(project => !project.archived && project.projectStatus === 'DRAFT')).map(project => (
-                        <MenuItem key={project.projectID} value={project.projectID}>{project.projectName || `Project #${project.projectID}`}</MenuItem>
+                      <MenuItem value="">Create new</MenuItem>
+                      {attachableWorkOrders.map(workOrder => (
+                        <MenuItem key={workOrder.workOrderID} value={workOrder.workOrderID}>
+                          #{workOrder.workOrderID} - {workOrder.company?.companyName || 'No company'} ({workOrder.status.replaceAll('_', ' ')})
+                        </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
@@ -1042,7 +1262,12 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth>
                     <InputLabel>Team</InputLabel>
-                    <Select value={workOrderForm.teamID} label="Team" onChange={event => setWorkOrderForm(current => ({ ...current, teamID: event.target.value }))}>
+                    <Select
+                      value={workOrderForm.teamID}
+                      label="Team"
+                      disabled={Boolean(workOrderForm.existingWorkOrderID)}
+                      onChange={event => setWorkOrderForm(current => ({ ...current, teamID: event.target.value }))}
+                    >
                       <MenuItem value="">{selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'No team selected (open)' : 'No team selected'}</MenuItem>
                       {teams.map(team => (
                         <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>
@@ -1053,49 +1278,18 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth>
                     <InputLabel>Company</InputLabel>
-                    <Select value={workOrderForm.companyID} label="Company" onChange={event => setWorkOrderForm(current => ({ ...current, companyID: event.target.value }))}>
+                    <Select
+                      value={workOrderForm.companyID}
+                      label="Company"
+                      disabled={Boolean(workOrderForm.existingWorkOrderID)}
+                      onChange={event => setWorkOrderForm(current => ({ ...current, companyID: event.target.value }))}
+                    >
                       <MenuItem value="">No company selected</MenuItem>
                       {companies.map(company => (
                         <MenuItem key={company.companyID} value={company.companyID}>{company.companyName || `Company #${company.companyID}`}</MenuItem>
                       ))}
                     </Select>
                   </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth disabled={!selectedWorkOrderProject || !selectedProjectDraftWorkOrders.length}>
-                    <InputLabel>Edit draft work order</InputLabel>
-                    <Select
-                      value={selectedDraftWorkOrderID}
-                      label="Edit draft work order"
-                      onChange={event => setSelectedDraftWorkOrderID(event.target.value)}
-                    >
-                      <MenuItem value="">Select draft</MenuItem>
-                      {selectedProjectDraftWorkOrders.map(workOrder => (
-                        <MenuItem key={workOrder.workOrderID} value={workOrder.workOrderID}>
-                          #{workOrder.workOrderID} - {workOrder.company?.companyName || 'No company'}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 1 }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      disabled={!selectedDraftWorkOrder}
-                      onClick={() => navigate(`/admin/my-assignments/${selectedDraftWorkOrder.workOrderID}`)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="error"
-                      disabled={!selectedDraftWorkOrder || saving}
-                      onClick={deleteSelectedDraftWorkOrder}
-                    >
-                      Delete
-                    </Button>
-                  </Stack>
                 </Grid>
                 <Grid item xs={12}>
                   <TextField label={selectedWorkOrderProject?.projectStatus === 'DRAFT' ? 'Draft work order note' : 'Work order note'} fullWidth multiline minRows={2} value={workOrderForm.comment} onChange={event => setWorkOrderForm(current => ({ ...current, comment: event.target.value }))} />
@@ -1109,32 +1303,65 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 disabled={
                   saving ||
                   !workOrderForm.projectID ||
-                  (selectedWorkOrderProject?.projectStatus === 'DRAFT' && !workOrderForm.teamID) ||
+                  (selectedWorkOrderProject?.projectStatus === 'DRAFT' && !workOrderForm.teamID && !workOrderForm.existingWorkOrderID) ||
                   !['DRAFT', 'ACTIVE'].includes(selectedWorkOrderProject?.projectStatus)
                 }
               >
-                {selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'Create Work Order' : 'Create Draft'}
+                {workOrderForm.existingWorkOrderID
+                  ? (selectedWorkOrderProject?.projectStatus === 'DRAFT' ? 'Create Draft Copy' : 'Attach Work Order')
+                  : (selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'Create Work Order' : 'Create Draft')}
               </Button>
               {selectedWorkOrderProject && (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="subtitle2">Associated Work Orders</Typography>
-                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-                    {(selectedWorkOrderProject.workOrders || []).map(workOrder => (
-                      <Button
-                        key={workOrder.workOrderID}
-                        size="small"
-                        variant="outlined"
-                        onClick={() => navigate(workOrder.status === 'DRAFT'
-                          ? `/admin/my-assignments/${workOrder.workOrderID}`
-                          : `/admin/workorders/${workOrder.workOrderID}`)}
-                      >
-                        #{workOrder.workOrderID} {workOrder.company?.companyName || 'No company'} ({workOrder.status.replaceAll('_', ' ')})
-                      </Button>
-                    ))}
-                    {!(selectedWorkOrderProject.workOrders || []).length && (
-                      <Typography variant="body2" color="text.secondary">No work orders for this project.</Typography>
-                    )}
-                  </Stack>
+                  <TableContainer sx={{ mt: 1 }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Work Order</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell>Company</TableCell>
+                          <TableCell>Workers</TableCell>
+                          <TableCell align="right">Cost</TableCell>
+                          <TableCell align="right">Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {associatedWorkOrdersFor(selectedWorkOrderProject).map(workOrder => (
+                          <TableRow key={`${workOrder.status || 'UNKNOWN'}-${workOrder.workOrderID}`}>
+                            <TableCell>
+                              {workOrder.status === 'DRAFT' ? (
+                                `#${workOrder.workOrderID}`
+                              ) : (
+                                <Button size="small" onClick={() => openWorkOrderSummary(selectedWorkOrderProject, workOrder)} sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}>
+                                  #{workOrder.workOrderID}
+                                </Button>
+                              )}
+                            </TableCell>
+                            <TableCell>{(workOrder.status || 'UNKNOWN').replaceAll('_', ' ')}</TableCell>
+                            <TableCell>{workOrder.company?.companyName || workOrder.plannedCompanyName || 'No company'}</TableCell>
+                            <TableCell>{getWorkOrderWorkers(workOrder).map(workerName).join(', ') || 'Unassigned'}</TableCell>
+                            <TableCell align="right">{formatMoney(workOrderCost(workOrder))}</TableCell>
+                            <TableCell align="right">
+                              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                <Button size="small" variant="outlined" disabled={workOrder.status === 'DRAFT'} onClick={() => editAssociatedWorkOrder(selectedWorkOrderProject, workOrder)}>
+                                  Edit
+                                </Button>
+                                <Button size="small" variant="outlined" color="error" disabled={saving} onClick={() => removeAssociatedWorkOrder(selectedWorkOrderProject, workOrder)}>
+                                  Remove
+                                </Button>
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {!associatedWorkOrdersFor(selectedWorkOrderProject).length && (
+                          <TableRow>
+                            <TableCell colSpan={6}>No work orders for this project.</TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
                 </Box>
               )}
             </Paper>
@@ -1146,15 +1373,6 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
             <Paper component="form" onSubmit={addComment} sx={{ p: 3, height: '100%' }}>
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Project Comment</Typography>
               <FormControl fullWidth margin="normal">
-                <InputLabel>Project</InputLabel>
-                <Select value={commentProjectID} label="Project" disabled={isEditorView} onChange={event => setCommentProjectID(event.target.value)}>
-                  <MenuItem value="">No project</MenuItem>
-                  {(isEditorView && selectedProject ? [selectedProject] : projects.filter(project => !project.archived && project.projectStatus !== 'COMPLETED')).map(project => (
-                    <MenuItem key={project.projectID} value={project.projectID}>{project.projectName || `Project #${project.projectID}`}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth margin="normal">
                 <InputLabel>Comment type</InputLabel>
                 <Select value={commentType} label="Comment type" onChange={event => setCommentType(event.target.value)}>
                   <MenuItem value="">Select type</MenuItem>
@@ -1164,7 +1382,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 </Select>
               </FormControl>
               <TextField label="Comment" fullWidth multiline minRows={4} margin="normal" value={commentText} onChange={event => setCommentText(event.target.value)} />
-              <Button type="submit" variant="contained" disabled={saving || !commentProjectID || !commentType || !commentText.trim()}>
+              <Button type="submit" variant="contained" disabled={saving || !(isEditorView && selectedProject ? selectedProject.projectID : commentProjectID) || !commentType || !commentText.trim()}>
                 Add Comment
               </Button>
             </Paper>
@@ -1208,10 +1426,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     <TableCell>
                       <Button
                         size="small"
-                        onClick={() => {
-                          loadProjectIntoForm(project);
-                          setStudioView('edit');
-                        }}
+                        onClick={() => navigate(`/admin/projects/${project.projectID}`)}
                         sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}
                       >
                         {project.projectName || `Project #${project.projectID}`}
@@ -1221,7 +1436,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     <TableCell>{formatMoney(project.budget)}</TableCell>
                     <TableCell>{formatMoney(project.estimatedCost)}</TableCell>
                     <TableCell>{(project.teams || []).length}</TableCell>
-                    <TableCell>{(project.workOrders || []).length || project.workOrderCount || 0}</TableCell>
+                    <TableCell>{(project.draftWorkOrders || []).length || project.draftWorkOrderCount || 0}</TableCell>
                     <TableCell>{formatDateTime(project.lastModifiedAt)}</TableCell>
                   </TableRow>
                 ))}
@@ -1237,6 +1452,102 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       )}
 
       {isEditorView && actionItemsPanel}
+
+      {isProjectStudioEditView && (
+        <Grid container spacing={3} sx={{ mt: 3, mb: 3 }}>
+          <Grid item xs={12} lg={6}>
+            <Paper sx={{ p: 3, height: '100%' }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>Review Projects</Typography>
+                <Chip label={`${reviewProjects.length} waiting`} />
+              </Stack>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Project</TableCell>
+                      <TableCell>Work Orders</TableCell>
+                      <TableCell>Updated</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {reviewProjects.map(project => (
+                      <TableRow key={project.projectID}>
+                        <TableCell>
+                          <Button size="small" onClick={() => navigate(`/admin/projects/${project.projectID}`)} sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}>
+                            {project.projectName || `Project #${project.projectID}`}
+                          </Button>
+                        </TableCell>
+                        <TableCell>{(project.workOrders || []).length || project.workOrderCount || 0}</TableCell>
+                        <TableCell>{formatDateTime(project.lastModifiedAt)}</TableCell>
+                        <TableCell align="right">
+                          <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Button size="small" variant="contained" color="success" disabled={saving} onClick={() => approveProject(project)}>
+                              Approve
+                            </Button>
+                            <Button size="small" variant="outlined" color="error" disabled={saving} onClick={() => denyProject(project)}>
+                              Reject
+                            </Button>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!reviewProjects.length && (
+                      <TableRow>
+                        <TableCell colSpan={4}>No projects are waiting for review.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} lg={6}>
+            <Paper sx={{ p: 3, height: '100%' }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Projects</Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Project</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Start</TableCell>
+                      <TableCell>Completion</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {archiveProjects.map(project => (
+                      <TableRow key={project.projectID}>
+                        <TableCell>
+                          <Button size="small" onClick={() => navigate(`/admin/projects/${project.projectID}`)} sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}>
+                            {project.projectName || `Project #${project.projectID}`}
+                          </Button>
+                        </TableCell>
+                        <TableCell>{project.projectStatus.replaceAll('_', ' ')}</TableCell>
+                        <TableCell>{formatDateTime(project.activatedAt || project.projectStartedAt || project.startedAt)}</TableCell>
+                        <TableCell>{formatDateTime(project.completedAt)}</TableCell>
+                        <TableCell align="right">
+                          <Button size="small" variant="outlined" color="warning" disabled={saving || !projectReadyToArchive(project)} onClick={() => archiveProject(project)}>
+                            Archive
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!archiveProjects.length && (
+                      <TableRow>
+                        <TableCell colSpan={5}>No projects are available for archiving.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+        </Grid>
+      )}
 
       {showProjectList && (
       <Paper sx={{ p: 3 }}>
@@ -1260,7 +1571,6 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 <TableCell>Comments</TableCell>
                 <TableCell>Action Items</TableCell>
                 <TableCell>Updated</TableCell>
-                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1270,7 +1580,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     {mode === 'active' || isStudioEditView ? (
                       <Button
                         size="small"
-                        onClick={() => navigate(`/admin/projects/${project.projectID}/edit`)}
+                        onClick={() => navigate(`/admin/projects/${project.projectID}`)}
                         sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}
                       >
                         {project.projectName || `Project #${project.projectID}`}
@@ -1305,7 +1615,13 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     </Stack>
                   </TableCell>
                   <TableCell>
-                    {(project.workOrders || []).length || project.workOrderCount || 0}
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setProjectWorkOrdersDialog(project)}
+                    >
+                      {projectWorkOrderCount(project)}
+                    </Button>
                   </TableCell>
                   {mode === 'active' && (
                     <TableCell>
@@ -1328,37 +1644,21 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     </TableCell>
                   )}
                   <TableCell>{(project.comments || []).length}</TableCell>
-                  <TableCell>{(project.actionItems || []).filter(item => item.completed).length}/{(project.actionItems || []).length}</TableCell>
-                  <TableCell>{formatDateTime(project.lastModifiedAt)}</TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      {mode !== 'active' && project.projectStatus === 'DRAFT' && !project.associatedActiveProject && (
-                        <Button size="small" variant="contained" startIcon={<RocketLaunchIcon />} disabled={saving} onClick={() => launchProject(project)}>
-                          Launch
-                        </Button>
-                      )}
-                      {mode === 'active' && project.projectStatus === 'IN_REVIEW' && (
-                        <>
-                          <Button size="small" variant="contained" color="success" disabled={saving} onClick={() => approveProject(project)}>
-                            Approve
-                          </Button>
-                          <Button size="small" variant="outlined" color="error" disabled={saving} onClick={() => denyProject(project)}>
-                            Deny
-                          </Button>
-                        </>
-                      )}
-                      {isStudioEditView && (
-                        <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => navigate(`/admin/projects/${project.projectID}/edit`)}>
-                          Edit
-                        </Button>
-                      )}
-                    </Stack>
+                  <TableCell>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setProjectActionItemsDialog(project)}
+                    >
+                      {(project.actionItems || []).filter(item => item.completed).length}/{(project.actionItems || []).length}
+                    </Button>
                   </TableCell>
+                  <TableCell>{formatDateTime(project.lastModifiedAt)}</TableCell>
                 </TableRow>
               ))}
               {!visibleProjects.length && (
                 <TableRow>
-                  <TableCell colSpan={mode === 'active' ? 11 : 10}>No projects found.</TableCell>
+                  <TableCell colSpan={mode === 'active' ? 10 : 9}>No projects found.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -1367,68 +1667,121 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       </Paper>
       )}
 
-      {isEditorView && selectedProject && (
-        <Paper sx={{ p: 3, mt: 3 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Project Details</Typography>
-          <Grid container spacing={2}>
-            {[selectedProject].map(project => (
-              <Grid item xs={12} key={project.projectID}>
-                <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 2, height: '100%' }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{project.projectName || `Project #${project.projectID}`}</Typography>
-                    <Chip size="small" label={project.projectStatus} />
-                  </Stack>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{project.description || 'No description'}</Typography>
-                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 1 }}>
-                    <Chip size="small" label={`Budget ${formatMoney(project.budget)}`} />
-                    {project.projectStatus === 'DRAFT' ? (
-                      <>
-                        <Chip size="small" label={`Estimated ${formatMoney(project.estimatedCost)}`} />
-                        <Chip size="small" label={`Difference ${formatMoney(project.budgetDifference)}`} />
-                      </>
-                    ) : (
-                      <Chip size="small" label={`Actual ${formatMoney(project.actualCost)}`} />
-                    )}
-                  </Stack>
-                  <Divider sx={{ my: 1 }} />
-                  <Typography variant="caption" color="text.secondary">Work orders</Typography>
-                  {(project.workOrders || []).map(order => (
-                    <Typography key={order.workOrderID} variant="body2">
-                      #{order.workOrderID} - {order.status} - {getWorkOrderWorkers(order).map(workerName).join(', ') || 'Unassigned'}
-                    </Typography>
-                  ))}
-                  {!(project.workOrders || []).length && <Typography variant="body2">None</Typography>}
-                  <Divider sx={{ my: 1 }} />
-                  <Typography variant="caption" color="text.secondary">Action items</Typography>
-                  {(project.actionItems || []).map(item => (
-                    <Stack key={item.actionItemID} direction="row" spacing={1} alignItems="center" sx={{ py: 0.25 }}>
-                      <Chip size="small" label={item.completed ? 'Done' : 'Open'} />
-                      <Typography variant="body2" sx={{ textDecoration: item.completed ? 'line-through' : 'none' }}>
-                        {item.itemText}
-                      </Typography>
-                    </Stack>
-                  ))}
-                  {!(project.actionItems || []).length && <Typography variant="body2">None</Typography>}
-                  <Divider sx={{ my: 1 }} />
-                  <Typography variant="caption" color="text.secondary">Comments</Typography>
-                  {(project.comments || []).slice(-3).map(comment => (
-                    <Box key={comment.projectCommentID} sx={{ mb: 1 }}>
-                      <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
-                        <Chip size="small" label={(comment.commentType || 'UNKNOWN').replaceAll('_', ' ')} />
-                        <Typography variant="caption" color="text.secondary">
-                          {workerName(normalizeWorker(comment.author || {}))} - {formatDateTime(comment.createdAt)}
-                        </Typography>
-                      </Stack>
-                      <Typography variant="body2">{comment.commentText}</Typography>
-                    </Box>
-                  ))}
-                  {!(project.comments || []).length && <Typography variant="body2">None</Typography>}
-                </Box>
-              </Grid>
-            ))}
-          </Grid>
-        </Paper>
-      )}
+      <Dialog open={Boolean(launchSignatureProject)} onClose={() => setLaunchSignatureProject(null)} fullWidth maxWidth="sm">
+        <DialogTitle>Launch Project Signature</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
+              A signature is required before this draft can be launched as an active project.
+            </Typography>
+            <TextField
+              label="Signature"
+              fullWidth
+              value={launchSignature}
+              onChange={event => setLaunchSignature(event.target.value)}
+              autoFocus
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLaunchSignatureProject(null)} disabled={saving}>Cancel</Button>
+          <Button variant="contained" startIcon={<RocketLaunchIcon />} disabled={saving || !launchSignature.trim()} onClick={launchProject}>
+            Launch Project
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(projectActionItemsDialog)} onClose={() => setProjectActionItemsDialog(null)} fullWidth maxWidth="md">
+        <DialogTitle>{projectActionItemsDialog?.projectName || 'Project'} Action Items</DialogTitle>
+        <DialogContent dividers>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Action Item</TableCell>
+                  <TableCell>Assigned To</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(projectActionItemsDialog?.actionItems || []).map(item => (
+                  <TableRow key={item.actionItemID}>
+                    <TableCell>
+                      <Chip size="small" color={item.completed ? 'success' : 'default'} label={item.completed ? 'Done' : 'Open'} />
+                    </TableCell>
+                    <TableCell>{item.itemText || 'Untitled action item'}</TableCell>
+                    <TableCell>
+                      {item.assignedWorker
+                        ? workerName(normalizeWorker(item.assignedWorker))
+                        : item.assignedTeam?.teamName || 'General'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!(projectActionItemsDialog?.actionItems || []).length && (
+                  <TableRow>
+                    <TableCell colSpan={3}>No action items for this project.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProjectActionItemsDialog(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(projectWorkOrdersDialog)} onClose={() => setProjectWorkOrdersDialog(null)} fullWidth maxWidth="md">
+        <DialogTitle>{projectWorkOrdersDialog?.projectName || 'Project'} Work Orders</DialogTitle>
+        <DialogContent dividers>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Work Order</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Company</TableCell>
+                  <TableCell>Workers</TableCell>
+                  <TableCell align="right">Cost</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {[...(projectWorkOrdersDialog?.workOrders || []), ...(projectWorkOrdersDialog?.draftWorkOrders || [])].map(workOrder => (
+                  <TableRow key={`${workOrder.status || 'UNKNOWN'}-${workOrder.workOrderID}`}>
+                    <TableCell>
+                      {workOrder.status === 'DRAFT' ? (
+                        `#${workOrder.workOrderID}`
+                      ) : (
+                        <Button
+                          size="small"
+                          onClick={() => navigate(`/admin/workorders/${workOrder.workOrderID}`)}
+                          sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}
+                        >
+                          #{workOrder.workOrderID}
+                        </Button>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" label={(workOrder.status || 'UNKNOWN').replaceAll('_', ' ')} />
+                    </TableCell>
+                    <TableCell>{workOrder.company?.companyName || workOrder.plannedCompanyName || 'No company'}</TableCell>
+                    <TableCell>{getWorkOrderWorkers(workOrder).map(workerName).join(', ') || 'Unassigned'}</TableCell>
+                    <TableCell align="right">{formatMoney(workOrderCost(workOrder))}</TableCell>
+                  </TableRow>
+                ))}
+                {![...(projectWorkOrdersDialog?.workOrders || []), ...(projectWorkOrdersDialog?.draftWorkOrders || [])].length && (
+                  <TableRow>
+                    <TableCell colSpan={5}>No work orders are associated with this project.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProjectWorkOrdersDialog(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={Boolean(snapshotDialog)} onClose={() => setSnapshotDialog(null)} fullWidth maxWidth="md">
         <DialogTitle>{snapshotDialog?.draft?.projectName || 'Draft Snapshot'}</DialogTitle>

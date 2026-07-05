@@ -121,10 +121,20 @@ public class ProjectController {
 	@PreAuthorize("hasRole('ADMIN')")
 	@PostMapping("/{id}/draft-workorders")
 	public Project createDraftWorkOrderForTeam(@PathVariable Integer id, @RequestBody Map<String, Object> request) {
-		Integer teamID = requiredInteger(request.get("teamID"), "Team is required");
+		Integer workOrderID = optionalInteger(request.get("workOrderID"));
 		Integer companyID = optionalInteger(request.get("companyID"));
 		String comment = request.get("comment") == null ? null : request.get("comment").toString();
+		if (workOrderID != null) {
+			return projectService.createDraftWorkOrderFromExisting(id, workOrderID, comment);
+		}
+		Integer teamID = requiredInteger(request.get("teamID"), "Team is required");
 		return projectService.createDraftWorkOrderForTeam(id, teamID, companyID, comment);
+	}
+
+	@PreAuthorize("hasRole('ADMIN')")
+	@DeleteMapping("/{id}/draft-workorders/{draftWorkOrderID}")
+	public Project removeDraftWorkOrder(@PathVariable Integer id, @PathVariable Integer draftWorkOrderID) {
+		return projectService.removeDraftWorkOrder(id, draftWorkOrderID);
 	}
 
 	@PostMapping("/{id}/comments")

@@ -30,7 +30,7 @@ const AdminHomePage = () => {
             key: 'projects',
             children: [
                 { label: 'Draft Studio', path: '/admin/projects/draft-studio' },
-                { label: 'Active Projects', path: '/admin/projects/active' },
+                { label: 'Project Studio', path: '/admin/projects/active' },
                 { label: 'My Assignments', path: '/admin/my-assignments' },
             ],
         },
@@ -109,7 +109,7 @@ const AdminHomePage = () => {
             setOpenMenus(closedMenus());
             handleLogoutClick();
         } else {
-            navigate(path);
+            navigate(path, { state: { studioResetKey: Date.now() } });
             setActiveTab(path);
             openOnlyMenu(getParentMenuKey(path));
         }

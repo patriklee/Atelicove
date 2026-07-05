@@ -27,6 +27,7 @@ import ArchivedWorkers from './Components/ArchivedWorkers';
 import ArchivedProjects from './Components/ArchivedProjects';
 import Documents from './Components/Documents';
 import ProjectsPage from './Components/ProjectsPage';
+import ProjectSummary from './Components/ProjectSummary';
 
 // Worker pages
 import HomePage from './Components/HomePage';
@@ -69,8 +70,8 @@ function App() {
               <Route path="my-assignments" element={<MyAssignments />} />
               <Route path="my-assignments/:workOrderID" element={<MyWorkOrderDetail />} />
               <Route path="projects/draft-studio" element={<ProjectsPage mode="studio" title="Projects" subtitle="Create teams, draft projects, and prepare draft work orders." />} />
-              <Route path="projects/active" element={<ProjectsPage mode="active" title="Projects" subtitle="Projects currently in active status." />} />
-              <Route path="projects/:projectID/edit" element={<ProjectsPage mode="edit" title="Edit Active Project" subtitle="Update project details, work orders, comments, and action items." />} />
+              <Route path="projects/active" element={<ProjectsPage mode="active" title="Project Studio" subtitle="Review active projects and edit selected project details." />} />
+              <Route path="projects/:projectID" element={<ProjectSummary />} />
 			  <Route path="workorders" element={<WorkOrders />} />
               <Route path="workorders/:workOrderID" element={<WorkOrderDetail />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />

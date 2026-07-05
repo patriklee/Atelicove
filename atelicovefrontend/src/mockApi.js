@@ -225,13 +225,12 @@ const allDocuments = () => [
   )),
 ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-const sumWorkOrderItems = (workOrders, status) => (workOrders || [])
-  .filter(order => order.status === status)
+const sumWorkOrderItems = (workOrders) => (workOrders || [])
   .flatMap(order => order.items || [])
   .reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 0)), 0);
 
 const createProjectSnapshot = (ownerProject, draftProject, snapshotName = 'Associated draft snapshot') => {
-  const estimatedCost = sumWorkOrderItems(draftProject.workOrders, 'DRAFT');
+  const estimatedCost = sumWorkOrderItems(draftProject.draftWorkOrders);
   const budget = Number(draftProject.budget) || 0;
   ownerProject.snapshots = [...(ownerProject.snapshots || []), {
     projectSnapshotID: nextId(ownerProject.snapshots || [], 'projectSnapshotID'),
@@ -249,22 +248,15 @@ const createProjectSnapshot = (ownerProject, draftProject, snapshotName = 'Assoc
       budget: draftProject.budget ?? null,
       estimatedCost,
       budgetDifference: budget - estimatedCost,
-      draftWorkOrders: (draftProject.workOrders || [])
-        .filter(order => order.status === 'DRAFT')
-        .map(order => ({
-          workOrderID: order.workOrderID,
-          comment: order.comment,
-          workers: order.workers || [],
-          items: order.items || [],
-        })),
+      draftWorkOrders: draftProject.draftWorkOrders || [],
     }),
     createdAt: now(),
   }];
 };
 
 const projectResponse = (project) => {
-  const estimatedCost = sumWorkOrderItems(project.workOrders, 'DRAFT');
-  const actualCost = sumWorkOrderItems(project.workOrders, 'COMPLETE');
+  const estimatedCost = sumWorkOrderItems(project.draftWorkOrders);
+  const actualCost = sumWorkOrderItems(project.workOrders);
   const budget = Number(project.budget) || 0;
 
   return {
@@ -274,6 +266,7 @@ const projectResponse = (project) => {
     budgetDifference: budget - estimatedCost,
     teamCount: project.teams?.length || 0,
     workOrderCount: project.workOrders?.length || 0,
+    draftWorkOrderCount: project.draftWorkOrders?.length || 0,
   };
 };
 
@@ -1146,6 +1139,7 @@ const handleProjects = (segments, method, options) => {
       archivedAt: null,
       teams,
       workOrders: [],
+      draftWorkOrders: [],
       comments: [],
       actionItems: [],
       documents: [],
@@ -1179,6 +1173,16 @@ const handleProjects = (segments, method, options) => {
 
   if (segments[2] === 'documents') {
     return handleProjectDocuments(project, segments, method, options);
+  }
+
+  if (segments[2] === 'permanent' && method === 'DELETE') {
+    if (!project.archived && project.projectStatus !== 'DRAFT') {
+      throw new MockApiError('Only archived or draft projects can be permanently deleted', 409);
+    }
+    if (project.projectStatus === 'DRAFT') project.draftWorkOrders = [];
+    state.projects = state.projects.filter(item => item.projectID !== project.projectID);
+    saveState();
+    return null;
   }
 
   if (segments.length === 2 && method === 'PUT') {
@@ -1259,20 +1263,7 @@ const handleProjects = (segments, method, options) => {
       ...team,
       projectStartedAt: team.projectStartedAt || project.activatedAt,
     }));
-    project.workOrders = (project.workOrders || []).map(order => {
-      if (order.status !== 'DRAFT') return order;
-      const status = order.workers?.length ? 'IN_PROCESS' : 'OPEN';
-      const updatedOrder = {
-        ...order,
-        status,
-        comment: '',
-        items: [],
-        endDateTime: null,
-        startDateTime: now(),
-      };
-      state.workOrders = state.workOrders.map(item => item.workOrderID === order.workOrderID ? clone(updatedOrder) : item);
-      return updatedOrder;
-    });
+    project.draftWorkOrders = [];
     touch(project);
     saveState();
     return projectResponse(project);
@@ -1319,6 +1310,13 @@ const handleProjects = (segments, method, options) => {
     const { workOrderID } = bodyAsJson(options);
     const workOrder = findWorkOrder(workOrderID);
     if (!workOrder) throw new MockApiError('Work order not found', 404);
+    if (project.projectStatus !== 'ACTIVE') throw new MockApiError('Existing work orders can only be attached to active projects', 409);
+    if (workOrder.project && workOrder.project.projectID !== project.projectID) {
+      throw new MockApiError('Work order is already associated with another project', 409);
+    }
+    if (!['OPEN', 'IN_PROCESS'].includes(workOrder.status)) {
+      throw new MockApiError('Only open or in-process work orders can be attached to active projects', 409);
+    }
     workOrder.project = {
       projectID: project.projectID,
       projectName: project.projectName,
@@ -1381,6 +1379,12 @@ const handleProjects = (segments, method, options) => {
   }
 
   if (segments[2] === 'workorders' && segments[3] && method === 'DELETE') {
+    const workOrder = findWorkOrder(segments[3]);
+    if (workOrder?.project?.projectID === project.projectID) {
+      workOrder.previousProjectID = project.projectID;
+      workOrder.previousProjectName = project.projectName;
+      workOrder.project = null;
+    }
     project.workOrders = (project.workOrders || []).filter(order => order.workOrderID !== Number(segments[3]));
     touch(project);
     saveState();
@@ -1393,39 +1397,42 @@ const handleProjects = (segments, method, options) => {
     }
 
     const payload = bodyAsJson(options);
-    const team = findTeam(payload.teamID);
-    if (!team) throw new MockApiError('Team not found', 404);
+    const sourceWorkOrder = payload.workOrderID ? findWorkOrder(payload.workOrderID) : null;
+    if (payload.workOrderID && !sourceWorkOrder) throw new MockApiError('Work order not found', 404);
+    const team = payload.workOrderID ? null : findTeam(payload.teamID);
+    if (!payload.workOrderID && !team) throw new MockApiError('Team not found', 404);
     const company = payload.companyID ? findCompany(payload.companyID) : null;
     if (payload.companyID && !company) throw new MockApiError('Company not found', 404);
     if (company?.archived) throw new MockApiError('Archived companies cannot be assigned', 409);
 
-    if (!(project.teams || []).some(item => item.teamID === team.teamID)) {
+    if (team && !(project.teams || []).some(item => item.teamID === team.teamID)) {
       project.teams = [...(project.teams || []), clone(team)];
     }
 
     const workOrder = {
-      workOrderID: nextId(state.workOrders, 'workOrderID'),
-      workers: (team.workers || []).map(withoutPassword),
-      company: company ? clone(company) : null,
-      project: {
-        projectID: project.projectID,
-        projectName: project.projectName,
-        projectStatus: project.projectStatus,
-      },
+      draftWorkOrderID: nextId(project.draftWorkOrders || [], 'draftWorkOrderID'),
+      workOrderID: nextId(project.draftWorkOrders || [], 'draftWorkOrderID'),
+      sourceWorkOrderID: sourceWorkOrder?.workOrderID || null,
+      plannedTeamID: team?.teamID || null,
+      plannedTeamName: team?.teamName || null,
+      plannedCompanyID: sourceWorkOrder?.company?.companyID || company?.companyID || null,
+      plannedCompanyName: sourceWorkOrder?.company?.companyName || company?.companyName || null,
+      company: sourceWorkOrder?.company ? clone(sourceWorkOrder.company) : company ? clone(company) : null,
       status: 'DRAFT',
-      startDateTime: null,
-      endDateTime: null,
       comment: payload.comment || '',
       items: [],
-      documents: [],
       createdAt: now(),
       lastModifiedAt: now(),
-      archived: false,
-      archivedAt: null,
     };
 
-    state.workOrders.push(workOrder);
-    project.workOrders = [...(project.workOrders || []), clone(workOrder)];
+    project.draftWorkOrders = [...(project.draftWorkOrders || []), clone(workOrder)];
+    touch(project);
+    saveState();
+    return projectResponse(project);
+  }
+
+  if (segments[2] === 'draft-workorders' && segments[3] && method === 'DELETE') {
+    project.draftWorkOrders = (project.draftWorkOrders || []).filter(order => order.workOrderID !== Number(segments[3]));
     touch(project);
     saveState();
     return projectResponse(project);

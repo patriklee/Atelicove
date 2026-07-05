@@ -12,13 +12,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.atelicove.dto.ProjectDTO;
 import com.atelicove.entities.Company;
+import com.atelicove.entities.DraftWorkOrder;
+import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.entities.Project;
 import com.atelicove.entities.ProjectActionItem;
 import com.atelicove.entities.ProjectComments;
 import com.atelicove.entities.ProjectSnapshot;
 import com.atelicove.entities.Team;
 import com.atelicove.entities.WorkOrder;
-import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.ProjectStatus;
 import com.atelicove.enums.WorkOrderStatus;
@@ -132,8 +133,7 @@ public class ProjectService {
 
 	/**
 	 * Launches a draft project. A launch snapshot is kept, attached teams receive a
-	 * start time, and draft work orders are converted into usable open or in-process
-	 * work orders.
+	 * start time, and planning-only draft work orders are discarded.
 	 *
 	 * @param projectID draft project to activate
 	 * @return the activated project
@@ -159,10 +159,8 @@ public class ProjectService {
 				team.setProjectStartedAt(LocalDateTime.now());
 			}
 		}
-		for (WorkOrder workOrder : project.getWorkOrders()) {
-			if (workOrder.getStatus() == WorkOrderStatus.DRAFT) {
-				launchDraftWorkOrder(workOrder);
-			}
+		for (DraftWorkOrder draftWorkOrder : new ArrayList<>(project.getDraftWorkOrders())) {
+			project.removeDraftWorkOrder(draftWorkOrder);
 		}
 
 		return projectRepository.save(project);
@@ -279,6 +277,10 @@ public class ProjectService {
 			throw new IllegalStateException("Only archived or draft projects can be permanently deleted");
 		}
 
+		if (project.getProjectStatus() == ProjectStatus.DRAFT) {
+			deleteDraftProjectContents(project);
+		}
+
 		for (WorkOrder workOrder : new java.util.ArrayList<>(project.getWorkOrders())) {
 			project.removeWorkOrder(workOrder);
 		}
@@ -293,6 +295,16 @@ public class ProjectService {
 
 		WorkOrder workOrder = workOrderRepository.findById(workOrderID)
 				.orElseThrow(() -> new IllegalArgumentException("Work order not found"));
+
+		if (project.getProjectStatus() != ProjectStatus.ACTIVE) {
+			throw new IllegalStateException("Existing work orders can only be attached to active projects");
+		}
+		if (workOrder.getProject() != null && workOrder.getProject().getProjectID() != projectID) {
+			throw new IllegalStateException("Work order is already associated with another project");
+		}
+		if (workOrder.getStatus() != WorkOrderStatus.OPEN && workOrder.getStatus() != WorkOrderStatus.IN_PROCESS) {
+			throw new IllegalStateException("Only open or in-process work orders can be attached to active projects");
+		}
 
 		project.addWorkOrder(workOrder);
 
@@ -380,12 +392,10 @@ public class ProjectService {
 			project.addTeam(team);
 		}
 
-		WorkOrder workOrder = new WorkOrder();
-		workOrder.setStatus(WorkOrderStatus.DRAFT);
-		workOrder.setComment(comment);
-		workOrder.setStartDateTime(null);
-		workOrder.setEndDateTime(null);
-		workOrder.setWorkers(new HashSet<>(team.getWorkers()));
+		DraftWorkOrder draftWorkOrder = new DraftWorkOrder();
+		draftWorkOrder.setComment(comment);
+		draftWorkOrder.setPlannedTeamID(team.getTeamID());
+		draftWorkOrder.setPlannedTeamName(team.getTeamName());
 
 		if (companyID != null) {
 			Company company = companyRepository.findById(companyID)
@@ -393,11 +403,36 @@ public class ProjectService {
 			if (company.isArchived()) {
 				throw new IllegalStateException("Archived companies cannot be assigned");
 			}
-			workOrder.setCompany(company);
+			draftWorkOrder.setPlannedCompanyID(company.getCompanyID());
+			draftWorkOrder.setPlannedCompanyName(company.getCompanyName());
 		}
 
-		workOrder = workOrderRepository.save(workOrder);
-		project.addWorkOrder(workOrder);
+		project.addDraftWorkOrder(draftWorkOrder);
+
+		return projectRepository.save(project);
+	}
+
+	@Transactional
+	public Project createDraftWorkOrderFromExisting(Integer projectID, Integer workOrderID, String comment) {
+		Project project = getRequiredProject(projectID);
+		ensureProjectCanBeEdited(project);
+
+		if (project.getProjectStatus() != ProjectStatus.DRAFT) {
+			throw new IllegalStateException("Draft planning copies can only be created for draft projects");
+		}
+
+		WorkOrder source = workOrderRepository.findById(workOrderID)
+				.orElseThrow(() -> new IllegalArgumentException("Work order not found"));
+
+		DraftWorkOrder draftWorkOrder = new DraftWorkOrder();
+		draftWorkOrder.setSourceWorkOrderID(source.getWorkOrderID());
+		draftWorkOrder.setComment(comment);
+		if (source.getCompany() != null) {
+			draftWorkOrder.setPlannedCompanyID(source.getCompany().getCompanyID());
+			draftWorkOrder.setPlannedCompanyName(source.getCompany().getCompanyName());
+		}
+
+		project.addDraftWorkOrder(draftWorkOrder);
 
 		return projectRepository.save(project);
 	}
@@ -413,6 +448,21 @@ public class ProjectService {
 				.orElseThrow(() -> new IllegalArgumentException("Work order is not assigned to this project"));
 
 		project.removeWorkOrder(workOrder);
+
+		return projectRepository.save(project);
+	}
+
+	@Transactional
+	public Project removeDraftWorkOrder(Integer projectID, Integer draftWorkOrderID) {
+		Project project = getRequiredProject(projectID);
+		ensureProjectCanBeEdited(project);
+
+		DraftWorkOrder draftWorkOrder = project.getDraftWorkOrders().stream()
+				.filter(item -> item.getDraftWorkOrderID() == draftWorkOrderID)
+				.findFirst()
+				.orElseThrow(() -> new IllegalArgumentException("Draft work order is not assigned to this project"));
+
+		project.removeDraftWorkOrder(draftWorkOrder);
 
 		return projectRepository.save(project);
 	}
@@ -716,28 +766,9 @@ public class ProjectService {
 		return workers;
 	}
 
-	/**
-	 * Converts a planning work order into active work. Company and workers carry
-	 * over, while draft-only notes and item estimates are cleared.
-	 *
-	 * @param workOrder draft work order to launch
-	 */
-	private void launchDraftWorkOrder(WorkOrder workOrder) {
-		for (var item : new ArrayList<>(workOrder.getItems())) {
-			workOrder.removeItem(item);
-		}
-
-		workOrder.setComment(null);
-		workOrder.setEndDateTime(null);
-		workOrder.setStartDateTime(LocalDateTime.now());
-		workOrder.setStatus(workOrder.getWorkers().isEmpty() ? WorkOrderStatus.OPEN : WorkOrderStatus.IN_PROCESS);
-	}
-
 	private void deleteDraftProjectContents(Project draft) {
-		for (WorkOrder workOrder : new ArrayList<>(draft.getWorkOrders())) {
-			draft.removeWorkOrder(workOrder);
-			workOrder.setWorkers(null);
-			workOrderRepository.delete(workOrder);
+		for (DraftWorkOrder draftWorkOrder : new ArrayList<>(draft.getDraftWorkOrders())) {
+			draft.removeDraftWorkOrder(draftWorkOrder);
 		}
 	}
 
@@ -784,26 +815,18 @@ public class ProjectService {
 			root.put("budgetDifference", project.getBudgetDifference().toPlainString());
 
 			ArrayNode workOrders = root.putArray("draftWorkOrders");
-			for (WorkOrder workOrder : project.getWorkOrders()) {
-				if (workOrder.getStatus() != WorkOrderStatus.DRAFT) {
-					continue;
-				}
-
+			for (DraftWorkOrder workOrder : project.getDraftWorkOrders()) {
 				ObjectNode workOrderNode = workOrders.addObject();
 				workOrderNode.put("workOrderID", workOrder.getWorkOrderID());
+				workOrderNode.put("sourceWorkOrderID", workOrder.getSourceWorkOrderID());
+				workOrderNode.put("plannedTeamName", workOrder.getPlannedTeamName());
+				workOrderNode.put("plannedCompanyName", workOrder.getPlannedCompanyName());
 				workOrderNode.put("comment", workOrder.getComment());
 
-				ArrayNode workers = workOrderNode.putArray("workers");
-				for (Worker worker : workOrder.getWorkers()) {
-					ObjectNode workerNode = workers.addObject();
-					workerNode.put("workerID", worker.getWorkerID());
-					workerNode.put("name", worker.getWorkerFName() + " " + worker.getWorkerLName());
-				}
-
 				ArrayNode items = workOrderNode.putArray("items");
-				for (WorkOrderItem item : workOrder.getItems()) {
+				for (DraftWorkOrderItem item : workOrder.getItems()) {
 					ObjectNode itemNode = items.addObject();
-					itemNode.put("workOrderItemID", item.getWorkOrderItemID());
+					itemNode.put("draftWorkOrderItemID", item.getDraftWorkOrderItemID());
 					itemNode.put("itemType", item.getItemType() == null ? null : item.getItemType().name());
 					itemNode.put("itemName", item.getItemName());
 					itemNode.put("quantity", item.getQuantity());
@@ -819,14 +842,6 @@ public class ProjectService {
 	}
 
 	private boolean isAssignedToProject(Project project, int workerID) {
-		boolean assignedThroughWorkOrder = project.getWorkOrders().stream()
-				.flatMap(workOrder -> workOrder.getWorkers().stream())
-				.anyMatch(worker -> worker.getWorkerID() == workerID);
-
-		if (assignedThroughWorkOrder) {
-			return true;
-		}
-
 		return project.getTeams().stream()
 				.flatMap((Team team) -> team.getWorkers().stream())
 				.anyMatch(worker -> worker.getWorkerID() == workerID);

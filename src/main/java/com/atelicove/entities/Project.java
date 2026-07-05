@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.atelicove.enums.ProjectStatus;
-import com.atelicove.enums.WorkOrderStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -85,6 +84,9 @@ public class Project extends ArchivableEntity {
 	@OneToMany(mappedBy = "project")
 	private List<WorkOrder> workOrders = new ArrayList<>();
 
+	@OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<DraftWorkOrder> draftWorkOrders = new ArrayList<>();
+
 	@JsonIgnore
 	@OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<Document> documents = new ArrayList<>();
@@ -115,11 +117,11 @@ public class Project extends ArchivableEntity {
 	}
 
 	public BigDecimal getEstimatedCost() {
-		return sumWorkOrderItems(WorkOrderStatus.DRAFT);
+		return sumDraftWorkOrderItems();
 	}
 
 	public BigDecimal getActualCost() {
-		return sumWorkOrderItems(WorkOrderStatus.COMPLETE);
+		return sumWorkOrderItems();
 	}
 
 	public ProjectStatus getProjectStatus() {
@@ -158,6 +160,10 @@ public class Project extends ArchivableEntity {
 		return workOrders;
 	}
 
+	public List<DraftWorkOrder> getDraftWorkOrders() {
+		return draftWorkOrders;
+	}
+
 	public List<Document> getDocuments() {
 		return documents;
 	}
@@ -170,6 +176,12 @@ public class Project extends ArchivableEntity {
 	@Transient
 	public int getWorkOrderCount() {
 		return workOrders == null ? 0 : workOrders.size();
+	}
+
+	@JsonProperty("draftWorkOrderCount")
+	@Transient
+	public int getDraftWorkOrderCount() {
+		return draftWorkOrders == null ? 0 : draftWorkOrders.size();
 	}
 
 	@JsonProperty("teamCount")
@@ -306,6 +318,18 @@ public class Project extends ArchivableEntity {
 		}
 	}
 
+	public void setDraftWorkOrders(List<DraftWorkOrder> draftWorkOrders) {
+		for (DraftWorkOrder draftWorkOrder : new ArrayList<>(this.draftWorkOrders)) {
+			removeDraftWorkOrder(draftWorkOrder);
+		}
+
+		if (draftWorkOrders != null) {
+			for (DraftWorkOrder draftWorkOrder : draftWorkOrders) {
+				addDraftWorkOrder(draftWorkOrder);
+			}
+		}
+	}
+
 	public void setDocuments(List<Document> documents) {
 		for (Document document : new ArrayList<>(this.documents)) {
 			removeDocument(document);
@@ -384,7 +408,21 @@ public class Project extends ArchivableEntity {
 	 */
 	public void removeWorkOrder(WorkOrder workOrder) {
 		if (workOrder != null && workOrders.remove(workOrder)) {
+			workOrder.setPreviousProjectID(projectID);
+			workOrder.setPreviousProjectName(projectName);
 			workOrder.setProject(null);
+		}
+	}
+
+	public void addDraftWorkOrder(DraftWorkOrder draftWorkOrder) {
+		if (draftWorkOrder != null && draftWorkOrders.add(draftWorkOrder)) {
+			draftWorkOrder.setProject(this);
+		}
+	}
+
+	public void removeDraftWorkOrder(DraftWorkOrder draftWorkOrder) {
+		if (draftWorkOrder != null && draftWorkOrders.remove(draftWorkOrder)) {
+			draftWorkOrder.setProject(null);
 		}
 	}
 
@@ -424,9 +462,17 @@ public class Project extends ArchivableEntity {
 	 * @param status work order status to include
 	 * @return rounded total item cost
 	 */
-	private BigDecimal sumWorkOrderItems(WorkOrderStatus status) {
+	private BigDecimal sumDraftWorkOrderItems() {
+		return draftWorkOrders.stream()
+				.flatMap(draftWorkOrder -> draftWorkOrder.getItems().stream())
+				.map(item -> BigDecimal.valueOf(item.getPrice())
+						.multiply(BigDecimal.valueOf(item.getQuantity())))
+				.reduce(BigDecimal.ZERO, BigDecimal::add)
+				.setScale(2, RoundingMode.HALF_UP);
+	}
+
+	private BigDecimal sumWorkOrderItems() {
 		return workOrders.stream()
-				.filter(workOrder -> workOrder.getStatus() == status)
 				.flatMap(workOrder -> workOrder.getItems().stream())
 				.map(item -> BigDecimal.valueOf(item.getPrice())
 						.multiply(BigDecimal.valueOf(item.getQuantity())))

@@ -55,8 +55,10 @@ public class WorkOrder extends ArchivableEntity {
     @Column
     private LocalDateTime startDateTime = LocalDateTime.now();
     
-    private LocalDateTime endDateTime;
+	private LocalDateTime endDateTime;
 	private String comment;
+	private Integer previousProjectID;
+	private String previousProjectName;
 	
 	// get all items in WO
 	@OneToMany(mappedBy = "workOrder", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -118,6 +120,14 @@ public class WorkOrder extends ArchivableEntity {
 	public String getComment() {
 		return comment;
 	}
+
+	public Integer getPreviousProjectID() {
+		return previousProjectID;
+	}
+
+	public String getPreviousProjectName() {
+		return previousProjectName;
+	}
 	
 	public List<WorkOrderItem> getItems() {
 	    return items;
@@ -174,6 +184,14 @@ public class WorkOrder extends ArchivableEntity {
 
 	public void setComment(String comment) {
 		this.comment = comment;
+	}
+
+	public void setPreviousProjectID(Integer previousProjectID) {
+		this.previousProjectID = previousProjectID;
+	}
+
+	public void setPreviousProjectName(String previousProjectName) {
+		this.previousProjectName = previousProjectName;
 	}
 	
 	/**
