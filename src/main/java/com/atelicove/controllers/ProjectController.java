@@ -137,6 +137,18 @@ public class ProjectController {
 		return projectService.removeDraftWorkOrder(id, draftWorkOrderID);
 	}
 
+	@PreAuthorize("hasRole('ADMIN')")
+	@PutMapping("/{id}/draft-workorders/{draftWorkOrderID}")
+	public Project updateDraftWorkOrder(
+			@PathVariable Integer id,
+			@PathVariable Integer draftWorkOrderID,
+			@RequestBody Map<String, Object> request) {
+		Integer companyID = optionalInteger(request.get("companyID"));
+		Integer teamID = optionalInteger(request.get("teamID"));
+		String comment = request.get("comment") == null ? null : request.get("comment").toString();
+		return projectService.updateDraftWorkOrder(id, draftWorkOrderID, companyID, comment, teamID, request.containsKey("teamID"));
+	}
+
 	@PostMapping("/{id}/comments")
 	public Project addComment(@PathVariable Integer id, @RequestBody ProjectComments comment) {
 		Integer authorWorkerID = comment.getAuthor() == null ? null : comment.getAuthor().getWorkerID();

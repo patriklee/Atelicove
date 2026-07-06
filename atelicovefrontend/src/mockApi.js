@@ -29,6 +29,8 @@ const withWorkerDefaults = (worker) => ({
   ...withAuditDefaults(worker),
 });
 
+const isLegacyDraftWorkOrder = (order) => order?.status === 'DRAFT';
+
 const hydrateState = (rawState) => ({
   workers: (rawState.workers || []).map(withWorkerDefaults),
   companies: (rawState.companies || []).map(withAuditDefaults),
@@ -41,7 +43,8 @@ const hydrateState = (rawState) => ({
     return {
       ...withAuditDefaults(cleanProject),
       teams: cleanProject.teams || [],
-      workOrders: cleanProject.workOrders || [],
+      workOrders: (cleanProject.workOrders || []).filter(order => !isLegacyDraftWorkOrder(order)),
+      draftWorkOrders: cleanProject.draftWorkOrders || [],
       comments: cleanProject.comments || [],
       actionItems: cleanProject.actionItems || [],
       documents: (cleanProject.documents || []).map(withAuditDefaults),
@@ -49,13 +52,15 @@ const hydrateState = (rawState) => ({
       associatedActiveProject: cleanProject.associatedActiveProject || null,
     };
   }),
-  workOrders: (rawState.workOrders || []).map(order => ({
-    ...withAuditDefaults(order),
-    workers: (order.workers || []).map(withWorkerDefaults),
-    company: order.company ? withAuditDefaults(order.company) : null,
-    items: (order.items || []).map(withAuditDefaults),
-    documents: (order.documents || []).map(withAuditDefaults),
-  })),
+  workOrders: (rawState.workOrders || [])
+    .filter(order => !isLegacyDraftWorkOrder(order))
+    .map(order => ({
+      ...withAuditDefaults(order),
+      workers: (order.workers || []).map(withWorkerDefaults),
+      company: order.company ? withAuditDefaults(order.company) : null,
+      items: (order.items || []).map(withAuditDefaults),
+      documents: (order.documents || []).map(withAuditDefaults),
+    })),
 });
 
 const loadState = () => {
@@ -72,7 +77,9 @@ const loadState = () => {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
-      return hydrateState(JSON.parse(saved));
+      const hydrated = hydrateState(JSON.parse(saved));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(hydrated));
+      return hydrated;
     } catch (error) {
       localStorage.removeItem(STORAGE_KEY);
     }
@@ -560,10 +567,6 @@ const setWorkOrderStatus = (workOrder, status) => {
 };
 
 const handleWorkOrderDocuments = (workOrder, segments, method, options) => {
-  if (workOrder.status === 'DRAFT') {
-    throw new MockApiError('Draft work orders cannot have documents', 409);
-  }
-
   workOrder.documents = workOrder.documents || [];
 
   if (segments.length === 3 && method === 'GET') {
@@ -693,7 +696,6 @@ const handleProjectDocuments = (project, segments, method, options) => {
 const handleWorkOrders = (segments, method, options) => {
   if (segments.length === 1 && method === 'GET') {
     return activeOnly(state.workOrders)
-      .filter(order => order.status !== 'DRAFT')
       .map(order => ({
         ...order,
         project: order.project || projectReferenceForWorkOrder(order.workOrderID),
@@ -707,6 +709,93 @@ const handleWorkOrders = (segments, method, options) => {
       project: order.project || projectReferenceForWorkOrder(order.workOrderID),
       fileNo: order.documents?.length || 0,
     }));
+  }
+
+  if (segments[1] === 'drafts' && segments.length === 2 && method === 'GET') {
+    return activeOnly(state.projects)
+      .filter(project => project.projectStatus === 'DRAFT')
+      .flatMap(project => (project.draftWorkOrders || []).map(order => ({
+        ...order,
+        projectID: project.projectID,
+        projectName: project.projectName,
+      })));
+  }
+
+  if (segments[1] === 'drafts' && segments[2]) {
+    const draftWorkOrderID = Number(segments[2]);
+    const project = activeOnly(state.projects).find(item =>
+      (item.draftWorkOrders || []).some(order => order.workOrderID === draftWorkOrderID)
+    );
+    const draftWorkOrder = project?.draftWorkOrders?.find(order => order.workOrderID === draftWorkOrderID);
+    if (!draftWorkOrder) throw new MockApiError('Draft work order not found', 404);
+
+    if (segments.length === 3 && method === 'GET') {
+      return {
+        ...clone(draftWorkOrder),
+        projectID: project.projectID,
+        projectName: project.projectName,
+      };
+    }
+
+    if (segments[3] === 'items' && method === 'POST') {
+      const payload = bodyAsJson(options);
+      const item = {
+        draftWorkOrderItemID: nextId(draftWorkOrder.items || [], 'draftWorkOrderItemID'),
+        itemName: payload.itemName || '',
+        quantity: Number(payload.quantity) || 0,
+        price: Number(payload.price) || 0,
+        itemType: payload.itemType || 'OTHER',
+        createdAt: now(),
+        lastModifiedAt: now(),
+      };
+      draftWorkOrder.items = [...(draftWorkOrder.items || []), item];
+      touch(draftWorkOrder);
+      touch(project);
+      saveState();
+      return {
+        ...clone(draftWorkOrder),
+        projectID: project.projectID,
+        projectName: project.projectName,
+      };
+    }
+
+    if (segments[3] === 'items' && segments[4] && method === 'PUT') {
+      const itemID = Number(segments[4]);
+      const payload = bodyAsJson(options);
+      draftWorkOrder.items = (draftWorkOrder.items || []).map(item => (
+        item.draftWorkOrderItemID === itemID
+          ? {
+              ...item,
+              itemType: payload.itemType || item.itemType || 'OTHER',
+              itemName: payload.itemName || '',
+              quantity: Number(payload.quantity) || 0,
+              price: Number(payload.price) || 0,
+              lastModifiedAt: now(),
+            }
+          : item
+      ));
+      touch(draftWorkOrder);
+      touch(project);
+      saveState();
+      return {
+        ...clone(draftWorkOrder),
+        projectID: project.projectID,
+        projectName: project.projectName,
+      };
+    }
+
+    if (segments[3] === 'items' && segments[4] && method === 'DELETE') {
+      const itemID = Number(segments[4]);
+      draftWorkOrder.items = (draftWorkOrder.items || []).filter(item => item.draftWorkOrderItemID !== itemID);
+      touch(draftWorkOrder);
+      touch(project);
+      saveState();
+      return {
+        ...clone(draftWorkOrder),
+        projectID: project.projectID,
+        projectName: project.projectName,
+      };
+    }
   }
 
   if (segments[1] === 'archived' && method === 'GET') {
@@ -756,7 +845,6 @@ const handleWorkOrders = (segments, method, options) => {
     const companyID = Number(segments[2]);
     return activeOnly(state.workOrders)
       .filter(order => order.company?.companyID === companyID)
-      .filter(order => order.status !== 'DRAFT')
       .map(order => ({
         ...order,
         project: order.project || projectReferenceForWorkOrder(order.workOrderID),
@@ -786,19 +874,6 @@ const handleWorkOrders = (segments, method, options) => {
     }
 
     archiveEntity(workOrder);
-    saveState();
-    return null;
-  }
-
-  if (segments[2] === 'draft' && method === 'DELETE') {
-    if (workOrder.status !== 'DRAFT') {
-      throw new MockApiError('Only draft work orders can be deleted from Draft Studio', 409);
-    }
-    state.projects = state.projects.map(project => ({
-      ...project,
-      workOrders: (project.workOrders || []).filter(order => order.workOrderID !== workOrder.workOrderID),
-    }));
-    state.workOrders = state.workOrders.filter(order => order.workOrderID !== workOrder.workOrderID);
     saveState();
     return null;
   }
@@ -865,9 +940,6 @@ const handleWorkOrders = (segments, method, options) => {
 
   if (segments[2] === 'comment' && method === 'PUT') {
     ensureWorkOrderCanBeEdited(workOrder);
-    if (workOrder.status === 'DRAFT') {
-      throw new MockApiError('Draft work orders do not have comments', 409);
-    }
 
     const { comment = '' } = bodyAsJson(options);
     workOrder.comment = comment;
@@ -1101,6 +1173,14 @@ const syncProjectWorkOrdersIntoState = (project) => {
   });
 };
 
+const teamIsEmpty = (team) => !(team?.workers || []).length;
+
+const ensureProjectTeamsAreNotEmpty = (teams = []) => {
+  if ((teams || []).some(teamIsEmpty)) {
+    throw new MockApiError('Associated team is empty', 409);
+  }
+};
+
 const handleProjects = (segments, method, options) => {
   if (segments.length === 1 && method === 'GET') {
     return activeOnly(state.projects).map(projectResponse);
@@ -1125,6 +1205,7 @@ const handleProjects = (segments, method, options) => {
   if (segments.length === 1 && method === 'POST') {
     const payload = bodyAsJson(options);
     const teams = (payload.teamIDs || []).map(findTeam).filter(Boolean).map(clone);
+    ensureProjectTeamsAreNotEmpty(teams);
     const project = withAuditDefaults({
       projectID: nextId(state.projects, 'projectID'),
       projectName: payload.projectName || '',
@@ -1197,6 +1278,7 @@ const handleProjects = (segments, method, options) => {
     if (Array.isArray(payload.teamIDs)) {
       const previousTeams = project.teams || [];
       const nextTeams = payload.teamIDs.map(findTeam).filter(Boolean).map(clone);
+      ensureProjectTeamsAreNotEmpty(nextTeams);
       project.teams = nextTeams;
       Object.assign(project, syncActiveProjectTeamWorkers(project, previousTeams, nextTeams));
       syncProjectWorkOrdersIntoState(project);
@@ -1235,6 +1317,7 @@ const handleProjects = (segments, method, options) => {
     if (hasOpenWorkOrder) {
       throw new MockApiError('Projects can only be archived when all work orders are complete', 409);
     }
+    ensureProjectTeamsAreNotEmpty(project.teams || []);
     archiveEntity(project);
     const associatedDraftIDs = state.projects
       .filter(item => item.associatedActiveProject?.projectID === project.projectID)
@@ -1256,6 +1339,7 @@ const handleProjects = (segments, method, options) => {
     if (project.associatedActiveProject) {
       throw new MockApiError('Draft projects attached to an active project cannot be activated', 409);
     }
+    ensureProjectTeamsAreNotEmpty(project.teams || []);
     createProjectSnapshot(project, project, 'Launch snapshot');
     project.projectStatus = 'ACTIVE';
     project.activatedAt = now();
@@ -1276,6 +1360,7 @@ const handleProjects = (segments, method, options) => {
     if (!(project.workOrders || []).every(order => order.status === 'COMPLETE')) {
       throw new MockApiError('Projects can only be submitted when all work orders are complete', 409);
     }
+    ensureProjectTeamsAreNotEmpty(project.teams || []);
     project.projectStatus = 'IN_REVIEW';
     touch(project);
     saveState();
@@ -1289,6 +1374,7 @@ const handleProjects = (segments, method, options) => {
     if (!(project.workOrders || []).every(order => order.status === 'COMPLETE')) {
       throw new MockApiError('Projects can only be completed when all work orders are complete', 409);
     }
+    ensureProjectTeamsAreNotEmpty(project.teams || []);
     project.projectStatus = 'COMPLETED';
     project.completedAt = now();
     touch(project);
@@ -1338,6 +1424,7 @@ const handleProjects = (segments, method, options) => {
     const payload = bodyAsJson(options);
     const team = payload.teamID ? findTeam(payload.teamID) : null;
     if (payload.teamID && !team) throw new MockApiError('Team not found', 404);
+    if (team) ensureProjectTeamsAreNotEmpty([team]);
     const company = payload.companyID ? findCompany(payload.companyID) : null;
     if (payload.companyID && !company) throw new MockApiError('Company not found', 404);
     if (company?.archived) throw new MockApiError('Archived companies cannot be assigned', 409);
@@ -1401,6 +1488,7 @@ const handleProjects = (segments, method, options) => {
     if (payload.workOrderID && !sourceWorkOrder) throw new MockApiError('Work order not found', 404);
     const team = payload.workOrderID ? null : findTeam(payload.teamID);
     if (!payload.workOrderID && !team) throw new MockApiError('Team not found', 404);
+    if (team) ensureProjectTeamsAreNotEmpty([team]);
     const company = payload.companyID ? findCompany(payload.companyID) : null;
     if (payload.companyID && !company) throw new MockApiError('Company not found', 404);
     if (company?.archived) throw new MockApiError('Archived companies cannot be assigned', 409);
@@ -1433,6 +1521,39 @@ const handleProjects = (segments, method, options) => {
 
   if (segments[2] === 'draft-workorders' && segments[3] && method === 'DELETE') {
     project.draftWorkOrders = (project.draftWorkOrders || []).filter(order => order.workOrderID !== Number(segments[3]));
+    touch(project);
+    saveState();
+    return projectResponse(project);
+  }
+
+  if (segments[2] === 'draft-workorders' && segments[3] && method === 'PUT') {
+    if (project.archived || project.projectStatus !== 'DRAFT') {
+      throw new MockApiError('Draft work orders can only be edited for draft projects', 409);
+    }
+
+    const payload = bodyAsJson(options);
+    const workOrder = (project.draftWorkOrders || []).find(order => order.workOrderID === Number(segments[3]));
+    if (!workOrder) throw new MockApiError('Draft work order is not assigned to this project', 404);
+
+    const company = payload.companyID ? findCompany(payload.companyID) : null;
+    if (payload.companyID && !company) throw new MockApiError('Company not found', 404);
+    if (company?.archived) throw new MockApiError('Archived companies cannot be assigned', 409);
+    const team = payload.teamID ? findTeam(payload.teamID) : null;
+    if (payload.teamID && !team) throw new MockApiError('Team not found', 404);
+    if (team) ensureProjectTeamsAreNotEmpty([team]);
+
+    workOrder.plannedCompanyID = company?.companyID || null;
+    workOrder.plannedCompanyName = company?.companyName || null;
+    workOrder.company = company ? clone(company) : null;
+    if (Object.prototype.hasOwnProperty.call(payload, 'teamID')) {
+      workOrder.plannedTeamID = team?.teamID || null;
+      workOrder.plannedTeamName = team?.teamName || null;
+      if (team && !(project.teams || []).some(item => item.teamID === team.teamID)) {
+        project.teams = [...(project.teams || []), clone(team)];
+      }
+    }
+    workOrder.comment = payload.comment || '';
+    touch(workOrder);
     touch(project);
     saveState();
     return projectResponse(project);

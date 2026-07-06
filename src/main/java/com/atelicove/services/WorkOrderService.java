@@ -10,11 +10,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.atelicove.entities.Company;
+import com.atelicove.entities.DraftWorkOrder;
+import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.CompanyRepository;
+import com.atelicove.repositories.DraftWorkOrderRepository;
 import com.atelicove.repositories.WorkOrderRepository;
 import com.atelicove.repositories.WorkerRepository;
 
@@ -22,14 +25,17 @@ import com.atelicove.repositories.WorkerRepository;
 public class WorkOrderService{
 
     private final WorkOrderRepository workOrderRepository;
+    private final DraftWorkOrderRepository draftWorkOrderRepository;
     private final WorkerRepository workerRepository;
     private final CompanyRepository companyRepository;
 
     public WorkOrderService(
             WorkOrderRepository workOrderRepository,
+            DraftWorkOrderRepository draftWorkOrderRepository,
             WorkerRepository workerRepository,
             CompanyRepository companyRepository) {
         this.workOrderRepository = workOrderRepository;
+        this.draftWorkOrderRepository = draftWorkOrderRepository;
         this.workerRepository = workerRepository;
         this.companyRepository = companyRepository;
     }
@@ -55,9 +61,7 @@ public class WorkOrderService{
     }
 
     public List<WorkOrder> findByCompanyID(Integer companyID) {
-        return workOrderRepository.findByCompany_CompanyIDAndArchivedFalse(companyID).stream()
-                .filter(workOrder -> workOrder.getStatus() != WorkOrderStatus.DRAFT)
-                .toList();
+        return workOrderRepository.findByCompany_CompanyIDAndArchivedFalse(companyID);
     }
     
     public Optional<WorkOrder> findById(Integer id) {
@@ -65,9 +69,18 @@ public class WorkOrderService{
     }
     
     public List<WorkOrder> findActive() {
-        return workOrderRepository.findByArchivedFalse().stream()
-                .filter(workOrder -> workOrder.getStatus() != WorkOrderStatus.DRAFT)
+        return workOrderRepository.findByArchivedFalse();
+    }
+
+    public List<DraftWorkOrder> findDrafts() {
+        return draftWorkOrderRepository.findAll().stream()
+                .filter(draftWorkOrder -> draftWorkOrder.getProject() != null && !draftWorkOrder.getProject().isArchived())
                 .toList();
+    }
+
+    public Optional<DraftWorkOrder> findDraftById(Integer id) {
+        return draftWorkOrderRepository.findById(id)
+                .filter(draftWorkOrder -> draftWorkOrder.getProject() != null && !draftWorkOrder.getProject().isArchived());
     }
 
     public List<WorkOrder> findAll() {
@@ -90,9 +103,6 @@ public class WorkOrderService{
     	workOrder.setWorkOrderID(0);
     	workOrder.setArchived(false);
     	workOrder.setArchivedAt(null);
-    	if (workOrder.getStatus() == WorkOrderStatus.DRAFT) {
-    		throw new IllegalStateException("Draft work orders must be created from a draft project");
-    	}
 
     	if (workOrder.getWorkers() == null || workOrder.getWorkers().isEmpty()) {
     		workOrder.setStatus(WorkOrderStatus.OPEN);
@@ -224,9 +234,6 @@ public class WorkOrderService{
     public WorkOrder updateComment(Integer workOrderID, String comment) {
         WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
         ensureWorkOrderCanBeEdited(workOrder);
-        if (workOrder.getStatus() == WorkOrderStatus.DRAFT) {
-            throw new IllegalStateException("Draft work orders do not have comments");
-        }
         workOrder.setComment(comment);
 
         return workOrderRepository.save(workOrder);
@@ -279,6 +286,50 @@ public class WorkOrderService{
         return workOrderRepository.save(workOrder);
     }
 
+    @Transactional
+    public DraftWorkOrder addDraftItem(Integer draftWorkOrderID, DraftWorkOrderItem item) {
+        DraftWorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
+
+        if (item.getItemType() == null) {
+            throw new IllegalArgumentException("Item type is required");
+        }
+        item.setDraftWorkOrderItemID(0);
+        draftWorkOrder.addItem(item);
+
+        return draftWorkOrderRepository.save(draftWorkOrder);
+    }
+
+    @Transactional
+    public DraftWorkOrder updateDraftItem(Integer draftWorkOrderID, Integer itemID, DraftWorkOrderItem request) {
+        DraftWorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
+
+        DraftWorkOrderItem item = draftWorkOrder.getItems().stream()
+                .filter(existingItem -> existingItem.getDraftWorkOrderItemID() == itemID)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Draft work order item not found"));
+
+        item.setItemName(request.getItemName());
+        item.setQuantity(request.getQuantity());
+        item.setPrice(request.getPrice());
+        item.setItemType(request.getItemType());
+
+        return draftWorkOrderRepository.save(draftWorkOrder);
+    }
+
+    @Transactional
+    public DraftWorkOrder deleteDraftItem(Integer draftWorkOrderID, Integer itemID) {
+        DraftWorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
+
+        DraftWorkOrderItem item = draftWorkOrder.getItems().stream()
+                .filter(existingItem -> existingItem.getDraftWorkOrderItemID() == itemID)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Draft work order item not found"));
+
+        draftWorkOrder.removeItem(item);
+
+        return draftWorkOrderRepository.save(draftWorkOrder);
+    }
+
     /**
      * Archives a completed work order instead of deleting it. Open, in-process,
      * review, and draft work orders stay visible so unfinished work is not hidden.
@@ -300,27 +351,6 @@ public class WorkOrderService{
         workOrder.setArchived(true);
         workOrder.setArchivedAt(LocalDateTime.now());
         workOrderRepository.save(workOrder);
-    }
-
-    /**
-     * Deletes a draft work order that belongs to Draft Studio. The project link and
-     * worker assignments are cleared first so JPA can remove the draft cleanly.
-     *
-     * @param id draft work order to delete
-     */
-    @Transactional
-    public void deleteDraftById(Integer id) {
-        WorkOrder workOrder = getRequiredWorkOrder(id);
-
-        if (workOrder.getStatus() != WorkOrderStatus.DRAFT) {
-            throw new IllegalStateException("Only draft work orders can be deleted from Draft Studio");
-        }
-
-        if (workOrder.getProject() != null) {
-            workOrder.getProject().removeWorkOrder(workOrder);
-        }
-        workOrder.setWorkers(new HashSet<>());
-        workOrderRepository.delete(workOrder);
     }
 
     @Transactional
@@ -429,6 +459,11 @@ public class WorkOrderService{
         }
 
         return result.get();
+    }
+
+    private DraftWorkOrder getRequiredDraftWorkOrder(Integer draftWorkOrderID) {
+        return findDraftById(draftWorkOrderID)
+                .orElseThrow(() -> new IllegalArgumentException("Draft work order not found"));
     }
 
     private void ensureWorkOrderCanBeEdited(WorkOrder workOrder) {

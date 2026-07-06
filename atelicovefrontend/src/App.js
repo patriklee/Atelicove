@@ -69,6 +69,7 @@ function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="my-assignments" element={<MyAssignments />} />
               <Route path="my-assignments/:workOrderID" element={<MyWorkOrderDetail />} />
+              <Route path="draft-workorders/:projectID/:workOrderID" element={<MyWorkOrderDetail />} />
               <Route path="projects/draft-studio" element={<ProjectsPage mode="studio" title="Projects" subtitle="Create teams, draft projects, and prepare draft work orders." />} />
               <Route path="projects/active" element={<ProjectsPage mode="active" title="Project Studio" subtitle="Review active projects and edit selected project details." />} />
               <Route path="projects/:projectID" element={<ProjectSummary />} />

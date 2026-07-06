@@ -151,6 +151,7 @@ public class ProjectService {
 			throw new IllegalStateException("Draft projects attached to an active project cannot be activated");
 		}
 
+		ensureAssociatedTeamsAreNotEmpty(project);
 		createDraftSnapshot(project, "Launch snapshot");
 		project.setProjectStatus(ProjectStatus.ACTIVE);
 		project.setActivatedAt(LocalDateTime.now());
@@ -185,6 +186,7 @@ public class ProjectService {
 			throw new IllegalStateException("Projects can only be submitted when all work orders are complete");
 		}
 
+		ensureAssociatedTeamsAreNotEmpty(project);
 		project.setProjectStatus(ProjectStatus.IN_REVIEW);
 
 		return projectRepository.save(project);
@@ -208,6 +210,7 @@ public class ProjectService {
 			throw new IllegalStateException("Projects can only be completed when all work orders are complete");
 		}
 
+		ensureAssociatedTeamsAreNotEmpty(project);
 		project.setProjectStatus(ProjectStatus.COMPLETED);
 		project.setCompletedAt(LocalDateTime.now());
 
@@ -245,6 +248,7 @@ public class ProjectService {
 			throw new IllegalStateException("Projects can only be archived when all work orders are complete");
 		}
 
+		ensureAssociatedTeamsAreNotEmpty(project);
 		project.setArchived(true);
 		project.setArchivedAt(LocalDateTime.now());
 		for (Project draft : new ArrayList<>(projectRepository.findByAssociatedActiveProject_ProjectID(projectID))) {
@@ -328,6 +332,7 @@ public class ProjectService {
 		if (teamID != null) {
 			team = teamRepository.findById(teamID)
 					.orElseThrow(() -> new IllegalArgumentException("Team not found"));
+			ensureTeamCanBeAssignedToProject(team);
 			if (!project.getTeams().contains(team)) {
 				Set<Team> previousTeams = new HashSet<>(project.getTeams());
 				project.addTeam(team);
@@ -387,6 +392,7 @@ public class ProjectService {
 
 		Team team = teamRepository.findById(teamID)
 				.orElseThrow(() -> new IllegalArgumentException("Team not found"));
+		ensureTeamCanBeAssignedToProject(team);
 
 		if (!project.getTeams().contains(team)) {
 			project.addTeam(team);
@@ -463,6 +469,60 @@ public class ProjectService {
 				.orElseThrow(() -> new IllegalArgumentException("Draft work order is not assigned to this project"));
 
 		project.removeDraftWorkOrder(draftWorkOrder);
+
+		return projectRepository.save(project);
+	}
+
+	@Transactional
+	public Project updateDraftWorkOrder(
+			Integer projectID,
+			Integer draftWorkOrderID,
+			Integer companyID,
+			String comment,
+			Integer teamID,
+			boolean updateTeam) {
+		Project project = getRequiredProject(projectID);
+		ensureProjectCanBeEdited(project);
+
+		if (project.getProjectStatus() != ProjectStatus.DRAFT) {
+			throw new IllegalStateException("Draft work orders can only be edited for draft projects");
+		}
+
+		DraftWorkOrder draftWorkOrder = project.getDraftWorkOrders().stream()
+				.filter(item -> item.getDraftWorkOrderID() == draftWorkOrderID)
+				.findFirst()
+				.orElseThrow(() -> new IllegalArgumentException("Draft work order is not assigned to this project"));
+
+		if (companyID == null) {
+			draftWorkOrder.setPlannedCompanyID(null);
+			draftWorkOrder.setPlannedCompanyName(null);
+		} else {
+			Company company = companyRepository.findById(companyID)
+					.orElseThrow(() -> new IllegalArgumentException("Company not found"));
+			if (company.isArchived()) {
+				throw new IllegalStateException("Archived companies cannot be assigned");
+			}
+			draftWorkOrder.setPlannedCompanyID(company.getCompanyID());
+			draftWorkOrder.setPlannedCompanyName(company.getCompanyName());
+		}
+
+		if (updateTeam) {
+			if (teamID == null) {
+				draftWorkOrder.setPlannedTeamID(null);
+				draftWorkOrder.setPlannedTeamName(null);
+			} else {
+				Team team = teamRepository.findById(teamID)
+						.orElseThrow(() -> new IllegalArgumentException("Team not found"));
+				ensureTeamCanBeAssignedToProject(team);
+				if (!project.getTeams().contains(team)) {
+					project.addTeam(team);
+				}
+				draftWorkOrder.setPlannedTeamID(team.getTeamID());
+				draftWorkOrder.setPlannedTeamName(team.getTeamName());
+			}
+		}
+
+		draftWorkOrder.setComment(comment);
 
 		return projectRepository.save(project);
 	}
@@ -612,6 +672,7 @@ public class ProjectService {
 			if (teams.size() != projectDTO.getTeamIDs().size()) {
 				throw new IllegalArgumentException("One or more teams were not found");
 			}
+			ensureTeamsCanBeAssignedToProject(teams);
 			project.setTeams(List.copyOf(teams));
 			syncActiveProjectTeamWorkers(project, previousTeams, teams);
 		}
@@ -709,6 +770,22 @@ public class ProjectService {
 		if (project.isArchived() ||
 				project.getProjectStatus() == ProjectStatus.COMPLETED) {
 			throw new IllegalStateException("Completed or archived projects cannot receive comments");
+		}
+	}
+
+	private void ensureAssociatedTeamsAreNotEmpty(Project project) {
+		ensureTeamsCanBeAssignedToProject(new HashSet<>(project.getTeams()));
+	}
+
+	private void ensureTeamsCanBeAssignedToProject(Set<Team> teams) {
+		for (Team team : teams) {
+			ensureTeamCanBeAssignedToProject(team);
+		}
+	}
+
+	private void ensureTeamCanBeAssignedToProject(Team team) {
+		if (team == null || team.getWorkers().isEmpty()) {
+			throw new IllegalStateException("Associated team is empty");
 		}
 	}
 

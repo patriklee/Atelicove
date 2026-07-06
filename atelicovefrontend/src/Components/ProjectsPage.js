@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -113,6 +113,9 @@ const workOrderCost = (workOrder = {}) =>
     total + (Number(item.price) || 0) * (Number(item.quantity ?? 1) || 0)
   ), 0);
 
+const projectDraftEstimatedCost = (project = {}) =>
+  (project.draftWorkOrders || []).reduce((total, workOrder) => total + workOrderCost(workOrder), 0);
+
 const projectWorkOrderCount = (project = {}) =>
   (project.workOrders || []).length +
   (project.draftWorkOrders || []).length ||
@@ -153,9 +156,17 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const [snapshotDialog, setSnapshotDialog] = useState(null);
   const [projectActionItemsDialog, setProjectActionItemsDialog] = useState(null);
   const [projectWorkOrdersDialog, setProjectWorkOrdersDialog] = useState(null);
+  const [workOrderTeamsDialog, setWorkOrderTeamsDialog] = useState(null);
+  const [draftStudioProjectDetailsDialog, setDraftStudioProjectDetailsDialog] = useState(null);
+  const [projectTeamsDialog, setProjectTeamsDialog] = useState(null);
+  const [projectCommentsDialog, setProjectCommentsDialog] = useState(null);
   const [launchSignatureProject, setLaunchSignatureProject] = useState(null);
   const [launchSignature, setLaunchSignature] = useState('');
   const [studioView, setStudioView] = useState('draft');
+  const [projectStudioPreloadSuppressed, setProjectStudioPreloadSuppressed] = useState(false);
+  const [draftStudioProjectTableView, setDraftStudioProjectTableView] = useState('draft');
+  const studioResetKeyRef = useRef(null);
+  const consumedProjectStudioPreloadKeyRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
@@ -171,6 +182,9 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const showCreationStudio = isStudioDraftView;
   const showAdminEditTools = showCreationStudio || (isEditorView && canManageProject);
   const showProjectList = !isProjectEdit && mode !== 'studio' && !isProjectStudioEditView;
+  const draftStudioLabel = mode === 'studio' ? 'Draft Project' : 'Project';
+  const projectStudioEditProjectID = location.state?.projectStudioEditProjectID;
+  const skipProjectStudioEditPreload = location.state?.skipProjectStudioEditPreload;
 
   const loadData = () => {
     setLoading(true);
@@ -208,7 +222,18 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const selectedProject = projects.find(project => project.projectID === Number(projectForm.projectID));
   const selectedWorkOrderProject = projects.find(project => project.projectID === Number(workOrderForm.projectID));
   const selectedActionProject = projects.find(project => project.projectID === Number(actionItemForm.projectID));
+  const assignableTeams = teams.filter(team => (team.workers || []).length);
+  const selectedProjectTeamIDs = projectForm.teamIDs.map(Number);
+  const projectTeamSelectOptions = teams.filter(team => (
+    (team.workers || []).length || selectedProjectTeamIDs.includes(team.teamID)
+  ));
   const activeProjectOptions = projects.filter(project => !project.archived && project.projectStatus === 'ACTIVE');
+  const draftStudioProjectTableProjects = projects.filter(project => (
+    !project.archived &&
+    (draftStudioProjectTableView === 'active'
+      ? project.projectStatus === 'ACTIVE'
+      : project.projectStatus === 'DRAFT')
+  ));
   const attachableWorkOrders = workOrders.filter(workOrder =>
     !workOrder.archived &&
     ['OPEN', 'IN_PROCESS'].includes(workOrder.status) &&
@@ -216,6 +241,12 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   );
   const projectWorkOrdersAreComplete = (project) =>
     Boolean(project) && (project.workOrders || []).every(workOrder => workOrder.status === 'COMPLETE');
+  const projectHasEmptyAssociatedTeam = (project) =>
+    Boolean(project) && (project.teams || []).some(team => !(team.workers || []).length);
+  const emptyProjectTeamNames = (project) =>
+    (project?.teams || [])
+      .filter(team => !(team.workers || []).length)
+      .map(team => team.teamName || `Team #${team.teamID}`);
   const reviewProjects = projects.filter(project => !project.archived && project.projectStatus === 'IN_REVIEW');
   const archiveProjects = projects.filter(project => !project.archived && project.projectStatus !== 'DRAFT');
   const projectReadyToArchive = (project) =>
@@ -224,6 +255,36 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     ...(project.workOrders || []),
     ...(project.draftWorkOrders || []),
   ];
+  const teamsForWorkOrder = (project = {}, workOrder = {}) => {
+    if (workOrder.status === 'DRAFT') {
+      const plannedTeam = (project.teams || []).find(team => team.teamID === workOrder.plannedTeamID);
+      if (plannedTeam) {
+        return [plannedTeam];
+      }
+      if (workOrder.plannedTeamID || workOrder.plannedTeamName) {
+        return [{
+          teamID: workOrder.plannedTeamID || `draft-${workOrder.workOrderID}`,
+          teamName: workOrder.plannedTeamName || `Team #${workOrder.plannedTeamID}`,
+          workers: [],
+        }];
+      }
+      return [];
+    }
+
+    const workerIDs = new Set(getWorkOrderWorkers(workOrder).map(worker => worker.workerID));
+    return (project.teams || []).filter(team => (
+      (team.workers || []).some(worker => workerIDs.has(normalizeWorker(worker).workerID))
+    ));
+  };
+  const teamForWorkOrder = (project = {}, workOrder = {}) => teamsForWorkOrder(project, workOrder)[0] || null;
+  const workersOutsideWorkOrderTeam = (project = {}, workOrder = {}) => {
+    const teamWorkerIDs = new Set((teamForWorkOrder(project, workOrder)?.workers || []).map(worker => normalizeWorker(worker).workerID));
+    return getWorkOrderWorkers(workOrder).filter(worker => !teamWorkerIDs.has(worker.workerID));
+  };
+  const workOrderTeamName = (project = {}, workOrder = {}) => {
+    const team = teamForWorkOrder(project, workOrder);
+    return team ? team.teamName || `Team #${team.teamID}` : 'No team';
+  };
   const hasPricedItemsForStatuses = (project, statuses) =>
     Boolean(project) && [
       ...(project.workOrders || []),
@@ -247,11 +308,29 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setCommentText('');
   };
 
+  const requestProjectEditLeave = (action) => {
+    if (action) {
+      action();
+    }
+  };
+
   useEffect(() => {
     if (!['studio', 'active'].includes(mode)) {
+      studioResetKeyRef.current = null;
       return;
     }
 
+    const nextResetKey = `${mode}:${location.state?.studioResetKey || ''}`;
+    if (studioResetKeyRef.current === null) {
+      studioResetKeyRef.current = nextResetKey;
+      return;
+    }
+    if (studioResetKeyRef.current === nextResetKey) {
+      return;
+    }
+    studioResetKeyRef.current = nextResetKey;
+
+    setProjectStudioPreloadSuppressed(false);
     setStudioView('draft');
     clearLoadedProject();
   }, [mode, location.state?.studioResetKey]);
@@ -281,40 +360,88 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     });
   };
 
-  const openWorkOrderSummary = (project, workOrder) => {
-    if (!workOrder?.workOrderID || workOrder.status === 'DRAFT') {
+  const openProjectFromList = (project) => {
+    if (!project) return;
+
+    if (
+      mode === 'active' &&
+      canManageProject &&
+      project.projectStatus === 'ACTIVE' &&
+      !project.archived
+    ) {
+      setProjectStudioPreloadSuppressed(false);
+      loadProjectIntoForm(project);
+      setStudioView('edit');
       return;
     }
 
-    rememberProjectStudioSelection(project);
-    navigate(`/admin/workorders/${workOrder.workOrderID}`);
+    requestProjectEditLeave(() => navigate(`/admin/projects/${project.projectID}`));
+  };
+
+  const openDraftStudioProjectForEdit = (project) => {
+    if (!project) return;
+
+    if (project.projectStatus === 'DRAFT') {
+      loadProjectIntoForm(project);
+      setStudioView('edit');
+      return;
+    }
+
+    if (project.projectStatus === 'ACTIVE') {
+      requestProjectEditLeave(() => navigate('/admin/projects/active', {
+        state: { projectStudioEditProjectID: project.projectID },
+      }));
+      return;
+    }
+
+    requestProjectEditLeave(() => navigate(`/admin/projects/${project.projectID}`));
   };
 
   const editAssociatedWorkOrder = (project, workOrder) => {
-    if (!workOrder?.workOrderID || workOrder.status === 'DRAFT') {
+    if (!workOrder?.workOrderID) {
       return;
     }
 
-    rememberProjectStudioSelection(project);
-    navigate(`/admin/my-assignments/${workOrder.workOrderID}`);
+    if (workOrder.status === 'DRAFT') {
+      requestProjectEditLeave(() => navigate(`/admin/draft-workorders/${project.projectID}/${workOrder.workOrderID}`));
+      return;
+    }
+
+    requestProjectEditLeave(() => {
+      rememberProjectStudioSelection(project);
+      navigate(`/admin/my-assignments/${workOrder.workOrderID}`);
+    });
   };
 
   useEffect(() => {
-    if (mode !== 'active' || !projects.length || !location.state?.projectStudioEditProjectID) {
+    if (
+      mode !== 'active' ||
+      !projects.length ||
+      projectStudioPreloadSuppressed ||
+      skipProjectStudioEditPreload ||
+      !projectStudioEditProjectID
+    ) {
       return;
     }
 
-    const projectID = Number(location.state.projectStudioEditProjectID);
-    if (!projectID || Number(projectForm.projectID) === projectID) {
+    const preloadKey = `${location.key || 'initial'}:${projectStudioEditProjectID}`;
+    if (consumedProjectStudioPreloadKeyRef.current === preloadKey) {
+      return;
+    }
+
+    const projectID = Number(projectStudioEditProjectID);
+    if (!projectID) {
+      consumedProjectStudioPreloadKeyRef.current = preloadKey;
       return;
     }
 
     const project = projects.find(item => item.projectID === projectID && ['ACTIVE', 'IN_REVIEW'].includes(item.projectStatus) && !item.archived);
     if (project) {
+      consumedProjectStudioPreloadKeyRef.current = preloadKey;
       loadProjectIntoForm(project);
       setStudioView('edit');
     }
-  }, [mode, projects, location.state?.projectStudioEditProjectID, projectForm.projectID]);
+  }, [location.key, mode, projects, projectStudioEditProjectID, projectStudioPreloadSuppressed, skipProjectStudioEditPreload]);
 
   useEffect(() => {
     if (!isProjectEdit || !projects.length) {
@@ -342,8 +469,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     });
   };
 
-  const saveProject = async (event) => {
-    event.preventDefault();
+  const saveProjectChanges = async () => {
     setSaving(true);
     setMessage(null);
     try {
@@ -363,11 +489,18 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
         loadProjectIntoForm(normalized);
       }
       loadData();
+      return true;
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
+      return false;
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveProject = async (event) => {
+    event.preventDefault();
+    await saveProjectChanges();
   };
 
   const saveProjectTeamIDs = async (teamIDs) => {
@@ -397,13 +530,18 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
   const addProjectTeam = async (teamID) => {
     if (!teamID || !selectedProject) return;
-    const nextTeamIDs = Array.from(new Set([...projectForm.teamIDs.map(Number), Number(teamID)]));
+    const team = assignableTeams.find(item => item.teamID === Number(teamID));
+    if (!team) {
+      setMessage({ severity: 'warning', text: 'Associated team is empty.' });
+      return;
+    }
+    const nextTeamIDs = Array.from(new Set([...selectedProjectTeamIDs, Number(teamID)]));
     await saveProjectTeamIDs(nextTeamIDs);
   };
 
   const removeProjectTeam = async (teamID) => {
     if (!selectedProject) return;
-    const nextTeamIDs = projectForm.teamIDs.map(Number).filter(id => id !== Number(teamID));
+    const nextTeamIDs = selectedProjectTeamIDs.filter(id => id !== Number(teamID));
     await saveProjectTeamIDs(nextTeamIDs);
   };
 
@@ -563,7 +701,12 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   };
 
   const archiveProject = async (project) => {
-    if (!project || !window.confirm(`Archive ${project.projectName || `project #${project.projectID}`}?`)) return;
+    if (!project) return;
+    if (projectHasEmptyAssociatedTeam(project)) {
+      setMessage({ severity: 'warning', text: 'Associated team is empty.' });
+      return;
+    }
+    if (!window.confirm(`Archive ${project.projectName || `project #${project.projectID}`}?`)) return;
 
     setSaving(true);
     setMessage(null);
@@ -639,6 +782,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
   const submitProjectForReview = async (project) => {
     if (!project) return;
+    if (projectHasEmptyAssociatedTeam(project)) {
+      setMessage({ severity: 'warning', text: 'Associated team is empty.' });
+      return;
+    }
 
     setSaving(true);
     setMessage(null);
@@ -655,6 +802,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
   const approveProject = async (project) => {
     if (!project) return;
+    if (projectHasEmptyAssociatedTeam(project)) {
+      setMessage({ severity: 'warning', text: 'Associated team is empty.' });
+      return;
+    }
 
     setSaving(true);
     setMessage(null);
@@ -745,8 +896,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
   const projectDetailsPanel = selectedProject && (
     <Paper sx={{ p: 3, mb: 3 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Project Details</Typography>
-      <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 2 }}>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
+        {isStudioEditView ? 'Draft Project Details' : 'Project Details'}
+      </Typography>
+      <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 2, maxHeight: 420, overflowY: 'auto' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
             {selectedProject.projectName || `Project #${selectedProject.projectID}`}
@@ -831,7 +984,9 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ mb: 2 }}>
         <Stack direction="row" spacing={1} alignItems="center">
           <PlaylistAddCheckIcon color="primary" />
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Action Items</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            {isStudioEditView ? 'Draft Action Items' : 'Action Items'}
+          </Typography>
         </Stack>
         <Button
           variant="contained"
@@ -964,18 +1119,33 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
               <Button
                 variant={studioView === 'draft' ? 'contained' : 'outlined'}
                 onClick={() => {
-                  setStudioView('draft');
-                  if (mode === 'active') {
-                    clearLoadedProject();
-                    navigate('/admin/projects/active');
+                  if (studioView === 'draft') {
+                    return;
                   }
+                  requestProjectEditLeave(() => {
+                    if (mode === 'active') {
+                      setProjectStudioPreloadSuppressed(true);
+                    }
+                    setStudioView('draft');
+                    clearLoadedProject();
+                  });
                 }}
               >
                 {mode === 'active' ? 'Active' : 'Draft'}
               </Button>
               <Button
                 variant={studioView === 'edit' ? 'contained' : 'outlined'}
-                onClick={() => setStudioView('edit')}
+                onClick={() => {
+                  if (studioView === 'edit') {
+                    return;
+                  }
+                  requestProjectEditLeave(() => {
+                    if (mode === 'active') {
+                      setProjectStudioPreloadSuppressed(false);
+                    }
+                    setStudioView('edit');
+                  });
+                }}
               >
                 Edit
               </Button>
@@ -987,7 +1157,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
 
       {isProjectEdit && !isProjectStudioEditView && (
-        <Button variant="outlined" onClick={() => navigate(-1)} sx={{ mb: 2 }}>
+        <Button variant="outlined" onClick={() => requestProjectEditLeave(() => navigate(-1))} sx={{ mb: 2 }}>
           Back
         </Button>
       )}
@@ -1014,15 +1184,20 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
         </Paper>
       )}
 
-      {isEditorView && selectedProject && projectDetailsPanel}
+      {isEditorView && selectedProject && !isStudioEditView && !isProjectStudioEditView && projectDetailsPanel}
 
       {showAdminEditTools && (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} lg={showCreationStudio ? 12 : 7}>
+        <Grid
+          container
+          rowSpacing={(isProjectStudioEditView || isStudioEditView) && selectedProject ? 6 : 3}
+          columnSpacing={(isProjectStudioEditView || isStudioEditView) && selectedProject ? 5 : 3}
+          sx={{ mb: 4 }}
+        >
+          <Grid item xs={12} lg={showCreationStudio || isStudioEditView || isProjectStudioEditView ? 5 : 7}>
             <Paper component="form" onSubmit={saveProject} sx={{ p: 3, height: '100%' }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                 <EditIcon color="primary" />
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>Project</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>{draftStudioLabel}</Typography>
               </Stack>
               <Grid container spacing={2}>
                 {(isStudioEditView || isProjectStudioEditView) && (
@@ -1036,17 +1211,8 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                           const project = projects.find(item => item.projectID === Number(event.target.value));
                           if (project) {
                             loadProjectIntoForm(project);
-                            if (isProjectStudioEditView) {
-                              navigate('/admin/projects/active', {
-                                replace: true,
-                                state: { projectStudioEditProjectID: project.projectID },
-                              });
-                            }
                           } else {
                             clearLoadedProject();
-                            if (isProjectStudioEditView) {
-                              navigate('/admin/projects/active', { replace: true });
-                            }
                           }
                         }}
                       >
@@ -1100,9 +1266,9 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                       onChange={event => setProjectForm(current => ({ ...current, teamIDs: event.target.value }))}
                       renderValue={selected => selected.map(teamID => teams.find(team => team.teamID === Number(teamID))?.teamName || `Team #${teamID}`).join(', ')}
                     >
-                      {teams.map(team => (
+                      {projectTeamSelectOptions.map(team => (
                         <MenuItem key={team.teamID} value={team.teamID}>
-                          {team.teamName || `Team #${team.teamID}`}
+                          {team.teamName || `Team #${team.teamID}`}{!(team.workers || []).length ? ' (empty)' : ''}
                         </MenuItem>
                       ))}
                     </Select>
@@ -1165,7 +1331,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   <Button
                     variant="contained"
                     color="success"
-                    disabled={saving || !projectWorkOrdersAreComplete(selectedProject)}
+                    disabled={saving || !projectWorkOrdersAreComplete(selectedProject) || projectHasEmptyAssociatedTeam(selectedProject)}
                     onClick={() => submitProjectForReview(selectedProject)}
                   >
                     Submit for Review
@@ -1177,6 +1343,11 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   All work orders must be complete before this project can be submitted for review.
                 </Typography>
               )}
+              {isActiveProjectEditor && selectedProject?.projectStatus === 'ACTIVE' && projectHasEmptyAssociatedTeam(selectedProject) && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  Associated team is empty: {emptyProjectTeamNames(selectedProject).join(', ')}.
+                </Alert>
+              )}
               {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && selectedProject.associatedActiveProject && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                   Attached draft projects cannot be launched as new active projects.
@@ -1185,12 +1356,104 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
             </Paper>
           </Grid>
 
+          {isProjectStudioEditView && selectedProject && (
+          <Grid item xs={12} lg={7}>
+            {projectDetailsPanel}
+          </Grid>
+          )}
+
+          {showCreationStudio && (
+          <Grid item xs={12} lg={7}>
+            <Paper sx={{ p: 3, height: '100%' }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }} sx={{ mb: 2 }}>
+                <Box>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                    {draftStudioProjectTableView === 'active' ? 'Active Projects' : 'Draft Projects'}
+                  </Typography>
+                  <ButtonGroup size="small" variant="outlined" aria-label="Draft Studio project table view">
+                    <Button
+                      variant={draftStudioProjectTableView === 'draft' ? 'contained' : 'outlined'}
+                      onClick={() => setDraftStudioProjectTableView('draft')}
+                    >
+                      Draft
+                    </Button>
+                    <Button
+                      variant={draftStudioProjectTableView === 'active' ? 'contained' : 'outlined'}
+                      onClick={() => setDraftStudioProjectTableView('active')}
+                    >
+                      Active
+                    </Button>
+                  </ButtonGroup>
+                </Box>
+                <Stack direction="row" spacing={1} justifyContent={{ xs: 'space-between', sm: 'flex-end' }} alignItems="center">
+                  <Chip label={`${draftStudioProjectTableProjects.length} ${draftStudioProjectTableView === 'active' ? 'active' : 'drafts'}`} />
+                </Stack>
+              </Stack>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Project</TableCell>
+                      <TableCell>Budget</TableCell>
+                      <TableCell>{draftStudioProjectTableView === 'active' ? 'Actual' : 'Estimated'}</TableCell>
+                      <TableCell>Teams</TableCell>
+                      <TableCell>Work Orders</TableCell>
+                      <TableCell>Updated</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {draftStudioProjectTableProjects.map(project => (
+                      <TableRow key={project.projectID} hover>
+                        <TableCell>
+                          <Button
+                            size="small"
+                            onClick={() => openDraftStudioProjectForEdit(project)}
+                            sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}
+                          >
+                            {project.projectName || `Project #${project.projectID}`}
+                          </Button>
+                        </TableCell>
+                        <TableCell>{formatMoney(project.budget)}</TableCell>
+                        <TableCell>{formatMoney(draftStudioProjectTableView === 'active' ? project.actualCost : projectDraftEstimatedCost(project))}</TableCell>
+                        <TableCell>{(project.teams || []).length}</TableCell>
+                        <TableCell>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => setProjectWorkOrdersDialog(project)}
+                          >
+                            {projectWorkOrderCount(project)}
+                          </Button>
+                        </TableCell>
+                        <TableCell>{formatDateTime(project.lastModifiedAt)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {!draftStudioProjectTableProjects.length && (
+                      <TableRow>
+                        <TableCell colSpan={6}>No {draftStudioProjectTableView} projects found.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+          )}
+
+          {isStudioEditView && selectedProject && (
+          <Grid item xs={12} lg={7}>
+            {projectDetailsPanel}
+          </Grid>
+          )}
+
           {isEditorView && selectedProject && (
-          <Grid item xs={12} lg={5}>
+          <Grid item xs={12} lg={5} sx={{ mt: (isProjectStudioEditView || isStudioEditView) ? 4 : 0 }}>
             <Paper sx={{ p: 3, height: '100%' }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                 <GroupsIcon color="primary" />
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>Project Teams</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                  {isStudioEditView ? 'Draft Project Teams' : 'Project Teams'}
+                </Typography>
               </Stack>
               <FormControl fullWidth margin="normal">
                 <InputLabel>Add existing team</InputLabel>
@@ -1200,7 +1463,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   onChange={event => addProjectTeam(event.target.value)}
                 >
                   <MenuItem value="">Select team</MenuItem>
-                  {teams.filter(team => !projectForm.teamIDs.map(Number).includes(team.teamID)).map(team => (
+                  {assignableTeams.filter(team => !selectedProjectTeamIDs.includes(team.teamID)).map(team => (
                     <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>
                   ))}
                 </Select>
@@ -1231,7 +1494,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
           )}
 
           {isEditorView && selectedProject && (
-          <Grid item xs={12} lg={7}>
+          <Grid item xs={12} lg={7} sx={{ mt: (isProjectStudioEditView || isStudioEditView) ? 4 : 0 }}>
             <Paper component="form" onSubmit={createAndAttachWorkOrder} sx={{ p: 3, height: '100%' }}>
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
                 {selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'Work Orders For Project' : 'Draft Work Orders For Project'}
@@ -1269,7 +1532,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                       onChange={event => setWorkOrderForm(current => ({ ...current, teamID: event.target.value }))}
                     >
                       <MenuItem value="">{selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'No team selected (open)' : 'No team selected'}</MenuItem>
-                      {teams.map(team => (
+                      {assignableTeams.map(team => (
                         <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>
                       ))}
                     </Select>
@@ -1321,39 +1584,49 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                           <TableCell>Work Order</TableCell>
                           <TableCell>Status</TableCell>
                           <TableCell>Company</TableCell>
-                          <TableCell>Workers</TableCell>
+                          <TableCell>Team</TableCell>
                           <TableCell align="right">Cost</TableCell>
                           <TableCell align="right">Actions</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {associatedWorkOrdersFor(selectedWorkOrderProject).map(workOrder => (
-                          <TableRow key={`${workOrder.status || 'UNKNOWN'}-${workOrder.workOrderID}`}>
-                            <TableCell>
-                              {workOrder.status === 'DRAFT' ? (
-                                `#${workOrder.workOrderID}`
-                              ) : (
-                                <Button size="small" onClick={() => openWorkOrderSummary(selectedWorkOrderProject, workOrder)} sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}>
-                                  #{workOrder.workOrderID}
+                        {associatedWorkOrdersFor(selectedWorkOrderProject).map(workOrder => {
+                          const team = teamForWorkOrder(selectedWorkOrderProject, workOrder);
+                          const workersOutsideTeam = workersOutsideWorkOrderTeam(selectedWorkOrderProject, workOrder);
+                          return (
+                            <TableRow key={`${workOrder.status || 'UNKNOWN'}-${workOrder.workOrderID}`}>
+                              <TableCell>
+                                #{workOrder.workOrderID}
+                              </TableCell>
+                              <TableCell>{(workOrder.status || 'UNKNOWN').replaceAll('_', ' ')}</TableCell>
+                              <TableCell>{workOrder.company?.companyName || workOrder.plannedCompanyName || 'No company'}</TableCell>
+                              <TableCell>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => setWorkOrderTeamsDialog({
+                                    workOrder,
+                                    team,
+                                    workersOutsideTeam,
+                                  })}
+                                >
+                                  {workOrderTeamName(selectedWorkOrderProject, workOrder)}
                                 </Button>
-                              )}
-                            </TableCell>
-                            <TableCell>{(workOrder.status || 'UNKNOWN').replaceAll('_', ' ')}</TableCell>
-                            <TableCell>{workOrder.company?.companyName || workOrder.plannedCompanyName || 'No company'}</TableCell>
-                            <TableCell>{getWorkOrderWorkers(workOrder).map(workerName).join(', ') || 'Unassigned'}</TableCell>
-                            <TableCell align="right">{formatMoney(workOrderCost(workOrder))}</TableCell>
-                            <TableCell align="right">
-                              <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                <Button size="small" variant="outlined" disabled={workOrder.status === 'DRAFT'} onClick={() => editAssociatedWorkOrder(selectedWorkOrderProject, workOrder)}>
-                                  Edit
-                                </Button>
-                                <Button size="small" variant="outlined" color="error" disabled={saving} onClick={() => removeAssociatedWorkOrder(selectedWorkOrderProject, workOrder)}>
-                                  Remove
-                                </Button>
-                              </Stack>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                              </TableCell>
+                              <TableCell align="right">{formatMoney(workOrderCost(workOrder))}</TableCell>
+                              <TableCell align="right">
+                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                  <Button size="small" variant="outlined" onClick={() => editAssociatedWorkOrder(selectedWorkOrderProject, workOrder)}>
+                                    Manage
+                                  </Button>
+                                  <Button size="small" variant="outlined" color="error" disabled={saving} onClick={() => removeAssociatedWorkOrder(selectedWorkOrderProject, workOrder)}>
+                                    Remove
+                                  </Button>
+                                </Stack>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                         {!associatedWorkOrdersFor(selectedWorkOrderProject).length && (
                           <TableRow>
                             <TableCell colSpan={6}>No work orders for this project.</TableCell>
@@ -1369,9 +1642,11 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
           )}
 
           {isEditorView && selectedProject && (
-          <Grid item xs={12} lg={5}>
+          <Grid item xs={12} lg={5} sx={{ mt: (isProjectStudioEditView || isStudioEditView) ? 4 : 0 }}>
             <Paper component="form" onSubmit={addComment} sx={{ p: 3, height: '100%' }}>
-              <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Project Comment</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
+                {isStudioEditView ? 'Draft Project Comments' : 'Project Comment'}
+              </Typography>
               <FormControl fullWidth margin="normal">
                 <InputLabel>Comment type</InputLabel>
                 <Select value={commentType} label="Comment type" onChange={event => setCommentType(event.target.value)}>
@@ -1394,61 +1669,12 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
               <WorkOrderDocuments
                 basePath={`/projects/${selectedProject.projectID}/documents`}
                 canManage={!selectedProject.archived}
-                title="Project Documents"
+                title={isStudioEditView ? 'Draft Project Documents' : 'Project Documents'}
                 emptyMessage="No documents are attached to this project."
               />
             </Grid>
           )}
         </Grid>
-      )}
-
-      {showCreationStudio && (
-        <Paper sx={{ p: 3, mb: 4 }}>
-          <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>Draft Projects</Typography>
-            <Chip label={`${projects.filter(project => !project.archived && project.projectStatus === 'DRAFT').length} drafts`} />
-          </Stack>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Project</TableCell>
-                  <TableCell>Budget</TableCell>
-                  <TableCell>Estimated</TableCell>
-                  <TableCell>Teams</TableCell>
-                  <TableCell>Work Orders</TableCell>
-                  <TableCell>Updated</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {projects.filter(project => !project.archived && project.projectStatus === 'DRAFT').map(project => (
-                  <TableRow key={project.projectID} hover>
-                    <TableCell>
-                      <Button
-                        size="small"
-                        onClick={() => navigate(`/admin/projects/${project.projectID}`)}
-                        sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}
-                      >
-                        {project.projectName || `Project #${project.projectID}`}
-                      </Button>
-                      <Typography variant="caption" color="text.secondary">{project.description || 'No description'}</Typography>
-                    </TableCell>
-                    <TableCell>{formatMoney(project.budget)}</TableCell>
-                    <TableCell>{formatMoney(project.estimatedCost)}</TableCell>
-                    <TableCell>{(project.teams || []).length}</TableCell>
-                    <TableCell>{(project.draftWorkOrders || []).length || project.draftWorkOrderCount || 0}</TableCell>
-                    <TableCell>{formatDateTime(project.lastModifiedAt)}</TableCell>
-                  </TableRow>
-                ))}
-                {!projects.filter(project => !project.archived && project.projectStatus === 'DRAFT').length && (
-                  <TableRow>
-                    <TableCell colSpan={6}>No draft projects found.</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
       )}
 
       {isEditorView && actionItemsPanel}
@@ -1580,7 +1806,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     {mode === 'active' || isStudioEditView ? (
                       <Button
                         size="small"
-                        onClick={() => navigate(`/admin/projects/${project.projectID}`)}
+                        onClick={() => openProjectFromList(project)}
                         sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}
                       >
                         {project.projectName || `Project #${project.projectID}`}
@@ -1588,7 +1814,6 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     ) : (
                       <Typography variant="subtitle2">{project.projectName || `Project #${project.projectID}`}</Typography>
                     )}
-                    <Typography variant="caption" color="text.secondary">{project.description || 'No description'}</Typography>
                   </TableCell>
                   <TableCell>{project.projectStatus.replaceAll('_', ' ')}</TableCell>
                   <TableCell>
@@ -1607,12 +1832,13 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     )}
                   </TableCell>
                   <TableCell>
-                    <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
-                      {(project.teams || []).map(team => (
-                        <Chip key={team.teamID} size="small" label={team.teamName || `Team #${team.teamID}`} />
-                      ))}
-                      {!(project.teams || []).length && <Typography variant="caption">None</Typography>}
-                    </Stack>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setProjectTeamsDialog(project)}
+                    >
+                      {(project.teams || []).length}
+                    </Button>
                   </TableCell>
                   <TableCell>
                     <Button
@@ -1643,7 +1869,15 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                       </FormControl>
                     </TableCell>
                   )}
-                  <TableCell>{(project.comments || []).length}</TableCell>
+                  <TableCell>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setProjectCommentsDialog(project)}
+                    >
+                      {(project.comments || []).length ? 'Yes' : 'No'}
+                    </Button>
+                  </TableCell>
                   <TableCell>
                     <Button
                       size="small"
@@ -1688,6 +1922,213 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
           <Button variant="contained" startIcon={<RocketLaunchIcon />} disabled={saving || !launchSignature.trim()} onClick={launchProject}>
             Launch Project
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(draftStudioProjectDetailsDialog)} onClose={() => setDraftStudioProjectDetailsDialog(null)} fullWidth maxWidth="md">
+        <DialogTitle>{draftStudioProjectDetailsDialog?.projectName || 'Project Details'}</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+              <Chip size="small" label={draftStudioProjectDetailsDialog?.projectStatus || 'UNKNOWN'} />
+              <Chip size="small" label={`Budget ${formatMoney(draftStudioProjectDetailsDialog?.budget)}`} />
+              <Chip
+                size="small"
+                label={
+                  draftStudioProjectDetailsDialog?.projectStatus === 'ACTIVE'
+                    ? `Actual ${formatMoney(draftStudioProjectDetailsDialog?.actualCost)}`
+                    : `Estimated ${formatMoney(projectDraftEstimatedCost(draftStudioProjectDetailsDialog || {}))}`
+                }
+              />
+            </Stack>
+            {draftStudioProjectDetailsDialog?.description && (
+              <Typography variant="body2">{draftStudioProjectDetailsDialog.description}</Typography>
+            )}
+
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Teams</Typography>
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                {(draftStudioProjectDetailsDialog?.teams || []).map(team => (
+                  <Chip key={team.teamID} size="small" label={team.teamName || `Team #${team.teamID}`} />
+                ))}
+                {!(draftStudioProjectDetailsDialog?.teams || []).length && <Chip size="small" label="No teams" />}
+              </Stack>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Work Orders</Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Work Order</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Company</TableCell>
+                      <TableCell>Workers</TableCell>
+                      <TableCell align="right">Cost</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {associatedWorkOrdersFor(draftStudioProjectDetailsDialog || {}).map(workOrder => (
+                      <TableRow key={`${workOrder.status || 'UNKNOWN'}-${workOrder.workOrderID}`}>
+                        <TableCell>#{workOrder.workOrderID}</TableCell>
+                        <TableCell>{(workOrder.status || 'UNKNOWN').replaceAll('_', ' ')}</TableCell>
+                        <TableCell>{workOrder.company?.companyName || workOrder.plannedCompanyName || 'No company'}</TableCell>
+                        <TableCell>{getWorkOrderWorkers(workOrder).map(workerName).join(', ') || 'Unassigned'}</TableCell>
+                        <TableCell align="right">{formatMoney(workOrderCost(workOrder))}</TableCell>
+                      </TableRow>
+                    ))}
+                    {!associatedWorkOrdersFor(draftStudioProjectDetailsDialog || {}).length && (
+                      <TableRow>
+                        <TableCell colSpan={5}>No work orders are associated with this project.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDraftStudioProjectDetailsDialog(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(workOrderTeamsDialog)} onClose={() => setWorkOrderTeamsDialog(null)} fullWidth maxWidth="sm">
+        <DialogTitle>Work Order #{workOrderTeamsDialog?.workOrder?.workOrderID} Teams</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={3}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                {workOrderTeamsDialog?.team
+                  ? workOrderTeamsDialog.team.teamName || `Team #${workOrderTeamsDialog.team.teamID}`
+                  : 'Team Members'}
+              </Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Member</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(workOrderTeamsDialog?.team?.workers || []).map(worker => (
+                      <TableRow key={normalizeWorker(worker).workerID}>
+                        <TableCell>{workerName(normalizeWorker(worker))}</TableCell>
+                      </TableRow>
+                    ))}
+                    {!(workOrderTeamsDialog?.team?.workers || []).length && (
+                      <TableRow>
+                        <TableCell>
+                          {workOrderTeamsDialog?.team ? 'No members are listed for this team.' : 'No team is associated with this work order.'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Assigned Workers Outside Team</Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Worker</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(workOrderTeamsDialog?.workersOutsideTeam || []).map(worker => (
+                      <TableRow key={worker.workerID}>
+                        <TableCell>{workerName(worker)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {!(workOrderTeamsDialog?.workersOutsideTeam || []).length && (
+                      <TableRow>
+                        <TableCell>No separately assigned workers.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setWorkOrderTeamsDialog(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(projectTeamsDialog)} onClose={() => setProjectTeamsDialog(null)} fullWidth maxWidth="sm">
+        <DialogTitle>{projectTeamsDialog?.projectName || 'Project'} Teams</DialogTitle>
+        <DialogContent dividers>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Team</TableCell>
+                  <TableCell>Workers</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(projectTeamsDialog?.teams || []).map(team => (
+                  <TableRow key={team.teamID}>
+                    <TableCell>{team.teamName || `Team #${team.teamID}`}</TableCell>
+                    <TableCell>
+                      {(team.workers || []).length
+                        ? (team.workers || []).map(worker => workerName(normalizeWorker(worker))).join(', ')
+                        : <Chip size="small" color="warning" label="Associated team is empty" />}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!(projectTeamsDialog?.teams || []).length && (
+                  <TableRow>
+                    <TableCell colSpan={2}>No teams are associated with this project.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProjectTeamsDialog(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(projectCommentsDialog)} onClose={() => setProjectCommentsDialog(null)} fullWidth maxWidth="md">
+        <DialogTitle>{projectCommentsDialog?.projectName || 'Project'} Comments</DialogTitle>
+        <DialogContent dividers>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Comment</TableCell>
+                  <TableCell>Author</TableCell>
+                  <TableCell>Created</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(projectCommentsDialog?.comments || []).map(comment => (
+                  <TableRow key={comment.projectCommentID || comment.commentID || `${comment.commentType}-${comment.createdAt}`}>
+                    <TableCell>{comment.commentType || 'GENERAL'}</TableCell>
+                    <TableCell>{comment.commentText || comment.text || 'No comment text'}</TableCell>
+                    <TableCell>{comment.author ? workerName(normalizeWorker(comment.author)) : 'Unknown'}</TableCell>
+                    <TableCell>{formatDateTime(comment.createdAt)}</TableCell>
+                  </TableRow>
+                ))}
+                {!(projectCommentsDialog?.comments || []).length && (
+                  <TableRow>
+                    <TableCell colSpan={4}>No comments are associated with this project.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProjectCommentsDialog(null)}>Close</Button>
         </DialogActions>
       </Dialog>
 

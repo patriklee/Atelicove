@@ -3,7 +3,6 @@ package com.atelicove.entities;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.atelicove.enums.WorkOrderStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -58,6 +57,18 @@ public class DraftWorkOrder extends BaseEntity {
 		return project;
 	}
 
+	@JsonProperty("projectID")
+	@Transient
+	public Integer getProjectID() {
+		return project == null ? null : project.getProjectID();
+	}
+
+	@JsonProperty("projectName")
+	@Transient
+	public String getProjectName() {
+		return project == null ? null : project.getProjectName();
+	}
+
 	public Integer getSourceWorkOrderID() {
 		return sourceWorkOrderID;
 	}
@@ -88,8 +99,8 @@ public class DraftWorkOrder extends BaseEntity {
 
 	@JsonProperty("status")
 	@Transient
-	public WorkOrderStatus getStatus() {
-		return WorkOrderStatus.DRAFT;
+	public String getStatus() {
+		return "DRAFT";
 	}
 
 	public String getComment() {

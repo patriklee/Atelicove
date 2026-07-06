@@ -39,6 +39,7 @@ const ITEM_TYPES = ['LABOR', 'MATERIAL', 'OTHER'];
 
 const emptyItem = () => ({
   workOrderItemID: `new-${Date.now()}`,
+  draftWorkOrderItemID: `new-${Date.now()}`,
   itemType: 'LABOR',
   itemName: '',
   quantity: 1,
@@ -47,9 +48,10 @@ const emptyItem = () => ({
 });
 
 const MyWorkOrderDetail = () => {
-  const { workOrderID } = useParams();
+  const { workOrderID, projectID: routeProjectID } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isDraftWorkOrder = Boolean(routeProjectID);
   const [workOrder, setWorkOrder] = useState(null);
   const [savedItems, setSavedItems] = useState([]);
   const [editItems, setEditItems] = useState([]);
@@ -64,7 +66,7 @@ const MyWorkOrderDetail = () => {
 
   const load = () => {
     setLoading(true);
-    apiFetch(`/workorders/${workOrderID}`)
+    apiFetch(isDraftWorkOrder ? `/workorders/drafts/${workOrderID}` : `/workorders/${workOrderID}`)
       .then(data => {
         setWorkOrder(data);
         setSavedItems(Array.isArray(data.items) ? data.items : []);
@@ -75,7 +77,7 @@ const MyWorkOrderDetail = () => {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [workOrderID]);
+  useEffect(load, [isDraftWorkOrder, workOrderID]);
 
   if (loading) return <Box sx={{ textAlign: 'center', mt: 8 }}><CircularProgress /></Box>;
   if (!workOrder) return <Alert severity="warning">Work order not found.</Alert>;
@@ -86,16 +88,21 @@ const MyWorkOrderDetail = () => {
   }
 
   const workers = getWorkOrderWorkers(workOrder);
-  const isDraftWorkOrder = workOrder.status === 'DRAFT';
-  const editingItemIDs = new Set(editItems.filter(item => !item.isNew).map(item => item.workOrderItemID));
+  const itemIDField = isDraftWorkOrder ? 'draftWorkOrderItemID' : 'workOrderItemID';
+  const getItemID = (item) => item?.[itemIDField] ?? item?.workOrderItemID ?? item?.draftWorkOrderItemID;
+  const itemApiBase = isDraftWorkOrder ? `/workorders/drafts/${workOrder.workOrderID}/items` : `/workorders/${workOrder.workOrderID}/items`;
+  const editingItemIDs = new Set(editItems.filter(item => !item.isNew).map(getItemID));
   const displayedSavedItems = savedItems
     .filter(item => Number(item.quantity) > 0)
-    .filter(item => !editingItemIDs.has(item.workOrderItemID))
+    .filter(item => !editingItemIDs.has(getItemID(item)))
     .filter(item => item.createdAt || item.lastModifiedAt)
     .sort((a, b) => new Date(b.createdAt || b.lastModifiedAt) - new Date(a.createdAt || a.lastModifiedAt));
   const total = [...displayedSavedItems, ...editItems]
     .reduce((sum, item) => sum + (Number(item.quantity) * Number(item.price)), 0);
-  const project = workOrder.project;
+  const project = workOrder.project || (workOrder.projectID ? {
+    projectID: workOrder.projectID,
+    projectName: workOrder.projectName,
+  } : null);
   const openProject = () => {
     if (!project?.projectID) return;
     navigate(`/admin/projects/draft-studio?projectId=${project.projectID}`);
@@ -113,13 +120,13 @@ const MyWorkOrderDetail = () => {
 
   const updateItemField = (itemID, field, value) => {
     setEditItems(current => current.map(item => (
-      item.workOrderItemID === itemID ? { ...item, [field]: value } : item
+      getItemID(item) === itemID ? { ...item, [field]: value } : item
     )));
   };
 
   const editItem = (item) => {
     setEditItems(current => {
-      if (current.some(currentItem => currentItem.workOrderItemID === item.workOrderItemID)) {
+      if (current.some(currentItem => getItemID(currentItem) === getItemID(item))) {
         return current;
       }
 
@@ -133,12 +140,12 @@ const MyWorkOrderDetail = () => {
     setSaving(true);
     setMessage(null);
     try {
-      const updated = await apiFetch(`/workorders/${workOrder.workOrderID}/items/${item.workOrderItemID}`, {
+      const updated = await apiFetch(`${itemApiBase}/${getItemID(item)}`, {
         method: 'DELETE',
       });
       setWorkOrder(updated);
       setSavedItems(Array.isArray(updated.items) ? updated.items : []);
-      setEditItems(current => current.filter(currentItem => currentItem.workOrderItemID !== item.workOrderItemID));
+      setEditItems(current => current.filter(currentItem => getItemID(currentItem) !== getItemID(item)));
       setMessage({ severity: 'success', text: 'Item deleted.' });
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
@@ -159,7 +166,7 @@ const MyWorkOrderDetail = () => {
       for (const item of editItems) {
         if (Number(item.quantity) <= 0) {
           if (!item.isNew) {
-            updated = await apiFetch(`/workorders/${workOrder.workOrderID}/items/${item.workOrderItemID}`, {
+            updated = await apiFetch(`${itemApiBase}/${getItemID(item)}`, {
               method: 'DELETE',
             });
           }
@@ -174,11 +181,11 @@ const MyWorkOrderDetail = () => {
         };
 
         updated = item.isNew
-          ? await apiFetch(`/workorders/${workOrder.workOrderID}/items`, {
+          ? await apiFetch(itemApiBase, {
               method: 'POST',
               body: JSON.stringify(payload),
             })
-          : await apiFetch(`/workorders/${workOrder.workOrderID}/items/${item.workOrderItemID}`, {
+          : await apiFetch(`${itemApiBase}/${getItemID(item)}`, {
               method: 'PUT',
               body: JSON.stringify(payload),
             });
@@ -223,21 +230,6 @@ const MyWorkOrderDetail = () => {
       setPasswordOpen(false);
       setPendingAction(null);
       setMessage({ severity: 'success', text: 'Work order submitted for review.' });
-    } catch (error) {
-      setMessage({ severity: 'error', text: error.message });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const deleteDraftWorkOrder = async () => {
-    if (!window.confirm(`Delete draft work order #${workOrder.workOrderID}?`)) return;
-
-    setSaving(true);
-    setMessage(null);
-    try {
-      await apiFetch(`/workorders/${workOrder.workOrderID}/draft`, { method: 'DELETE' });
-      navigate('/admin/projects/draft-studio');
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
     } finally {
@@ -333,7 +325,7 @@ const MyWorkOrderDetail = () => {
           </TableHead>
           <TableBody>
             {displayedSavedItems.map(item => (
-              <TableRow key={`saved-${item.workOrderItemID}`}>
+              <TableRow key={`saved-${getItemID(item)}`}>
                 <TableCell>{item.itemType || 'Not set'}</TableCell>
                 <TableCell>{item.itemName || 'Unnamed item'}</TableCell>
                 <TableCell align="right">{item.quantity}</TableCell>
@@ -350,14 +342,14 @@ const MyWorkOrderDetail = () => {
               </TableRow>
             ))}
             {editItems.map(item => (
-              <TableRow key={`edit-${item.workOrderItemID}`}>
+              <TableRow key={`edit-${getItemID(item)}`}>
                 <TableCell>
                   <FormControl fullWidth size="small">
                     <InputLabel>Item Type</InputLabel>
                     <Select
                       value={item.itemType || 'OTHER'}
                       label="Item Type"
-                      onChange={event => updateItemField(item.workOrderItemID, 'itemType', event.target.value)}
+                      onChange={event => updateItemField(getItemID(item), 'itemType', event.target.value)}
                     >
                       {ITEM_TYPES.map(type => (
                         <MenuItem key={type} value={type}>{type}</MenuItem>
@@ -368,14 +360,14 @@ const MyWorkOrderDetail = () => {
                 <TableCell>
                   <TextField
                     value={item.itemName || ''}
-                    onChange={event => updateItemField(item.workOrderItemID, 'itemName', event.target.value)}
+                    onChange={event => updateItemField(getItemID(item), 'itemName', event.target.value)}
                     size="small"
                   />
                 </TableCell>
                 <TableCell align="right">
                   <TextField
                     value={item.quantity}
-                    onChange={event => updateItemQuantity(item.workOrderItemID, event.target.value)}
+                    onChange={event => updateItemQuantity(getItemID(item), event.target.value)}
                     size="small"
                     type="number"
                     inputProps={{ min: 0 }}
@@ -384,7 +376,7 @@ const MyWorkOrderDetail = () => {
                 <TableCell align="right">
                   <TextField
                     value={item.price}
-                    onChange={event => updateItemField(item.workOrderItemID, 'price', event.target.value)}
+                    onChange={event => updateItemField(getItemID(item), 'price', event.target.value)}
                     size="small"
                     type="number"
                     inputProps={{ min: 0, step: '0.01' }}
@@ -396,7 +388,7 @@ const MyWorkOrderDetail = () => {
                     size="small"
                     color="warning"
                     disabled={saving}
-                    onClick={() => setEditItems(current => current.filter(currentItem => currentItem.workOrderItemID !== item.workOrderItemID))}
+                    onClick={() => setEditItems(current => current.filter(currentItem => getItemID(currentItem) !== getItemID(item)))}
                   >
                     Remove
                   </Button>
@@ -429,14 +421,6 @@ const MyWorkOrderDetail = () => {
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
           <Button variant="contained" color="success" onClick={() => requestPassword('submit')}>
             Submit for Review
-          </Button>
-        </Box>
-      )}
-
-      {isDraftWorkOrder && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-          <Button variant="outlined" color="error" disabled={saving} onClick={deleteDraftWorkOrder}>
-            Delete Draft Work Order
           </Button>
         </Box>
       )}
