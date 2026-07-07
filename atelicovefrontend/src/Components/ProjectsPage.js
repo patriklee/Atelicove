@@ -83,10 +83,23 @@ const normalizeProject = (project = {}) => ({
   documents: Array.isArray(project.documents) ? project.documents : [],
   snapshots: Array.isArray(project.snapshots) ? project.snapshots : [],
   associatedActiveProject: project.associatedActiveProject || null,
+  plannedTeamsJson: project.plannedTeamsJson || '',
+  plannedTeams: Array.isArray(project.plannedTeams) ? project.plannedTeams : parsePlannedTeams(project.plannedTeamsJson),
   teams: Array.isArray(project.teams) ? project.teams : [],
   workOrders: Array.isArray(project.workOrders) ? project.workOrders : [],
   draftWorkOrders: Array.isArray(project.draftWorkOrders) ? project.draftWorkOrders : [],
 });
+
+function parsePlannedTeams(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 const normalizeTeam = (team = {}) => ({
   ...team,
@@ -162,6 +175,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const [projectCommentsDialog, setProjectCommentsDialog] = useState(null);
   const [launchSignatureProject, setLaunchSignatureProject] = useState(null);
   const [launchSignature, setLaunchSignature] = useState('');
+  const [launchDraftWorkOrderIDs, setLaunchDraftWorkOrderIDs] = useState([]);
   const [studioView, setStudioView] = useState('draft');
   const [projectStudioPreloadSuppressed, setProjectStudioPreloadSuppressed] = useState(false);
   const [draftStudioProjectTableView, setDraftStudioProjectTableView] = useState('draft');
@@ -242,7 +256,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const projectWorkOrdersAreComplete = (project) =>
     Boolean(project) && (project.workOrders || []).every(workOrder => workOrder.status === 'COMPLETE');
   const projectHasEmptyAssociatedTeam = (project) =>
-    Boolean(project) && (project.teams || []).some(team => !(team.workers || []).length);
+    Boolean(project) && project.projectStatus !== 'DRAFT' && (project.teams || []).some(team => !(team.workers || []).length);
   const emptyProjectTeamNames = (project) =>
     (project?.teams || [])
       .filter(team => !(team.workers || []).length)
@@ -255,9 +269,13 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     ...(project.workOrders || []),
     ...(project.draftWorkOrders || []),
   ];
+  const plannedTeamsForProject = (project = {}) => (
+    project.projectStatus === 'DRAFT' ? (project.plannedTeams || []) : (project.teams || [])
+  );
+  const plannedTeamCount = (project = {}) => plannedTeamsForProject(project).length;
   const teamsForWorkOrder = (project = {}, workOrder = {}) => {
     if (workOrder.status === 'DRAFT') {
-      const plannedTeam = (project.teams || []).find(team => team.teamID === workOrder.plannedTeamID);
+      const plannedTeam = plannedTeamsForProject(project).find(team => Number(team.teamID) === Number(workOrder.plannedTeamID));
       if (plannedTeam) {
         return [plannedTeam];
       }
@@ -341,13 +359,34 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       projectName: project.projectName || '',
       description: project.description || '',
       budget: project.budget ?? '',
-      teamIDs: (project.teams || []).map(team => team.teamID),
+      teamIDs: plannedTeamsForProject(project).map(team => team.teamID),
       associatedActiveProjectID: project.associatedActiveProject?.projectID || '',
     });
     setCommentProjectID(project.projectID);
     setWorkOrderForm(current => ({ ...current, projectID: project.projectID }));
     setActionItemForm(current => ({ ...current, projectID: project.projectID, actionItemID: '' }));
   };
+
+  const plannedTeamSnapshotJson = (teamIDs) => JSON.stringify(
+    teamIDs
+      .map(id => teams.find(team => team.teamID === Number(id)))
+      .filter(Boolean)
+      .map(team => ({
+        teamID: team.teamID,
+        teamName: team.teamName,
+        workers: (team.workers || []).map(worker => ({
+          workerID: worker.workerID,
+          firstName: worker.firstName,
+          lastName: worker.lastName,
+          username: worker.username,
+        })),
+      }))
+  );
+
+  const buildProjectPayload = (form) => ({
+    ...projectPayload(form),
+    plannedTeamsJson: plannedTeamSnapshotJson(form.teamIDs),
+  });
 
   const rememberProjectStudioSelection = (project) => {
     if (!project || !isProjectStudioEditView) {
@@ -473,7 +512,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setSaving(true);
     setMessage(null);
     try {
-      const payload = projectPayload(projectForm);
+      const payload = buildProjectPayload(projectForm);
       const saved = projectForm.projectID
         ? await apiFetch(`/projects/${projectForm.projectID}`, { method: 'PUT', body: JSON.stringify(payload) })
         : await apiFetch('/projects', { method: 'POST', body: JSON.stringify(payload) });
@@ -512,14 +551,14 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       const updated = await apiFetch(`/projects/${selectedProject.projectID}`, {
         method: 'PUT',
         body: JSON.stringify({
-          ...projectPayload(projectForm),
+          ...buildProjectPayload(projectForm),
           teamIDs: teamIDs.map(Number),
         }),
       });
       const normalized = normalizeProject(updated);
       setProjects(current => current.map(project => project.projectID === normalized.projectID ? normalized : project));
       loadProjectIntoForm(normalized);
-      setMessage({ severity: 'success', text: 'Project teams updated.' });
+      setMessage({ severity: 'success', text: selectedProject.projectStatus === 'DRAFT' ? 'Planned teams updated.' : 'Project teams updated.' });
       loadData();
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
@@ -731,6 +770,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
     setLaunchSignatureProject(project);
     setLaunchSignature('');
+    setLaunchDraftWorkOrderIDs([]);
   };
 
   const launchProject = async () => {
@@ -740,7 +780,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setSaving(true);
     setMessage(null);
     try {
-      const activated = await apiFetch(`/projects/${project.projectID}/activate`, { method: 'PUT' });
+      const activated = await apiFetch(`/projects/${project.projectID}/activate`, {
+        method: 'PUT',
+        body: JSON.stringify({ activateDraftWorkOrderIDs: launchDraftWorkOrderIDs.map(Number) }),
+      });
 
       setMessage({
         severity: 'success',
@@ -748,6 +791,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       });
       setLaunchSignatureProject(null);
       setLaunchSignature('');
+      setLaunchDraftWorkOrderIDs([]);
       resetProjectForm();
       setStudioView('draft');
       loadData();
@@ -924,10 +968,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
         <Divider sx={{ my: 1 }} />
         <Typography variant="caption" color="text.secondary">Teams</Typography>
         <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
-          {(selectedProject.teams || []).map(team => (
+          {plannedTeamsForProject(selectedProject).map(team => (
             <Chip key={team.teamID} size="small" label={team.teamName || `Team #${team.teamID}`} />
           ))}
-          {!(selectedProject.teams || []).length && <Typography variant="body2">None</Typography>}
+          {!plannedTeamsForProject(selectedProject).length && <Typography variant="body2">None</Typography>}
         </Stack>
 
         <Divider sx={{ my: 1 }} />
@@ -1415,7 +1459,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                         </TableCell>
                         <TableCell>{formatMoney(project.budget)}</TableCell>
                         <TableCell>{formatMoney(draftStudioProjectTableView === 'active' ? project.actualCost : projectDraftEstimatedCost(project))}</TableCell>
-                        <TableCell>{(project.teams || []).length}</TableCell>
+                        <TableCell>{plannedTeamCount(project)}</TableCell>
                         <TableCell>
                           <Button
                             size="small"
@@ -1456,10 +1500,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 </Typography>
               </Stack>
               <FormControl fullWidth margin="normal">
-                <InputLabel>Add existing team</InputLabel>
+                <InputLabel>{isStudioEditView ? 'Add planned team' : 'Add existing team'}</InputLabel>
                 <Select
                   value=""
-                  label="Add existing team"
+                  label={isStudioEditView ? 'Add planned team' : 'Add existing team'}
                   onChange={event => addProjectTeam(event.target.value)}
                 >
                   <MenuItem value="">Select team</MenuItem>
@@ -1469,7 +1513,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 </Select>
               </FormControl>
               <Stack spacing={2} sx={{ mt: 2 }}>
-                {(selectedProject.teams || []).map(team => (
+                {plannedTeamsForProject(selectedProject).map(team => (
                   <Box key={team.teamID} sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 2 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{team.teamName || `Team #${team.teamID}`}</Typography>
@@ -1485,8 +1529,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     </Stack>
                   </Box>
                 ))}
-                {!(selectedProject.teams || []).length && (
-                  <Typography variant="body2" color="text.secondary">No teams are attached to this project.</Typography>
+                {!plannedTeamsForProject(selectedProject).length && (
+                  <Typography variant="body2" color="text.secondary">
+                    {isStudioEditView ? 'No planned teams are saved for this draft project.' : 'No teams are attached to this project.'}
+                  </Typography>
                 )}
               </Stack>
             </Paper>
@@ -1837,7 +1883,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                       variant="outlined"
                       onClick={() => setProjectTeamsDialog(project)}
                     >
-                      {(project.teams || []).length}
+                      {plannedTeamCount(project)}
                     </Button>
                   </TableCell>
                   <TableCell>
@@ -1908,6 +1954,29 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
             <Typography variant="body2" color="text.secondary">
               A signature is required before this draft can be launched as an active project.
             </Typography>
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Draft work orders to create on launch</Typography>
+              {(launchSignatureProject?.draftWorkOrders || []).map(workOrder => (
+                <Stack key={workOrder.workOrderID} direction="row" spacing={1} alignItems="center">
+                  <Checkbox
+                    checked={launchDraftWorkOrderIDs.includes(workOrder.workOrderID)}
+                    onChange={event => setLaunchDraftWorkOrderIDs(current => (
+                      event.target.checked
+                        ? Array.from(new Set([...current, workOrder.workOrderID]))
+                        : current.filter(id => id !== workOrder.workOrderID)
+                    ))}
+                  />
+                  <Typography variant="body2">
+                    #{workOrder.workOrderID} - {workOrder.plannedTeamName || 'No planned team'}
+                  </Typography>
+                </Stack>
+              ))}
+              {!(launchSignatureProject?.draftWorkOrders || []).length && (
+                <Typography variant="body2" color="text.secondary">
+                  No draft work orders will be created.
+                </Typography>
+              )}
+            </Box>
             <TextField
               label="Signature"
               fullWidth
@@ -2072,7 +2141,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(projectTeamsDialog?.teams || []).map(team => (
+                {plannedTeamsForProject(projectTeamsDialog || {}).map(team => (
                   <TableRow key={team.teamID}>
                     <TableCell>{team.teamName || `Team #${team.teamID}`}</TableCell>
                     <TableCell>
@@ -2082,9 +2151,13 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     </TableCell>
                   </TableRow>
                 ))}
-                {!(projectTeamsDialog?.teams || []).length && (
+                {!plannedTeamsForProject(projectTeamsDialog || {}).length && (
                   <TableRow>
-                    <TableCell colSpan={2}>No teams are associated with this project.</TableCell>
+                    <TableCell colSpan={2}>
+                      {projectTeamsDialog?.projectStatus === 'DRAFT'
+                        ? 'No planned teams are saved for this draft project.'
+                        : 'No teams are associated with this project.'}
+                    </TableCell>
                   </TableRow>
                 )}
               </TableBody>

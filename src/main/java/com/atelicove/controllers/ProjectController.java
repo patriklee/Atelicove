@@ -76,8 +76,12 @@ public class ProjectController {
 
 	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping("/{id}/activate")
-	public Project activateProject(@PathVariable Integer id) {
-		return projectService.activateProject(id);
+	public Project activateProject(
+			@PathVariable Integer id,
+			@RequestBody(required = false) Map<String, Object> request) {
+		List<Integer> activateDraftWorkOrderIDs = optionalIntegerList(
+				request == null ? null : request.get("activateDraftWorkOrderIDs"));
+		return projectService.activateProject(id, activateDraftWorkOrderIDs);
 	}
 
 	@PreAuthorize("hasRole('ADMIN')")
@@ -228,5 +232,15 @@ public class ProjectController {
 			return number.intValue();
 		}
 		return Integer.valueOf(value.toString());
+	}
+
+	private List<Integer> optionalIntegerList(Object value) {
+		if (!(value instanceof List<?> list)) {
+			return List.of();
+		}
+		return list.stream()
+				.map(this::optionalInteger)
+				.filter(item -> item != null)
+				.toList();
 	}
 }

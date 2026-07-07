@@ -84,8 +84,8 @@ const WorkOrders = ({
 
     const openWorkOrder = (workOrder) => {
         if (workOrder.isDraftWorkOrder) {
-            setSummaryDialogMode('summary');
-            setSummaryDialogWorkOrder(workOrder);
+            const projectID = workOrder.projectID || workOrder.project?.projectID;
+            navigate(`/admin/draft-workorders/${projectID}/${workOrder.workOrderID}`);
             return;
         }
 

@@ -47,6 +47,9 @@ public class Project extends ArchivableEntity {
 
 	private BigDecimal actualCost;
 
+	@Column(length = 10000)
+	private String plannedTeamsJson;
+
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private ProjectStatus projectStatus = ProjectStatus.DRAFT;
@@ -122,6 +125,10 @@ public class Project extends ArchivableEntity {
 
 	public BigDecimal getActualCost() {
 		return sumWorkOrderItems();
+	}
+
+	public String getPlannedTeamsJson() {
+		return plannedTeamsJson;
 	}
 
 	public ProjectStatus getProjectStatus() {
@@ -242,6 +249,10 @@ public class Project extends ArchivableEntity {
 
 	public void setActualCost(BigDecimal actualCost) {
 		this.actualCost = actualCost;
+	}
+
+	public void setPlannedTeamsJson(String plannedTeamsJson) {
+		this.plannedTeamsJson = plannedTeamsJson;
 	}
 
 	public void setProjectStatus(ProjectStatus projectStatus) {

@@ -14,6 +14,7 @@ public class ProjectDTO {
 	private BigDecimal budget;
 	private BigDecimal estimatedCost;
 	private BigDecimal actualCost;
+	private String plannedTeamsJson;
 	private ProjectStatus projectStatus;
 	private LocalDateTime createdAt;
 	private LocalDateTime lastModifiedAt;
@@ -47,6 +48,10 @@ public class ProjectDTO {
 
 	public BigDecimal getActualCost() {
 		return actualCost;
+	}
+
+	public String getPlannedTeamsJson() {
+		return plannedTeamsJson;
 	}
 
 	public ProjectStatus getProjectStatus() {
@@ -111,6 +116,10 @@ public class ProjectDTO {
 
 	public void setActualCost(BigDecimal actualCost) {
 		this.actualCost = actualCost;
+	}
+
+	public void setPlannedTeamsJson(String plannedTeamsJson) {
+		this.plannedTeamsJson = plannedTeamsJson;
 	}
 
 	public void setProjectStatus(ProjectStatus projectStatus) {

@@ -27,7 +27,7 @@ import {
   Typography,
 } from '@mui/material';
 import { apiFetch } from '../api';
-import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../model';
+import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../model';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import TableTitleRow from './TableTitleRow';
@@ -60,6 +60,7 @@ const ManageWorkOrders = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [pendingDeleteWorkOrder, setPendingDeleteWorkOrder] = useState(null);
+  const [summaryDialogWorkOrder, setSummaryDialogWorkOrder] = useState(null);
 
   const loadData = () => {
     setLoading(true);
@@ -136,6 +137,8 @@ const ManageWorkOrders = () => {
     }));
   const draftWorkOrders = Array.from(draftWorkOrdersByKey.values());
   const visibleWorkOrders = workOrderTableView === 'draft' ? draftWorkOrders : activeWorkOrders;
+  const formatStatus = (status = '') => status.replaceAll('_', ' ');
+  const workOrderPrice = (workOrder = {}) => getWorkOrderActualPrice(workOrder);
   const workOrderSelectValue = (order) => order.isDraftWorkOrder
     ? `draft:${order.projectID}:${order.workOrderID}`
     : `active:${order.workOrderID}`;
@@ -939,18 +942,14 @@ const ManageWorkOrders = () => {
                   {visibleWorkOrders.map(order => (
                     <TableRow key={workOrderSelectValue(order)}>
                       <TableCell>
-                        {order.isDraftWorkOrder ? (
-                          order.workOrderID
-                        ) : (
-                          <Button
-                            size="small"
-                            onClick={() => navigate(`/admin/workorders/${order.workOrderID}`)}
-                          >
-                            {order.workOrderID}
-                          </Button>
-                        )}
+                        <Button
+                          size="small"
+                          onClick={() => setSummaryDialogWorkOrder(order)}
+                        >
+                          {order.workOrderID}
+                        </Button>
                       </TableCell>
-                      <TableCell>{order.status.replaceAll('_', ' ')}</TableCell>
+                      <TableCell>{formatStatus(order.status)}</TableCell>
                       <TableCell>{formatDateTime(order.createdAt)}</TableCell>
                       <TableCell>{formatDateTime(order.lastModifiedAt)}</TableCell>
                       <TableCell align="right">
@@ -978,6 +977,74 @@ const ManageWorkOrders = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      <Dialog open={Boolean(summaryDialogWorkOrder)} onClose={() => setSummaryDialogWorkOrder(null)} fullWidth maxWidth="sm">
+        <DialogTitle>
+          {summaryDialogWorkOrder?.isDraftWorkOrder ? 'Draft Work Order' : 'Work Order'} #{summaryDialogWorkOrder?.workOrderID}
+        </DialogTitle>
+        <DialogContent dividers>
+          <TableContainer sx={{ mb: 2 }}>
+            <Table size="small">
+              <TableBody>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600, width: 160 }}>Status</TableCell>
+                  <TableCell>{formatStatus(summaryDialogWorkOrder?.status)}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Project</TableCell>
+                  <TableCell>{summaryDialogWorkOrder?.projectName || 'No project'}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Company</TableCell>
+                  <TableCell>{summaryDialogWorkOrder?.company?.companyName || 'No company'}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Workers</TableCell>
+                  <TableCell>{getWorkOrderWorkers(summaryDialogWorkOrder || {}).map(worker => `${worker.firstName} ${worker.lastName}`).join(', ') || 'Unassigned'}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Total</TableCell>
+                  <TableCell>{formatMoney(workOrderPrice(summaryDialogWorkOrder || {}))}</TableCell>
+                </TableRow>
+                {summaryDialogWorkOrder?.comment && (
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>Note</TableCell>
+                    <TableCell>{summaryDialogWorkOrder.comment}</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Item</TableCell>
+                  <TableCell align="right">Quantity</TableCell>
+                  <TableCell align="right">Price</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(summaryDialogWorkOrder?.items || []).map(item => (
+                  <TableRow key={item.workOrderItemID || item.draftWorkOrderItemID || item.itemName}>
+                    <TableCell>{item.itemName || 'Item'}</TableCell>
+                    <TableCell align="right">{item.quantity ?? 0}</TableCell>
+                    <TableCell align="right">{formatMoney(item.price)}</TableCell>
+                  </TableRow>
+                ))}
+                {!(summaryDialogWorkOrder?.items || []).length && (
+                  <TableRow>
+                    <TableCell colSpan={3}>No items are associated with this work order.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSummaryDialogWorkOrder(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog} fullWidth maxWidth="xs">
         <DialogTitle>Delete Work Order</DialogTitle>
