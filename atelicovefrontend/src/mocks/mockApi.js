@@ -1,4 +1,4 @@
-import { mockCompanies, mockWorkers, mockWorkOrders } from './mockData';
+import { mockCompanies, mockWorkers, mockWorkOrders, mockTeams, mockProjects } from './mockData';
 
 const STORAGE_KEY = 'atelicoveMockApiStateV2';
 
@@ -68,8 +68,8 @@ const loadState = () => {
     return hydrateState({
       workers: clone(mockWorkers),
       companies: clone(mockCompanies),
-      teams: [],
-      projects: [],
+      teams: clone(mockTeams),
+      projects: clone(mockProjects),
       workOrders: clone(mockWorkOrders),
     });
   }
@@ -88,8 +88,8 @@ const loadState = () => {
   const initialState = hydrateState({
     workers: clone(mockWorkers),
     companies: clone(mockCompanies),
-    teams: [],
-    projects: [],
+    teams: clone(mockTeams),
+    projects: clone(mockProjects),
     workOrders: clone(mockWorkOrders),
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(initialState));
@@ -113,6 +113,42 @@ const nextId = (items, key) => Math.max(0, ...items.map(item => Number(item[key]
 const bodyAsJson = (options) => {
   if (!options.body) return {};
   return typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+};
+
+const normalizeMockPath = (path = '') => {
+  let value = String(path || '');
+
+  // Support callers that accidentally pass a full backend URL, e.g.
+  // http://localhost:8080/workers. Mock routing only needs the pathname.
+  try {
+    if (/^https?:\/\//i.test(value)) {
+      value = new URL(value).pathname;
+    }
+  } catch (error) {
+    // Keep the original value if URL parsing fails.
+  }
+
+  value = value.split('?')[0];
+
+  let segments = value.split('/').filter(Boolean);
+  if (segments[0] === 'api') segments = segments.slice(1);
+
+  const aliases = {
+    worker: 'workers',
+    company: 'companies',
+    team: 'teams',
+    project: 'projects',
+    workorder: 'workorders',
+    workorders: 'workorders',
+    'work-order': 'workorders',
+    'work-orders': 'workorders',
+  };
+
+  if (segments[0] && aliases[segments[0]]) {
+    segments[0] = aliases[segments[0]];
+  }
+
+  return segments;
 };
 
 const allowedDocumentExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'docx', 'xlsx', 'txt'];
@@ -309,8 +345,22 @@ const addPlannedTeamToProject = (project, team) => {
 };
 
 const resolvePlannedTeams = (project) => {
-  const plannedTeamIDs = parsePlannedTeams(project.plannedTeamsJson).map(team => team.teamID);
-  const resolved = plannedTeamIDs.map(findTeam).filter(Boolean).map(clone);
+  const resolved = parsePlannedTeams(project.plannedTeamsJson)
+    .map(team => {
+      const existingTeam = findTeam(team.teamID);
+      if (existingTeam) return clone(existingTeam);
+      const workers = (team.workers || []).map(worker => findWorker(worker.workerID)).filter(Boolean).map(withoutPassword);
+      if (!workers.length) return null;
+      const savedTeam = {
+        teamID: nextId(state.teams, 'teamID'),
+        teamName: team.teamName || 'Planned Draft Team',
+        projectStartedAt: null,
+        workers,
+      };
+      state.teams.push(savedTeam);
+      return clone(savedTeam);
+    })
+    .filter(Boolean);
   return resolved.length ? resolved : (project.teams || []);
 };
 
@@ -360,6 +410,10 @@ const handleAuth = (segments, method, options) => {
 };
 
 const handleWorkers = (segments, method, options) => {
+  if (segments[1] === 'count' && method === 'GET') {
+    return activeOnly(state.workers).length;
+  }
+
   if (segments.length === 1 && method === 'GET') {
     return activeOnly(state.workers).map(withoutPassword);
   }
@@ -509,6 +563,10 @@ const handleWorkers = (segments, method, options) => {
 };
 
 const handleCompanies = (segments, method, options) => {
+  if (segments[1] === 'count' && method === 'GET') {
+    return activeOnly(state.companies).length;
+  }
+
   if ((segments.length === 1 || segments[1] === 'all') && method === 'GET') {
     return activeOnly(state.companies);
   }
@@ -1085,6 +1143,10 @@ const handleWorkOrders = (segments, method, options) => {
 };
 
 const handleTeams = (segments, method, options) => {
+  if (segments[1] === 'count' && method === 'GET') {
+    return state.teams.length;
+  }
+
   if (segments.length === 1 && method === 'GET') {
     return state.teams;
   }
@@ -1736,8 +1798,8 @@ export const resetMockApiState = () => {
   state = hydrateState({
     workers: clone(mockWorkers),
     companies: clone(mockCompanies),
-    teams: [],
-    projects: [],
+    teams: clone(mockTeams),
+    projects: clone(mockProjects),
     workOrders: clone(mockWorkOrders),
   });
   saveState();
@@ -1745,9 +1807,15 @@ export const resetMockApiState = () => {
 
 export const mockApiFetch = async (path, options = {}) => {
   const method = (options.method || 'GET').toUpperCase();
-  const segments = path.split('?')[0].split('/').filter(Boolean);
+  const segments = normalizeMockPath(path);
 
   try {
+    if (segments[0] === 'workers' && segments[1] === 'login') {
+      return clone(handleAuth(['auth', 'login'], method, options));
+    }
+    if (segments[0] === 'workers' && segments[1] === 'logout') {
+      return clone(handleAuth(['auth', 'logout'], method, options));
+    }
     if (segments[0] === 'auth') return clone(handleAuth(segments, method, options));
     if (segments[0] === 'workers') return clone(handleWorkers(segments, method, options));
     if (segments[0] === 'companies') return clone(handleCompanies(segments, method, options));
@@ -1763,7 +1831,7 @@ export const mockApiFetch = async (path, options = {}) => {
 };
 
 export const mockApiDownload = async (path) => {
-  const segments = path.split('?')[0].split('/').filter(Boolean);
+  const segments = normalizeMockPath(path);
   if (
     !['workorders', 'projects'].includes(segments[0]) ||
     segments[2] !== 'documents' ||

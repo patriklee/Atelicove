@@ -176,6 +176,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const [launchSignatureProject, setLaunchSignatureProject] = useState(null);
   const [launchSignature, setLaunchSignature] = useState('');
   const [launchDraftWorkOrderIDs, setLaunchDraftWorkOrderIDs] = useState([]);
+  const [draftTeamView, setDraftTeamView] = useState('planned');
+  const [draftTeamName, setDraftTeamName] = useState('');
+  const [draftTeamWorkerIDs, setDraftTeamWorkerIDs] = useState([]);
+  const [draftTeamSourceTeamIDs, setDraftTeamSourceTeamIDs] = useState([]);
   const [studioView, setStudioView] = useState('draft');
   const [projectStudioPreloadSuppressed, setProjectStudioPreloadSuppressed] = useState(false);
   const [draftStudioProjectTableView, setDraftStudioProjectTableView] = useState('draft');
@@ -367,11 +371,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setActionItemForm(current => ({ ...current, projectID: project.projectID, actionItemID: '' }));
   };
 
-  const plannedTeamSnapshotJson = (teamIDs) => JSON.stringify(
-    teamIDs
-      .map(id => teams.find(team => team.teamID === Number(id)))
-      .filter(Boolean)
-      .map(team => ({
+  const teamSnapshot = (team) => ({
         teamID: team.teamID,
         teamName: team.teamName,
         workers: (team.workers || []).map(worker => ({
@@ -380,12 +380,104 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
           lastName: worker.lastName,
           username: worker.username,
         })),
-      }))
-  );
+      });
 
-  const buildProjectPayload = (form) => ({
+  const plannedTeamSnapshotJson = (teamIDs) => {
+    const existingSnapshots = plannedTeamsForProject(selectedProject || {});
+    return JSON.stringify(
+      teamIDs
+        .map(id => (
+          teams.find(team => Number(team.teamID) === Number(id)) ||
+          existingSnapshots.find(team => Number(team.teamID) === Number(id))
+        ))
+        .filter(Boolean)
+        .map(teamSnapshot)
+    );
+  };
+
+  const savePlannedTeamSnapshots = async (plannedTeams) => {
+    if (!selectedProject) return;
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      const teamIDs = plannedTeams.map(team => Number(team.teamID));
+      const updated = await apiFetch(`/projects/${selectedProject.projectID}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...projectPayload(projectForm),
+          teamIDs,
+          plannedTeamsJson: JSON.stringify(plannedTeams.map(teamSnapshot)),
+        }),
+      });
+      const normalized = normalizeProject(updated);
+      setProjects(current => current.map(project => project.projectID === normalized.projectID ? normalized : project));
+      loadProjectIntoForm(normalized);
+      setMessage({ severity: 'success', text: 'Planned teams updated.' });
+      loadData();
+    } catch (error) {
+      setMessage({ severity: 'error', text: error.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleDraftTeamWorker = (workerID) => {
+    const numericID = Number(workerID);
+    setDraftTeamWorkerIDs(current => current.includes(numericID)
+      ? current.filter(id => id !== numericID)
+      : [...current, numericID]);
+  };
+
+  const saveDraftOnlyTeam = async () => {
+    const workersByID = new Map();
+    draftTeamSourceTeamIDs
+      .map(id => teams.find(team => Number(team.teamID) === Number(id)))
+      .filter(Boolean)
+      .forEach(team => (team.workers || []).forEach(worker => {
+        const normalized = normalizeWorker(worker);
+        workersByID.set(normalized.workerID, normalized);
+      }));
+    draftTeamWorkerIDs
+      .map(id => workers.find(worker => Number(worker.workerID) === Number(id)))
+      .filter(Boolean)
+      .map(normalizeWorker)
+      .forEach(worker => workersByID.set(worker.workerID, worker));
+
+    if (!workersByID.size) {
+      setMessage({ severity: 'warning', text: 'Select at least one worker or source team for the draft team.' });
+      return;
+    }
+
+    const plannedTeam = {
+      teamID: -Date.now(),
+      teamName: draftTeamName.trim() || 'Planned Draft Team',
+      workers: Array.from(workersByID.values()),
+    };
+    await savePlannedTeamSnapshots([...plannedTeamsForProject(selectedProject), plannedTeam]);
+    setDraftTeamName('');
+    setDraftTeamWorkerIDs([]);
+    setDraftTeamSourceTeamIDs([]);
+    setDraftTeamView('planned');
+  };
+
+  const removePlannedTeam = async (teamID) => {
+    if (isStudioEditView && selectedProject?.projectStatus === 'DRAFT') {
+      await savePlannedTeamSnapshots(
+        plannedTeamsForProject(selectedProject).filter(team => Number(team.teamID) !== Number(teamID))
+      );
+      return;
+    }
+    await removeProjectTeam(teamID);
+  };
+
+  const availableDraftWorkers = workers.filter(worker => !worker.archived);
+  const draftSourceTeams = assignableTeams.filter(team => !plannedTeamsForProject(selectedProject || {})
+    .some(planned => Number(planned.teamID) === Number(team.teamID)));
+
+  const buildProjectPayload = (form, teamIDs = form.teamIDs) => ({
     ...projectPayload(form),
-    plannedTeamsJson: plannedTeamSnapshotJson(form.teamIDs),
+    plannedTeamsJson: plannedTeamSnapshotJson(teamIDs),
   });
 
   const rememberProjectStudioSelection = (project) => {
@@ -551,7 +643,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       const updated = await apiFetch(`/projects/${selectedProject.projectID}`, {
         method: 'PUT',
         body: JSON.stringify({
-          ...buildProjectPayload(projectForm),
+          ...buildProjectPayload(projectForm, teamIDs),
           teamIDs: teamIDs.map(Number),
         }),
       });
@@ -1493,48 +1585,145 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
           {isEditorView && selectedProject && (
           <Grid item xs={12} lg={5} sx={{ mt: (isProjectStudioEditView || isStudioEditView) ? 4 : 0 }}>
             <Paper sx={{ p: 3, height: '100%' }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                <GroupsIcon color="primary" />
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                  {isStudioEditView ? 'Draft Project Teams' : 'Project Teams'}
-                </Typography>
-              </Stack>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>{isStudioEditView ? 'Add planned team' : 'Add existing team'}</InputLabel>
-                <Select
-                  value=""
-                  label={isStudioEditView ? 'Add planned team' : 'Add existing team'}
-                  onChange={event => addProjectTeam(event.target.value)}
-                >
-                  <MenuItem value="">Select team</MenuItem>
-                  {assignableTeams.filter(team => !selectedProjectTeamIDs.includes(team.teamID)).map(team => (
-                    <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Stack spacing={2} sx={{ mt: 2 }}>
-                {plannedTeamsForProject(selectedProject).map(team => (
-                  <Box key={team.teamID} sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 2 }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{team.teamName || `Team #${team.teamID}`}</Typography>
-                      <Button size="small" color="error" disabled={saving} onClick={() => removeProjectTeam(team.teamID)}>
-                        Remove
-                      </Button>
-                    </Stack>
-                    <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-                      {(team.workers || []).map(worker => (
-                        <Chip key={worker.workerID} size="small" label={workerName(normalizeWorker(worker))} />
-                      ))}
-                      {!(team.workers || []).length && <Typography variant="body2" color="text.secondary">No workers</Typography>}
-                    </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between" sx={{ mb: 2 }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <GroupsIcon color="primary" />
+                  <Box>
+                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                      {isStudioEditView ? 'Draft Project Teams' : 'Project Teams'}
+                    </Typography>
+                    {isStudioEditView && (
+                      <Typography variant="body2" color="text.secondary">
+                        Plan teams without creating active worker/team history.
+                      </Typography>
+                    )}
                   </Box>
-                ))}
-                {!plannedTeamsForProject(selectedProject).length && (
-                  <Typography variant="body2" color="text.secondary">
-                    {isStudioEditView ? 'No planned teams are saved for this draft project.' : 'No teams are attached to this project.'}
-                  </Typography>
+                </Stack>
+                {isStudioEditView && (
+                  <ButtonGroup size="small">
+                    <Button
+                      variant={draftTeamView === 'planned' ? 'contained' : 'outlined'}
+                      onClick={() => setDraftTeamView('planned')}
+                    >
+                      Add / Remove
+                    </Button>
+                    <Button
+                      variant={draftTeamView === 'builder' ? 'contained' : 'outlined'}
+                      onClick={() => setDraftTeamView('builder')}
+                    >
+                      Build Team
+                    </Button>
+                  </ButtonGroup>
                 )}
               </Stack>
+
+              {isStudioEditView && draftTeamView === 'builder' ? (
+                <Stack spacing={2}>
+                  <TextField
+                    label="Draft team name"
+                    value={draftTeamName}
+                    onChange={event => setDraftTeamName(event.target.value)}
+                    fullWidth
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    Build a draft-only team from existing workers and/or existing team members. This saves only a planning snapshot until launch.
+                  </Typography>
+                  <FormControl fullWidth>
+                    <InputLabel>Use workers from teams</InputLabel>
+                    <Select
+                      multiple
+                      value={draftTeamSourceTeamIDs}
+                      label="Use workers from teams"
+                      onChange={event => setDraftTeamSourceTeamIDs(event.target.value.map(Number))}
+                      renderValue={selected => selected
+                        .map(teamID => teams.find(team => Number(team.teamID) === Number(teamID))?.teamName || `Team #${teamID}`)
+                        .join(', ')}
+                    >
+                      {draftSourceTeams.map(team => (
+                        <MenuItem key={team.teamID} value={team.teamID}>
+                          {team.teamName || `Team #${team.teamID}`}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 1.5, maxHeight: 260, overflowY: 'auto' }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Add individual workers</Typography>
+                    {availableDraftWorkers.map(worker => {
+                      const normalized = normalizeWorker(worker);
+                      return (
+                        <Stack key={normalized.workerID} direction="row" spacing={1} alignItems="center">
+                          <Checkbox
+                            checked={draftTeamWorkerIDs.includes(normalized.workerID)}
+                            onChange={() => toggleDraftTeamWorker(normalized.workerID)}
+                          />
+                          <Typography variant="body2">{workerName(normalized)}</Typography>
+                        </Stack>
+                      );
+                    })}
+                    {!availableDraftWorkers.length && (
+                      <Typography variant="body2" color="text.secondary">No workers are available.</Typography>
+                    )}
+                  </Box>
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setDraftTeamName('');
+                        setDraftTeamWorkerIDs([]);
+                        setDraftTeamSourceTeamIDs([]);
+                        setDraftTeamView('planned');
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button variant="contained" disabled={saving || (!draftTeamWorkerIDs.length && !draftTeamSourceTeamIDs.length)} onClick={saveDraftOnlyTeam}>
+                      Save Draft Team
+                    </Button>
+                  </Stack>
+                </Stack>
+              ) : (
+                <>
+                  <FormControl fullWidth margin="normal">
+                    <InputLabel>{isStudioEditView ? 'Add planned team' : 'Add existing team'}</InputLabel>
+                    <Select
+                      value=""
+                      label={isStudioEditView ? 'Add planned team' : 'Add existing team'}
+                      onChange={event => addProjectTeam(event.target.value)}
+                    >
+                      <MenuItem value="">Select team</MenuItem>
+                      {assignableTeams.filter(team => !selectedProjectTeamIDs.includes(team.teamID)).map(team => (
+                        <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Stack spacing={2} sx={{ mt: 2 }}>
+                    {plannedTeamsForProject(selectedProject).map(team => (
+                      <Box key={team.teamID} sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 2 }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{team.teamName || `Team #${team.teamID}`}</Typography>
+                            {Number(team.teamID) < 0 && <Chip size="small" label="Draft-only" />}
+                          </Stack>
+                          <Button size="small" color="error" disabled={saving} onClick={() => removePlannedTeam(team.teamID)}>
+                            Remove
+                          </Button>
+                        </Stack>
+                        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+                          {(team.workers || []).map(worker => (
+                            <Chip key={worker.workerID ?? worker.workerId} size="small" label={workerName(normalizeWorker(worker))} />
+                          ))}
+                          {!(team.workers || []).length && <Typography variant="body2" color="text.secondary">No workers</Typography>}
+                        </Stack>
+                      </Box>
+                    ))}
+                    {!plannedTeamsForProject(selectedProject).length && (
+                      <Typography variant="body2" color="text.secondary">
+                        {isStudioEditView ? 'No planned teams are saved for this draft project.' : 'No teams are attached to this project.'}
+                      </Typography>
+                    )}
+                    </Stack>
+                </>
+              )}
             </Paper>
           </Grid>
           )}

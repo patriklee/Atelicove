@@ -16,6 +16,7 @@ const DraftTeamsPanel = ({
   onSaveDraftTeam,
 }) => {
   const [view, setView] = useState('planned');
+  const [editingDraftTeamID, setEditingDraftTeamID] = useState(null);
 
   return (
     <Paper sx={{ p: 3, height: '100%' }}>
@@ -36,10 +37,22 @@ const DraftTeamsPanel = ({
 
         {isDraftMode && (
           <ButtonGroup size="small">
-            <Button variant={view === 'planned' ? 'contained' : 'outlined'} onClick={() => setView('planned')}>
+            <Button
+              variant={view === 'planned' ? 'contained' : 'outlined'}
+              onClick={() => {
+                setEditingDraftTeamID(null);
+                setView('planned');
+              }}
+            >
               Add / Remove
             </Button>
-            <Button variant={view === 'builder' ? 'contained' : 'outlined'} onClick={() => setView('builder')}>
+            <Button
+              variant={view === 'builder' ? 'contained' : 'outlined'}
+              onClick={() => {
+                setEditingDraftTeamID(null);
+                setView('builder');
+              }}
+            >
               Build Team
             </Button>
           </ButtonGroup>
@@ -49,8 +62,10 @@ const DraftTeamsPanel = ({
       {view === 'builder' && isDraftMode ? (
         <DraftTeamBuilder
           selectedProject={selectedProject}
+          teams={teams}
           workers={workers}
           saving={saving}
+          editingDraftTeamID={editingDraftTeamID}
           onSaveDraftTeam={onSaveDraftTeam}
         />
       ) : (
@@ -62,6 +77,10 @@ const DraftTeamsPanel = ({
           isDraftMode={isDraftMode}
           onAddTeam={onAddTeam}
           onRemoveTeam={onRemoveTeam}
+          onEditDraftTeam={(teamID) => {
+            setEditingDraftTeamID(teamID);
+            setView('builder');
+          }}
         />
       )}
     </Paper>

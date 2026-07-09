@@ -1,4 +1,4 @@
-import { mockApiFetch } from '../../mockApi';
+import { mockApiFetch } from '../../mocks/mockApi';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
 const USE_MOCK_API = String(process.env.REACT_APP_USE_MOCK_API || '').toLowerCase() === 'true';

@@ -879,7 +879,15 @@ public class ProjectService {
 					for (JsonNode node : root) {
 						JsonNode idNode = node.get("teamID");
 						if (idNode != null && idNode.canConvertToInt()) {
-							teamRepository.findById(idNode.asInt()).ifPresent(teams::add);
+							Optional<Team> existingTeam = teamRepository.findById(idNode.asInt());
+							if (existingTeam.isPresent()) {
+								teams.add(existingTeam.get());
+								continue;
+							}
+						}
+						Team plannedTeam = createTeamFromPlannedSnapshot(node);
+						if (plannedTeam != null) {
+							teams.add(plannedTeam);
 						}
 					}
 				}
@@ -893,6 +901,35 @@ public class ProjectService {
 		}
 		ensureTeamsCanBeAssignedToProject(teams);
 		return teams;
+	}
+
+	private Team createTeamFromPlannedSnapshot(JsonNode node) {
+		JsonNode workersNode = node.get("workers");
+		if (workersNode == null || !workersNode.isArray() || workersNode.isEmpty()) {
+			return null;
+		}
+
+		Set<Integer> workerIDs = new HashSet<>();
+		for (JsonNode workerNode : workersNode) {
+			JsonNode idNode = workerNode.get("workerID");
+			if (idNode != null && idNode.canConvertToInt()) {
+				workerIDs.add(idNode.asInt());
+			}
+		}
+
+		if (workerIDs.isEmpty()) {
+			return null;
+		}
+
+		Set<Worker> workers = new HashSet<>(workerRepository.findAllById(workerIDs));
+		if (workers.size() != workerIDs.size()) {
+			throw new IllegalStateException("One or more planned workers could not be found");
+		}
+
+		Team team = new Team();
+		team.setTeamName(node.hasNonNull("teamName") ? node.get("teamName").asText() : "Planned Draft Team");
+		team.setWorkers(workers);
+		return teamRepository.save(team);
 	}
 
 	private WorkOrder createBlankWorkOrderFromDraft(

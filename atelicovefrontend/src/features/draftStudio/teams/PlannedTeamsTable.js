@@ -34,6 +34,7 @@ const PlannedTeamsTable = ({
   isDraftMode = false,
   onAddTeam,
   onRemoveTeam,
+  onEditDraftTeam,
 }) => {
   const [teamID, setTeamID] = useState('');
 
@@ -112,6 +113,15 @@ const PlannedTeamsTable = ({
                 </Box>
               </TableCell>
               <TableCell align="right">
+                {isDraftMode && Number(team.teamID) < 0 && (
+                  <Button
+                    size="small"
+                    disabled={saving}
+                    onClick={() => onEditDraftTeam?.(team.teamID)}
+                  >
+                    Edit
+                  </Button>
+                )}
                 <Button size="small" color="error" disabled={saving} onClick={() => onRemoveTeam?.(team.teamID)}>
                   Remove
                 </Button>

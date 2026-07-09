@@ -16,6 +16,11 @@ public class Worker extends ArchivableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) //AutoGenerates an ID
     private int workerID;
+    
+    private String roleTitle;
+
+    @Column(length = 1000)
+    private String roleDescription;
 
     @Column(name = "worker_first_name")
     private String workerFName;
@@ -149,4 +154,12 @@ public class Worker extends ArchivableEntity {
     public void setAdmin(boolean isAdmin) {
         this.isAdmin = isAdmin;
     }
+
+	public String getRoleTitle() {
+		return roleTitle;
+	}
+
+	public void setRoleTitle(String roleTitle) {
+		this.roleTitle = roleTitle;
+	}
 }

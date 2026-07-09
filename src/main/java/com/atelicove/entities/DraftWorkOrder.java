@@ -13,6 +13,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
@@ -25,17 +26,26 @@ public class DraftWorkOrder extends BaseEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private int draftWorkOrderID;
+	
+	@ManyToOne
+	@JoinColumn(name = "draft_project_id")
+	private DraftProject draftProject;
 
 	@ManyToOne(optional = false)
 	@JoinColumn(name = "project_id", nullable = false)
 	@JsonIgnore
 	private Project project;
+	
+	@Lob
+	@Column(columnDefinition = "TEXT")
+	private String draftMetaJson;
 
 	private Integer sourceWorkOrderID;
 	private Integer plannedTeamID;
 	private String plannedTeamName;
 	private Integer plannedCompanyID;
 	private String plannedCompanyName;
+	private Integer sourceProjectID;	// Added. Fix later
 
 	@Column(length = 2000)
 	private String comment;
