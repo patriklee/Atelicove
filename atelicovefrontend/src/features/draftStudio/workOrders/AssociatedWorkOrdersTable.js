@@ -63,7 +63,12 @@ const AssociatedWorkOrdersTable = ({
       <TableBody>
         {workOrders.map((workOrder) => (
           <TableRow key={`${workOrder.status || 'WO'}-${workOrder.workOrderID}`} hover>
-            <TableCell>#{workOrder.workOrderID}</TableCell>
+            <TableCell>
+              <Typography variant="body2">#{workOrder.workOrderID}</Typography>
+              {workOrder.status === 'DRAFT' && workOrder.workOrderName && (
+                <Typography variant="caption" color="text.secondary">{workOrder.workOrderName}</Typography>
+              )}
+            </TableCell>
             <TableCell>
               <Chip size="small" color={statusColor(workOrder.status)} label={workOrder.status || 'OPEN'} />
             </TableCell>
@@ -83,7 +88,7 @@ const AssociatedWorkOrdersTable = ({
                 disabled={saving}
                 onClick={() => onRemoveWorkOrder?.(project, workOrder)}
               >
-                Remove
+                {workOrder.status === 'DRAFT' ? 'Archive' : 'Remove'}
               </Button>
             </TableCell>
           </TableRow>

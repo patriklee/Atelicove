@@ -25,11 +25,11 @@ const DraftTeamsPanel = ({
           <GroupsIcon color="primary" />
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              {isDraftMode ? 'Draft Project Teams' : 'Project Teams'}
+              {isDraftMode ? 'Planned Staffing' : 'Project Teams'}
             </Typography>
             {isDraftMode && (
               <Typography variant="body2" color="text.secondary">
-                Plan teams without creating active worker/team history.
+                Plan staffing without creating active team history.
               </Typography>
             )}
           </Box>
@@ -44,7 +44,7 @@ const DraftTeamsPanel = ({
                 setView('planned');
               }}
             >
-              Add / Remove
+              Staffing Table
             </Button>
             <Button
               variant={view === 'builder' ? 'contained' : 'outlined'}
@@ -53,7 +53,7 @@ const DraftTeamsPanel = ({
                 setView('builder');
               }}
             >
-              Build Team
+              Build Staffing
             </Button>
           </ButtonGroup>
         )}

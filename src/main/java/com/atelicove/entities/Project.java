@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.atelicove.enums.ProjectStatus;
+import com.atelicove.enums.WorkOrderStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -47,9 +48,6 @@ public class Project extends ArchivableEntity {
 
 	private BigDecimal actualCost;
 
-	@Column(length = 10000)
-	private String plannedTeamsJson;
-
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private ProjectStatus projectStatus = ProjectStatus.DRAFT;
@@ -66,6 +64,9 @@ public class Project extends ArchivableEntity {
 
 	@OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<ProjectSnapshot> snapshots = new ArrayList<>();
+
+	@OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<PlannedStaffing> plannedStaffing = new ArrayList<>();
 
 	@JsonIgnoreProperties({
 			"associatedActiveProject",
@@ -86,9 +87,6 @@ public class Project extends ArchivableEntity {
 
 	@OneToMany(mappedBy = "project")
 	private List<WorkOrder> workOrders = new ArrayList<>();
-
-	@OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<DraftWorkOrder> draftWorkOrders = new ArrayList<>();
 
 	@JsonIgnore
 	@OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -127,10 +125,6 @@ public class Project extends ArchivableEntity {
 		return sumWorkOrderItems();
 	}
 
-	public String getPlannedTeamsJson() {
-		return plannedTeamsJson;
-	}
-
 	public ProjectStatus getProjectStatus() {
 		return projectStatus;
 	}
@@ -155,6 +149,16 @@ public class Project extends ArchivableEntity {
 		return snapshots;
 	}
 
+	public List<PlannedStaffing> getPlannedStaffing() {
+		return plannedStaffing;
+	}
+
+	@JsonProperty("plannedTeams")
+	@Transient
+	public List<PlannedStaffing> getPlannedTeams() {
+		return plannedStaffing;
+	}
+
 	public Project getAssociatedActiveProject() {
 		return associatedActiveProject;
 	}
@@ -164,11 +168,15 @@ public class Project extends ArchivableEntity {
 	}
 
 	public List<WorkOrder> getWorkOrders() {
-		return workOrders;
+		return workOrders.stream()
+				.filter(workOrder -> workOrder.getStatus() != WorkOrderStatus.DRAFT)
+				.toList();
 	}
 
-	public List<DraftWorkOrder> getDraftWorkOrders() {
-		return draftWorkOrders;
+	public List<WorkOrder> getDraftWorkOrders() {
+		return workOrders.stream()
+				.filter(workOrder -> workOrder.getStatus() == WorkOrderStatus.DRAFT)
+				.toList();
 	}
 
 	public List<Document> getDocuments() {
@@ -182,13 +190,13 @@ public class Project extends ArchivableEntity {
 	@JsonProperty("workOrderCount")
 	@Transient
 	public int getWorkOrderCount() {
-		return workOrders == null ? 0 : workOrders.size();
+		return getWorkOrders().size();
 	}
 
 	@JsonProperty("draftWorkOrderCount")
 	@Transient
 	public int getDraftWorkOrderCount() {
-		return draftWorkOrders == null ? 0 : draftWorkOrders.size();
+		return getDraftWorkOrders().size();
 	}
 
 	@JsonProperty("teamCount")
@@ -251,10 +259,6 @@ public class Project extends ArchivableEntity {
 		this.actualCost = actualCost;
 	}
 
-	public void setPlannedTeamsJson(String plannedTeamsJson) {
-		this.plannedTeamsJson = plannedTeamsJson;
-	}
-
 	public void setProjectStatus(ProjectStatus projectStatus) {
 		this.projectStatus = projectStatus;
 	}
@@ -303,6 +307,18 @@ public class Project extends ArchivableEntity {
 		}
 	}
 
+	public void setPlannedStaffing(List<PlannedStaffing> plannedStaffing) {
+		for (PlannedStaffing staffing : new ArrayList<>(this.plannedStaffing)) {
+			removePlannedStaffing(staffing);
+		}
+
+		if (plannedStaffing != null) {
+			for (PlannedStaffing staffing : plannedStaffing) {
+				addPlannedStaffing(staffing);
+			}
+		}
+	}
+
 	public void setAssociatedActiveProject(Project associatedActiveProject) {
 		this.associatedActiveProject = associatedActiveProject;
 	}
@@ -325,18 +341,6 @@ public class Project extends ArchivableEntity {
 		if (workOrders != null) {
 			for (WorkOrder workOrder : workOrders) {
 				addWorkOrder(workOrder);
-			}
-		}
-	}
-
-	public void setDraftWorkOrders(List<DraftWorkOrder> draftWorkOrders) {
-		for (DraftWorkOrder draftWorkOrder : new ArrayList<>(this.draftWorkOrders)) {
-			removeDraftWorkOrder(draftWorkOrder);
-		}
-
-		if (draftWorkOrders != null) {
-			for (DraftWorkOrder draftWorkOrder : draftWorkOrders) {
-				addDraftWorkOrder(draftWorkOrder);
 			}
 		}
 	}
@@ -401,6 +405,18 @@ public class Project extends ArchivableEntity {
 		}
 	}
 
+	public void addPlannedStaffing(PlannedStaffing staffing) {
+		if (staffing != null && plannedStaffing.add(staffing)) {
+			staffing.setProject(this);
+		}
+	}
+
+	public void removePlannedStaffing(PlannedStaffing staffing) {
+		if (staffing != null && plannedStaffing.remove(staffing)) {
+			staffing.setProject(null);
+		}
+	}
+
 	/**
 	 * Adds a work order and points that work order back to this project.
 	 *
@@ -422,18 +438,6 @@ public class Project extends ArchivableEntity {
 			workOrder.setPreviousProjectID(projectID);
 			workOrder.setPreviousProjectName(projectName);
 			workOrder.setProject(null);
-		}
-	}
-
-	public void addDraftWorkOrder(DraftWorkOrder draftWorkOrder) {
-		if (draftWorkOrder != null && draftWorkOrders.add(draftWorkOrder)) {
-			draftWorkOrder.setProject(this);
-		}
-	}
-
-	public void removeDraftWorkOrder(DraftWorkOrder draftWorkOrder) {
-		if (draftWorkOrder != null && draftWorkOrders.remove(draftWorkOrder)) {
-			draftWorkOrder.setProject(null);
 		}
 	}
 
@@ -474,7 +478,7 @@ public class Project extends ArchivableEntity {
 	 * @return rounded total item cost
 	 */
 	private BigDecimal sumDraftWorkOrderItems() {
-		return draftWorkOrders.stream()
+		return getDraftWorkOrders().stream()
 				.flatMap(draftWorkOrder -> draftWorkOrder.getItems().stream())
 				.map(item -> BigDecimal.valueOf(item.getPrice())
 						.multiply(BigDecimal.valueOf(item.getQuantity())))
@@ -483,7 +487,7 @@ public class Project extends ArchivableEntity {
 	}
 
 	private BigDecimal sumWorkOrderItems() {
-		return workOrders.stream()
+		return getWorkOrders().stream()
 				.flatMap(workOrder -> workOrder.getItems().stream())
 				.map(item -> BigDecimal.valueOf(item.getPrice())
 						.multiply(BigDecimal.valueOf(item.getQuantity())))

@@ -11,7 +11,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
@@ -43,9 +42,6 @@ public class ProjectSnapshot {
 	private BigDecimal estimatedCost;
 
 	private BigDecimal budgetDifference;
-
-	@Lob
-	private String snapshotData;
 
 	@Column(nullable = false, updatable = false)
 	private LocalDateTime createdAt;
@@ -93,10 +89,6 @@ public class ProjectSnapshot {
 		return budgetDifference;
 	}
 
-	public String getSnapshotData() {
-		return snapshotData;
-	}
-
 	public LocalDateTime getCreatedAt() {
 		return createdAt;
 	}
@@ -135,10 +127,6 @@ public class ProjectSnapshot {
 
 	public void setBudgetDifference(BigDecimal budgetDifference) {
 		this.budgetDifference = budgetDifference;
-	}
-
-	public void setSnapshotData(String snapshotData) {
-		this.snapshotData = snapshotData;
 	}
 
 	public void setCreatedAt(LocalDateTime createdAt) {

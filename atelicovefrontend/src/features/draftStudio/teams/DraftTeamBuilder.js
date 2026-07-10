@@ -21,6 +21,8 @@ const workerLabel = (worker = {}) => (
   || `Worker #${worker.workerID ?? worker.workerId}`
 );
 
+const workerRole = (worker = {}) => worker.roleTitle || worker.role || worker.roleDescription || '';
+
 const DraftTeamBuilder = ({
   selectedProject,
   teams = [],
@@ -139,9 +141,14 @@ const DraftTeamBuilder = ({
     await onSaveDraftTeam?.({
       teamID: selectedDraftTeamID || -Date.now(),
       sourceDraftTeamID: selectedDraftTeamID,
-      teamName: teamName.trim() || 'Planned Draft Team',
-      workerIDs: selectedWorkers.map(worker => Number(worker.workerID ?? worker.workerId)),
-      sourceTeamIDs,
+      teamName: teamName.trim() || 'Planned Staffing',
+      sourceTeamID: sourceTeamIDs.length === 1 ? sourceTeamIDs[0] : null,
+      staffingSlots: selectedWorkers.map(worker => ({
+        workerID: Number(worker.workerID ?? worker.workerId),
+        worker,
+        roleName: worker.roleTitle || worker.role || '',
+        roleDescription: worker.roleDescription || '',
+      })),
       projectID: selectedProject?.projectID,
       draftOnly: true,
     });
@@ -155,30 +162,30 @@ const DraftTeamBuilder = ({
   return (
     <Stack spacing={2}>
       <TextField
-        label="Planned team name"
+        label="Planned staffing name"
         value={teamName}
         onChange={event => setTeamName(event.target.value)}
         fullWidth
       />
 
       <Typography variant="body2" color="text.secondary">
-        This creates a draft-only planned team snapshot from existing workers and/or team members. It does not create a real Team record or worker/team history timestamps.
+        This creates draft-only planned staffing from existing workers or empty staffing slots. It does not create a live team or worker history timestamps.
       </Typography>
 
       <FormControl fullWidth size="small">
-        <InputLabel>Select draft/team to edit</InputLabel>
+        <InputLabel>Select planned staffing to edit</InputLabel>
         <Select
           value={templateTeam}
-          label="Select draft/team to edit"
+          label="Select planned staffing to edit"
           onChange={event => applyTemplate(event.target.value)}
         >
-          <MenuItem value="">Blank draft team</MenuItem>
+          <MenuItem value="">Blank planned staffing</MenuItem>
           {draftedTeams.length > 0 && (
-            <MenuItem disabled>Existing drafted teams</MenuItem>
+            <MenuItem disabled>Existing planned staffing</MenuItem>
           )}
           {draftedTeams.map(team => (
             <MenuItem key={`draft-${team.teamID}`} value={`draft:${team.teamID}`}>
-              {team.teamName || `Draft team #${team.teamID}`}
+              {team.teamName || `Planned staffing #${team.teamID}`}
             </MenuItem>
           ))}
           {availableTeams.length > 0 && (
@@ -218,7 +225,7 @@ const DraftTeamBuilder = ({
             <FormControlLabel
               key={id}
               control={<Checkbox checked={workerIDs.includes(id)} onChange={() => toggleWorker(id)} />}
-              label={workerLabel(worker)}
+                label={workerRole(worker) ? `${workerLabel(worker)} - ${workerRole(worker)}` : workerLabel(worker)}
             />
           );
         })}
@@ -228,22 +235,22 @@ const DraftTeamBuilder = ({
       </Stack>
 
       <Stack spacing={1} sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 1 }}>
-        <Typography variant="subtitle2">Draft team workers</Typography>
+        <Typography variant="subtitle2">Staffing slots</Typography>
         <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
           {selectedWorkers.map(worker => {
             const id = Number(worker.workerID ?? worker.workerId);
             return (
-              <Chip key={id} label={workerLabel(worker)} onDelete={() => removeSelectedWorker(id)} />
+              <Chip key={id} label={workerRole(worker) ? `${workerLabel(worker)} - ${workerRole(worker)}` : workerLabel(worker)} onDelete={() => removeSelectedWorker(id)} />
             );
           })}
           {!selectedWorkers.length && (
-            <Typography variant="body2" color="text.secondary">No workers selected.</Typography>
+            <Typography variant="body2" color="text.secondary">No workers selected. Save empty staffing to fill later.</Typography>
           )}
         </Stack>
       </Stack>
 
-      <Button variant="contained" disabled={saving || !selectedProject || !selectedWorkers.length} onClick={save}>
-        {templateTeam.startsWith('draft:') ? 'Update Draft Team' : 'Save Planned Draft Team'}
+      <Button variant="contained" disabled={saving || !selectedProject} onClick={save}>
+        {templateTeam.startsWith('draft:') ? 'Update Planned Staffing' : 'Save Planned Staffing'}
       </Button>
     </Stack>
   );

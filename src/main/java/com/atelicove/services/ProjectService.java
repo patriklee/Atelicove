@@ -12,14 +12,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.atelicove.dto.ProjectDTO;
 import com.atelicove.entities.Company;
-import com.atelicove.entities.DraftWorkOrder;
-import com.atelicove.entities.DraftWorkOrderItem;
+import com.atelicove.entities.PlannedStaffing;
 import com.atelicove.entities.Project;
 import com.atelicove.entities.ProjectActionItem;
 import com.atelicove.entities.ProjectComments;
 import com.atelicove.entities.ProjectSnapshot;
+import com.atelicove.entities.StaffingSlot;
 import com.atelicove.entities.Team;
 import com.atelicove.entities.WorkOrder;
+import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.ProjectStatus;
 import com.atelicove.enums.WorkOrderStatus;
@@ -28,10 +29,6 @@ import com.atelicove.repositories.CompanyRepository;
 import com.atelicove.repositories.TeamRepository;
 import com.atelicove.repositories.WorkOrderRepository;
 import com.atelicove.repositories.WorkerRepository;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Service
 public class ProjectService {
@@ -41,21 +38,18 @@ public class ProjectService {
 	private final WorkerRepository workerRepository;
 	private final TeamRepository teamRepository;
 	private final CompanyRepository companyRepository;
-	private final ObjectMapper objectMapper;
 
 	public ProjectService(
 			ProjectRepository projectRepository,
 			WorkOrderRepository workOrderRepository,
 			WorkerRepository workerRepository,
 			TeamRepository teamRepository,
-			CompanyRepository companyRepository,
-			ObjectMapper objectMapper) {
+			CompanyRepository companyRepository) {
 		this.projectRepository = projectRepository;
 		this.workOrderRepository = workOrderRepository;
 		this.workerRepository = workerRepository;
 		this.teamRepository = teamRepository;
 		this.companyRepository = companyRepository;
-		this.objectMapper = objectMapper;
 	}
 
 	public List<Project> findActive() {
@@ -72,6 +66,10 @@ public class ProjectService {
 
 	public List<Project> findDrafts() {
 		return projectRepository.findByProjectStatusAndArchivedFalse(ProjectStatus.DRAFT);
+	}
+
+	public List<Project> findArchivedDrafts() {
+		return projectRepository.findByProjectStatusAndArchivedTrue(ProjectStatus.DRAFT);
 	}
 
 	public Optional<Project> findById(Integer id) {
@@ -175,17 +173,14 @@ public class ProjectService {
 		}
 		syncActiveProjectTeamWorkers(project, previousTeams, launchTeams);
 
-		for (DraftWorkOrder draftWorkOrder : project.getDraftWorkOrders()) {
-			if (draftIDsToActivate.contains(draftWorkOrder.getDraftWorkOrderID())) {
-				WorkOrder workOrder = createBlankWorkOrderFromDraft(project, draftWorkOrder, launchTeams, activatedAt);
-				project.addWorkOrder(workOrder);
+		for (WorkOrder draftWorkOrder : new ArrayList<>(project.getDraftWorkOrders())) {
+			if (draftIDsToActivate.contains(draftWorkOrder.getWorkOrderID())) {
+				activateDraftWorkOrder(draftWorkOrder, launchTeams, activatedAt);
+			} else {
+				project.removeWorkOrder(draftWorkOrder);
 			}
 		}
-
-		for (DraftWorkOrder draftWorkOrder : new ArrayList<>(project.getDraftWorkOrders())) {
-			project.removeDraftWorkOrder(draftWorkOrder);
-		}
-		project.setPlannedTeamsJson(null);
+		project.setPlannedStaffing(List.of());
 
 		return projectRepository.save(project);
 	}
@@ -254,8 +249,8 @@ public class ProjectService {
 	}
 
 	/**
-	 * Archives a non-draft project after all work orders are complete, then removes
-	 * any temporary draft projects that were attached to it.
+	 * Archives a project. Active projects must be complete, while draft projects can
+	 * be archived from Draft Studio without launch-time validation.
 	 *
 	 * @param projectID project to archive
 	 */
@@ -264,7 +259,10 @@ public class ProjectService {
 		Project project = getRequiredProject(projectID);
 
 		if (project.getProjectStatus() == ProjectStatus.DRAFT) {
-			throw new IllegalStateException("Draft projects cannot be archived");
+			project.setArchived(true);
+			project.setArchivedAt(LocalDateTime.now());
+			projectRepository.save(project);
+			return;
 		}
 
 		if (!allWorkOrdersComplete(project)) {
@@ -401,6 +399,30 @@ public class ProjectService {
 	 * @return the saved project with the new draft work order
 	 */
 	@Transactional
+	public Project createDraftWorkOrder(
+			Integer projectID,
+			Integer companyID,
+			String comment) {
+		Project project = getRequiredProject(projectID);
+		ensureProjectCanBeEdited(project);
+
+		if (project.getProjectStatus() != ProjectStatus.DRAFT) {
+			throw new IllegalStateException("Draft work orders can only be created for draft projects");
+		}
+
+		WorkOrder draftWorkOrder = new WorkOrder();
+		draftWorkOrder.setWorkOrderName("Draft work order");
+		draftWorkOrder.setStatus(WorkOrderStatus.DRAFT);
+		draftWorkOrder.setStartDateTime(null);
+		draftWorkOrder.setComment(comment);
+		applyDraftWorkOrderCompany(draftWorkOrder, companyID);
+
+		project.addWorkOrder(draftWorkOrder);
+
+		return projectRepository.save(project);
+	}
+
+	@Transactional
 	public Project createDraftWorkOrderForTeam(
 			Integer projectID,
 			Integer teamID,
@@ -418,24 +440,35 @@ public class ProjectService {
 		ensureTeamCanBeAssignedToProject(team);
 		addPlannedTeam(project, team);
 
-		DraftWorkOrder draftWorkOrder = new DraftWorkOrder();
+		WorkOrder draftWorkOrder = new WorkOrder();
+		draftWorkOrder.setWorkOrderName(team.getTeamName() == null || team.getTeamName().isBlank()
+				? "Draft work order"
+				: "Draft work order - " + team.getTeamName());
+		draftWorkOrder.setStatus(WorkOrderStatus.DRAFT);
+		draftWorkOrder.setStartDateTime(null);
 		draftWorkOrder.setComment(comment);
 		draftWorkOrder.setPlannedTeamID(team.getTeamID());
 		draftWorkOrder.setPlannedTeamName(team.getTeamName());
 
-		if (companyID != null) {
-			Company company = companyRepository.findById(companyID)
-					.orElseThrow(() -> new IllegalArgumentException("Company not found"));
-			if (company.isArchived()) {
-				throw new IllegalStateException("Archived companies cannot be assigned");
-			}
-			draftWorkOrder.setPlannedCompanyID(company.getCompanyID());
-			draftWorkOrder.setPlannedCompanyName(company.getCompanyName());
-		}
+		applyDraftWorkOrderCompany(draftWorkOrder, companyID);
 
-		project.addDraftWorkOrder(draftWorkOrder);
+		project.addWorkOrder(draftWorkOrder);
 
 		return projectRepository.save(project);
+	}
+
+	private void applyDraftWorkOrderCompany(WorkOrder draftWorkOrder, Integer companyID) {
+		if (companyID == null) {
+			draftWorkOrder.setCompany(null);
+			return;
+		}
+
+		Company company = companyRepository.findById(companyID)
+				.orElseThrow(() -> new IllegalArgumentException("Company not found"));
+		if (company.isArchived()) {
+			throw new IllegalStateException("Archived companies cannot be assigned");
+		}
+		draftWorkOrder.setCompany(company);
 	}
 
 	@Transactional
@@ -449,18 +482,40 @@ public class ProjectService {
 
 		WorkOrder source = workOrderRepository.findById(workOrderID)
 				.orElseThrow(() -> new IllegalArgumentException("Work order not found"));
-
-		DraftWorkOrder draftWorkOrder = new DraftWorkOrder();
-		draftWorkOrder.setSourceWorkOrderID(source.getWorkOrderID());
-		draftWorkOrder.setComment(comment);
-		if (source.getCompany() != null) {
-			draftWorkOrder.setPlannedCompanyID(source.getCompany().getCompanyID());
-			draftWorkOrder.setPlannedCompanyName(source.getCompany().getCompanyName());
+		if (source.getStatus() == WorkOrderStatus.DRAFT) {
+			throw new IllegalStateException("Draft work orders cannot be copied into another draft");
 		}
 
-		project.addDraftWorkOrder(draftWorkOrder);
+		WorkOrder draftWorkOrder = new WorkOrder();
+		draftWorkOrder.setSourceWorkOrderID(source.getWorkOrderID());
+		draftWorkOrder.setSourceProjectID(source.getProject() == null ? null : source.getProject().getProjectID());
+		draftWorkOrder.setWorkOrderName(copyWorkOrderName(source));
+		draftWorkOrder.setStatus(WorkOrderStatus.DRAFT);
+		draftWorkOrder.setStartDateTime(null);
+		draftWorkOrder.setComment(comment);
+		if (source.getCompany() != null) {
+			draftWorkOrder.setCompany(source.getCompany());
+		}
+		for (WorkOrderItem sourceItem : source.getItems()) {
+			WorkOrderItem draftItem = new WorkOrderItem();
+			draftItem.setItemName(sourceItem.getItemName());
+			draftItem.setQuantity(sourceItem.getQuantity());
+			draftItem.setPrice(sourceItem.getPrice());
+			draftItem.setItemType(sourceItem.getItemType());
+			draftWorkOrder.addItem(draftItem);
+		}
+
+		project.addWorkOrder(draftWorkOrder);
 
 		return projectRepository.save(project);
+	}
+
+	private String copyWorkOrderName(WorkOrder source) {
+		String sourceName = source.getComment();
+		if (sourceName == null || sourceName.isBlank()) {
+			sourceName = "Work Order #" + source.getWorkOrderID();
+		}
+		return sourceName.toUpperCase().contains("COPY") ? sourceName : "COPY - " + sourceName;
 	}
 
 	@Transactional
@@ -483,12 +538,12 @@ public class ProjectService {
 		Project project = getRequiredProject(projectID);
 		ensureProjectCanBeEdited(project);
 
-		DraftWorkOrder draftWorkOrder = project.getDraftWorkOrders().stream()
-				.filter(item -> item.getDraftWorkOrderID() == draftWorkOrderID)
+		WorkOrder draftWorkOrder = project.getDraftWorkOrders().stream()
+				.filter(item -> item.getWorkOrderID() == draftWorkOrderID)
 				.findFirst()
 				.orElseThrow(() -> new IllegalArgumentException("Draft work order is not assigned to this project"));
 
-		project.removeDraftWorkOrder(draftWorkOrder);
+		project.removeWorkOrder(draftWorkOrder);
 
 		return projectRepository.save(project);
 	}
@@ -508,23 +563,12 @@ public class ProjectService {
 			throw new IllegalStateException("Draft work orders can only be edited for draft projects");
 		}
 
-		DraftWorkOrder draftWorkOrder = project.getDraftWorkOrders().stream()
-				.filter(item -> item.getDraftWorkOrderID() == draftWorkOrderID)
+		WorkOrder draftWorkOrder = project.getDraftWorkOrders().stream()
+				.filter(item -> item.getWorkOrderID() == draftWorkOrderID)
 				.findFirst()
 				.orElseThrow(() -> new IllegalArgumentException("Draft work order is not assigned to this project"));
 
-		if (companyID == null) {
-			draftWorkOrder.setPlannedCompanyID(null);
-			draftWorkOrder.setPlannedCompanyName(null);
-		} else {
-			Company company = companyRepository.findById(companyID)
-					.orElseThrow(() -> new IllegalArgumentException("Company not found"));
-			if (company.isArchived()) {
-				throw new IllegalStateException("Archived companies cannot be assigned");
-			}
-			draftWorkOrder.setPlannedCompanyID(company.getCompanyID());
-			draftWorkOrder.setPlannedCompanyName(company.getCompanyName());
-		}
+		applyDraftWorkOrderCompany(draftWorkOrder, companyID);
 
 		if (updateTeam) {
 			if (teamID == null) {
@@ -675,8 +719,8 @@ public class ProjectService {
 		project.setProjectName(projectDTO.getProjectName());
 		project.setDescription(projectDTO.getDescription());
 		project.setBudget(projectDTO.getBudget());
-		if (projectDTO.getPlannedTeamsJson() != null) {
-			project.setPlannedTeamsJson(projectDTO.getPlannedTeamsJson());
+		if (projectDTO.getPlannedStaffing() != null) {
+			project.setPlannedStaffing(resolvePlannedStaffing(projectDTO.getPlannedStaffing()));
 		}
 
 		if (projectDTO.getWorkOrderIDs() != null) {
@@ -689,8 +733,8 @@ public class ProjectService {
 
 		if (projectDTO.getTeamIDs() != null) {
 			if (project.getProjectStatus() == null || project.getProjectStatus() == ProjectStatus.DRAFT) {
-				if (projectDTO.getPlannedTeamsJson() == null) {
-					project.setPlannedTeamsJson(buildPlannedTeamsJson(projectDTO.getTeamIDs()));
+				if (projectDTO.getPlannedStaffing() == null) {
+					project.setPlannedStaffing(plannedStaffingFromTeamIDs(projectDTO.getTeamIDs()));
 				}
 			} else {
 				Set<Team> previousTeams = new HashSet<>(project.getTeams());
@@ -872,89 +916,68 @@ public class ProjectService {
 
 	private Set<Team> plannedTeamsForLaunch(Project project) {
 		Set<Team> teams = new HashSet<>();
-		if (project.getPlannedTeamsJson() != null && !project.getPlannedTeamsJson().isBlank()) {
-			try {
-				JsonNode root = objectMapper.readTree(project.getPlannedTeamsJson());
-				if (root.isArray()) {
-					for (JsonNode node : root) {
-						JsonNode idNode = node.get("teamID");
-						if (idNode != null && idNode.canConvertToInt()) {
-							Optional<Team> existingTeam = teamRepository.findById(idNode.asInt());
-							if (existingTeam.isPresent()) {
-								teams.add(existingTeam.get());
-								continue;
-							}
-						}
-						Team plannedTeam = createTeamFromPlannedSnapshot(node);
-						if (plannedTeam != null) {
-							teams.add(plannedTeam);
-						}
-					}
-				}
-			} catch (Exception exception) {
-				throw new IllegalStateException("Planned teams could not be read");
+		for (PlannedStaffing staffing : project.getPlannedStaffing()) {
+			if (staffing.getSourceTeam() != null) {
+				teams.add(staffing.getSourceTeam());
+				continue;
+			}
+			Team plannedTeam = createTeamFromPlannedStaffing(staffing);
+			if (plannedTeam != null) {
+				teams.add(plannedTeam);
 			}
 		}
 
 		if (teams.isEmpty()) {
 			teams.addAll(project.getTeams());
 		}
-		ensureTeamsCanBeAssignedToProject(teams);
+		if (!teams.isEmpty()) {
+			ensureTeamsCanBeAssignedToProject(teams);
+		}
 		return teams;
 	}
 
-	private Team createTeamFromPlannedSnapshot(JsonNode node) {
-		JsonNode workersNode = node.get("workers");
-		if (workersNode == null || !workersNode.isArray() || workersNode.isEmpty()) {
+	private Team createTeamFromPlannedStaffing(PlannedStaffing staffing) {
+		Set<Worker> workers = workersForStaffing(staffing);
+		if (workers.isEmpty()) {
 			return null;
-		}
-
-		Set<Integer> workerIDs = new HashSet<>();
-		for (JsonNode workerNode : workersNode) {
-			JsonNode idNode = workerNode.get("workerID");
-			if (idNode != null && idNode.canConvertToInt()) {
-				workerIDs.add(idNode.asInt());
-			}
-		}
-
-		if (workerIDs.isEmpty()) {
-			return null;
-		}
-
-		Set<Worker> workers = new HashSet<>(workerRepository.findAllById(workerIDs));
-		if (workers.size() != workerIDs.size()) {
-			throw new IllegalStateException("One or more planned workers could not be found");
 		}
 
 		Team team = new Team();
-		team.setTeamName(node.hasNonNull("teamName") ? node.get("teamName").asText() : "Planned Draft Team");
+		team.setTeamName(staffing.getStaffingName() == null || staffing.getStaffingName().isBlank()
+				? "Planned Staffing"
+				: staffing.getStaffingName());
 		team.setWorkers(workers);
 		return teamRepository.save(team);
 	}
 
-	private WorkOrder createBlankWorkOrderFromDraft(
-			Project project,
-			DraftWorkOrder draftWorkOrder,
+	private Set<Worker> workersForStaffing(PlannedStaffing staffing) {
+		Set<Worker> workers = new HashSet<>();
+		for (StaffingSlot slot : staffing.getStaffingSlots()) {
+			if (slot.getWorker() != null && slot.getWorker().getWorkerID() > 0) {
+				Worker worker = workerRepository.findById(slot.getWorker().getWorkerID())
+						.orElseThrow(() -> new IllegalStateException("One or more planned workers could not be found"));
+				workers.add(worker);
+			}
+		}
+		return workers;
+	}
+
+	private void activateDraftWorkOrder(
+			WorkOrder draftWorkOrder,
 			Set<Team> launchTeams,
 			LocalDateTime activatedAt) {
-		WorkOrder workOrder = new WorkOrder();
-		workOrder.setStatus(WorkOrderStatus.OPEN);
-		workOrder.setStartDateTime(activatedAt);
-		workOrder.setEndDateTime(null);
-		workOrder.setComment(null);
+		draftWorkOrder.setStatus(WorkOrderStatus.OPEN);
+		draftWorkOrder.setStartDateTime(activatedAt);
+		draftWorkOrder.setEndDateTime(null);
 
 		Set<Worker> workers = workersForDraftWorkOrder(draftWorkOrder, launchTeams);
 		if (!workers.isEmpty()) {
-			workOrder.setWorkers(workers);
-			workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
+			draftWorkOrder.setWorkers(workers);
+			draftWorkOrder.setStatus(WorkOrderStatus.IN_PROCESS);
 		}
-
-		workOrder = workOrderRepository.save(workOrder);
-		workOrder.setProject(project);
-		return workOrder;
 	}
 
-	private Set<Worker> workersForDraftWorkOrder(DraftWorkOrder draftWorkOrder, Set<Team> launchTeams) {
+	private Set<Worker> workersForDraftWorkOrder(WorkOrder draftWorkOrder, Set<Team> launchTeams) {
 		if (draftWorkOrder.getPlannedTeamID() == null) {
 			return workersForTeams(launchTeams);
 		}
@@ -968,50 +991,67 @@ public class ProjectService {
 		return workersForTeams(matchingTeams);
 	}
 
-	private String buildPlannedTeamsJson(List<Integer> teamIDs) {
-		ArrayNode teamsNode = objectMapper.createArrayNode();
-		for (Team team : teamRepository.findAllById(teamIDs)) {
-			teamsNode.add(teamSnapshotNode(team));
-		}
-		return teamsNode.toString();
-	}
-
 	private void addPlannedTeam(Project project, Team team) {
-		try {
-			ArrayNode teamsNode = project.getPlannedTeamsJson() == null || project.getPlannedTeamsJson().isBlank()
-					? objectMapper.createArrayNode()
-					: (ArrayNode) objectMapper.readTree(project.getPlannedTeamsJson());
-			for (JsonNode node : teamsNode) {
-				JsonNode idNode = node.get("teamID");
-				if (idNode != null && idNode.asInt() == team.getTeamID()) {
-					return;
-				}
+		for (PlannedStaffing existing : project.getPlannedStaffing()) {
+			if (existing.getSourceTeam() != null && existing.getSourceTeam().getTeamID() == team.getTeamID()) {
+				return;
 			}
-			teamsNode.add(teamSnapshotNode(team));
-			project.setPlannedTeamsJson(teamsNode.toString());
-		} catch (Exception exception) {
-			throw new IllegalStateException("Planned team could not be saved");
 		}
+		project.addPlannedStaffing(plannedStaffingFromTeam(team));
 	}
 
-	private ObjectNode teamSnapshotNode(Team team) {
-		ObjectNode teamNode = objectMapper.createObjectNode();
-		teamNode.put("teamID", team.getTeamID());
-		teamNode.put("teamName", team.getTeamName());
-		ArrayNode workersNode = teamNode.putArray("workers");
-		for (Worker worker : team.getWorkers()) {
-			ObjectNode workerNode = workersNode.addObject();
-			workerNode.put("workerID", worker.getWorkerID());
-			workerNode.put("firstName", worker.getWorkerFName());
-			workerNode.put("lastName", worker.getWorkerLName());
-			workerNode.put("username", worker.getWorkerUser());
+	private List<PlannedStaffing> plannedStaffingFromTeamIDs(List<Integer> teamIDs) {
+		List<PlannedStaffing> staffing = new ArrayList<>();
+		for (Team team : teamRepository.findAllById(teamIDs)) {
+			staffing.add(plannedStaffingFromTeam(team));
 		}
-		return teamNode;
+		return staffing;
+	}
+
+	private PlannedStaffing plannedStaffingFromTeam(Team team) {
+		PlannedStaffing staffing = new PlannedStaffing();
+		staffing.setStaffingName(team.getTeamName());
+		staffing.setSourceTeam(team);
+		for (Worker worker : team.getWorkers()) {
+			StaffingSlot slot = new StaffingSlot();
+			slot.setWorker(worker);
+			slot.setRoleName(worker.getRoleTitle());
+			slot.setRoleDescription(worker.getRoleDescription());
+			staffing.addStaffingSlot(slot);
+		}
+		return staffing;
+	}
+
+	private List<PlannedStaffing> resolvePlannedStaffing(List<PlannedStaffing> requestedStaffing) {
+		List<PlannedStaffing> resolved = new ArrayList<>();
+		for (PlannedStaffing request : requestedStaffing) {
+			PlannedStaffing staffing = new PlannedStaffing();
+			staffing.setStaffingName(request.getStaffingName() != null ? request.getStaffingName() : request.getTeamName());
+			staffing.setNotes(request.getNotes());
+			if (request.getSourceTeamID() != null) {
+				Team sourceTeam = teamRepository.findById(request.getSourceTeamID())
+						.orElseThrow(() -> new IllegalArgumentException("Source team not found"));
+				staffing.setSourceTeam(sourceTeam);
+			}
+			for (StaffingSlot requestSlot : request.getStaffingSlots()) {
+				StaffingSlot slot = new StaffingSlot();
+				slot.setRoleName(requestSlot.getRoleName());
+				slot.setRoleDescription(requestSlot.getRoleDescription());
+				if (requestSlot.getWorkerID() != null) {
+					Worker worker = workerRepository.findById(requestSlot.getWorkerID())
+							.orElseThrow(() -> new IllegalArgumentException("Planned worker not found"));
+					slot.setWorker(worker);
+				}
+				staffing.addStaffingSlot(slot);
+			}
+			resolved.add(staffing);
+		}
+		return resolved;
 	}
 
 	private void deleteDraftProjectContents(Project draft) {
-		for (DraftWorkOrder draftWorkOrder : new ArrayList<>(draft.getDraftWorkOrders())) {
-			draft.removeDraftWorkOrder(draftWorkOrder);
+		for (WorkOrder draftWorkOrder : new ArrayList<>(draft.getDraftWorkOrders())) {
+			draft.removeWorkOrder(draftWorkOrder);
 		}
 	}
 
@@ -1036,55 +1076,7 @@ public class ProjectService {
 		snapshot.setBudget(draftProject.getBudget());
 		snapshot.setEstimatedCost(draftProject.getEstimatedCost());
 		snapshot.setBudgetDifference(draftProject.getBudgetDifference());
-		snapshot.setSnapshotData(buildSnapshotData(draftProject));
 		snapshotOwner.addSnapshot(snapshot);
-	}
-
-	/**
-	 * Builds a compact JSON copy of draft work order planning data for later review.
-	 *
-	 * @param project draft project to serialize
-	 * @return JSON snapshot data
-	 */
-	private String buildSnapshotData(Project project) {
-		try {
-			ObjectNode root = objectMapper.createObjectNode();
-			root.put("projectID", project.getProjectID());
-			root.put("projectName", project.getProjectName());
-			root.put("description", project.getDescription());
-			root.put("status", project.getProjectStatus().name());
-			root.put("budget", project.getBudget() == null ? null : project.getBudget().toPlainString());
-			root.put("estimatedCost", project.getEstimatedCost().toPlainString());
-			root.put("budgetDifference", project.getBudgetDifference().toPlainString());
-			root.set("plannedTeams", project.getPlannedTeamsJson() == null || project.getPlannedTeamsJson().isBlank()
-					? objectMapper.createArrayNode()
-					: objectMapper.readTree(project.getPlannedTeamsJson()));
-
-			ArrayNode workOrders = root.putArray("draftWorkOrders");
-			for (DraftWorkOrder workOrder : project.getDraftWorkOrders()) {
-				ObjectNode workOrderNode = workOrders.addObject();
-				workOrderNode.put("workOrderID", workOrder.getWorkOrderID());
-				workOrderNode.put("sourceWorkOrderID", workOrder.getSourceWorkOrderID());
-				workOrderNode.put("plannedTeamName", workOrder.getPlannedTeamName());
-				workOrderNode.put("plannedCompanyName", workOrder.getPlannedCompanyName());
-				workOrderNode.put("comment", workOrder.getComment());
-
-				ArrayNode items = workOrderNode.putArray("items");
-				for (DraftWorkOrderItem item : workOrder.getItems()) {
-					ObjectNode itemNode = items.addObject();
-					itemNode.put("draftWorkOrderItemID", item.getDraftWorkOrderItemID());
-					itemNode.put("itemType", item.getItemType() == null ? null : item.getItemType().name());
-					itemNode.put("itemName", item.getItemName());
-					itemNode.put("quantity", item.getQuantity());
-					itemNode.put("price", item.getPrice());
-					itemNode.put("lineTotal", item.getQuantity() * item.getPrice());
-				}
-			}
-
-			return objectMapper.writeValueAsString(root);
-		} catch (Exception exception) {
-			throw new IllegalStateException("Project snapshot could not be created");
-		}
 	}
 
 	private boolean isAssignedToProject(Project project, int workerID) {

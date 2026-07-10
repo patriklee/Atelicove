@@ -239,6 +239,7 @@ export default function ProjectsWorkspaceLayout({ workspace }) {
               onLoadProject={loadProjectIntoForm}
               onClearLoadedProject={clearLoadedProject}
               onLaunchProject={requestLaunchProject}
+              onArchiveDraftProject={archiveProject}
               onDeleteDraftProject={deleteDraftProject}
               onSubmitForReview={submitProjectForReview}
               formatMoney={formatMoney}

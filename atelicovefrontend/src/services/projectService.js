@@ -2,15 +2,13 @@ import { apiFetch, apiDownload } from '../shared/api';
 
 export const projectService = {
   getAll: () => apiFetch('/projects'),
-  getActive: () => apiFetch('/projects/active'),
+  getActive: () => apiFetch('/projects'),
   getArchived: () => apiFetch('/projects/archived'),
   getById: (projectID) => apiFetch(`/projects/${projectID}`),
   create: (payload) => apiFetch('/projects', { method: 'POST', body: JSON.stringify(payload) }),
   update: (projectID, payload) => apiFetch(`/projects/${projectID}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  archive: (projectID) => apiFetch(`/projects/${projectID}/archive`, { method: 'PATCH' }),
-  restore: (projectID) => apiFetch(`/projects/${projectID}/restore`, { method: 'PATCH' }),
-  launchDraft: (projectID, payload = {}) => apiFetch(`/projects/${projectID}/launch`, { method: 'POST', body: JSON.stringify(payload) }),
-  addPlannedTeam: (projectID, teamID) => apiFetch(`/projects/${projectID}/planned-teams/${teamID}`, { method: 'POST' }),
-  removePlannedTeam: (projectID, teamID) => apiFetch(`/projects/${projectID}/planned-teams/${teamID}`, { method: 'DELETE' }),
+  archive: (projectID) => apiFetch(`/projects/${projectID}`, { method: 'DELETE' }),
+  restore: (projectID) => apiFetch(`/projects/${projectID}/restore`, { method: 'PUT' }),
+  launchDraft: (projectID, payload = {}) => apiFetch(`/projects/${projectID}/activate`, { method: 'PUT', body: JSON.stringify(payload) }),
   downloadDocument: (projectID, documentID) => apiDownload(`/projects/${projectID}/documents/${documentID}/download`),
 };

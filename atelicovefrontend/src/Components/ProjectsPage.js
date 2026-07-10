@@ -83,23 +83,14 @@ const normalizeProject = (project = {}) => ({
   documents: Array.isArray(project.documents) ? project.documents : [],
   snapshots: Array.isArray(project.snapshots) ? project.snapshots : [],
   associatedActiveProject: project.associatedActiveProject || null,
-  plannedTeamsJson: project.plannedTeamsJson || '',
-  plannedTeams: Array.isArray(project.plannedTeams) ? project.plannedTeams : parsePlannedTeams(project.plannedTeamsJson),
+  plannedStaffing: Array.isArray(project.plannedStaffing) ? project.plannedStaffing : [],
+  plannedTeams: Array.isArray(project.plannedTeams)
+    ? project.plannedTeams
+    : (Array.isArray(project.plannedStaffing) ? project.plannedStaffing : []),
   teams: Array.isArray(project.teams) ? project.teams : [],
   workOrders: Array.isArray(project.workOrders) ? project.workOrders : [],
   draftWorkOrders: Array.isArray(project.draftWorkOrders) ? project.draftWorkOrders : [],
 });
-
-function parsePlannedTeams(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
 
 const normalizeTeam = (team = {}) => ({
   ...team,
@@ -117,6 +108,13 @@ const workerName = (worker) =>
   worker.username ||
   worker.workerUser ||
   'Unnamed worker';
+
+const workerRole = (worker = {}) => worker.roleTitle || worker.role || worker.roleDescription || '';
+const staffingSlotsFor = (team = {}) => (
+  Array.isArray(team.staffingSlots) && team.staffingSlots.length
+    ? team.staffingSlots
+    : (team.workers || []).map(worker => ({ worker, workerID: worker.workerID ?? worker.workerId }))
+);
 
 const formatMoney = (value) =>
   value === '' || value === null || value === undefined ? 'Not set' : `$${Number(value).toLocaleString()}`;
@@ -255,7 +253,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const attachableWorkOrders = workOrders.filter(workOrder =>
     !workOrder.archived &&
     ['OPEN', 'IN_PROCESS'].includes(workOrder.status) &&
-    (!workOrder.project || workOrder.project.projectID === Number(workOrderForm.projectID))
+    (selectedWorkOrderProject?.projectStatus === 'DRAFT' || !workOrder.project || workOrder.project.projectID === Number(workOrderForm.projectID))
   );
   const projectWorkOrdersAreComplete = (project) =>
     Boolean(project) && (project.workOrders || []).every(workOrder => workOrder.status === 'COMPLETE');
@@ -272,7 +270,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const associatedWorkOrdersFor = (project = {}) => [
     ...(project.workOrders || []),
     ...(project.draftWorkOrders || []),
-  ];
+  ].filter(workOrder => !workOrder.archived);
   const plannedTeamsForProject = (project = {}) => (
     project.projectStatus === 'DRAFT' ? (project.plannedTeams || []) : (project.teams || [])
   );
@@ -371,29 +369,21 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setActionItemForm(current => ({ ...current, projectID: project.projectID, actionItemID: '' }));
   };
 
-  const teamSnapshot = (team) => ({
-        teamID: team.teamID,
-        teamName: team.teamName,
-        workers: (team.workers || []).map(worker => ({
-          workerID: worker.workerID,
-          firstName: worker.firstName,
-          lastName: worker.lastName,
-          username: worker.username,
-        })),
-      });
-
-  const plannedTeamSnapshotJson = (teamIDs) => {
-    const existingSnapshots = plannedTeamsForProject(selectedProject || {});
-    return JSON.stringify(
-      teamIDs
-        .map(id => (
-          teams.find(team => Number(team.teamID) === Number(id)) ||
-          existingSnapshots.find(team => Number(team.teamID) === Number(id))
-        ))
-        .filter(Boolean)
-        .map(teamSnapshot)
-    );
-  };
+  const plannedStaffingPayload = (plannedStaffing = []) => plannedStaffing.map(staffing => ({
+    id: Number(staffing.teamID) > 0 ? Number(staffing.teamID) : null,
+    staffingName: staffing.staffingName || staffing.teamName || 'Planned Staffing',
+    sourceTeamID: staffing.sourceTeamID || (Number(staffing.teamID) > 0 && teams.some(team => Number(team.teamID) === Number(staffing.teamID)) ? Number(staffing.teamID) : null),
+    staffingSlots: (staffing.staffingSlots || staffing.slots || staffing.workers || []).map(item => {
+      const worker = item.worker || item;
+      const workerID = worker.workerID ?? worker.workerId ?? item.workerID ?? null;
+      return {
+        id: item.id || null,
+        workerID: workerID ? Number(workerID) : null,
+        roleName: item.roleName || worker.roleTitle || worker.role || '',
+        roleDescription: item.roleDescription || worker.roleDescription || '',
+      };
+    }),
+  }));
 
   const savePlannedTeamSnapshots = async (plannedTeams) => {
     if (!selectedProject) return;
@@ -407,7 +397,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
         body: JSON.stringify({
           ...projectPayload(projectForm),
           teamIDs,
-          plannedTeamsJson: JSON.stringify(plannedTeams.map(teamSnapshot)),
+          plannedStaffing: plannedStaffingPayload(plannedTeams),
         }),
       });
       const normalized = normalizeProject(updated);
@@ -444,14 +434,15 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       .map(normalizeWorker)
       .forEach(worker => workersByID.set(worker.workerID, worker));
 
-    if (!workersByID.size) {
-      setMessage({ severity: 'warning', text: 'Select at least one worker or source team for the draft team.' });
-      return;
-    }
-
     const plannedTeam = {
       teamID: -Date.now(),
-      teamName: draftTeamName.trim() || 'Planned Draft Team',
+      teamName: draftTeamName.trim() || 'Planned Staffing',
+      staffingSlots: Array.from(workersByID.values()).map(worker => ({
+        workerID: worker.workerID,
+        worker,
+        roleName: worker.roleTitle || worker.role || '',
+        roleDescription: worker.roleDescription || '',
+      })),
       workers: Array.from(workersByID.values()),
     };
     await savePlannedTeamSnapshots([...plannedTeamsForProject(selectedProject), plannedTeam]);
@@ -473,11 +464,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
   const availableDraftWorkers = workers.filter(worker => !worker.archived);
   const draftSourceTeams = assignableTeams.filter(team => !plannedTeamsForProject(selectedProject || {})
-    .some(planned => Number(planned.teamID) === Number(team.teamID)));
+    .some(planned => Number(planned.sourceTeamID || planned.teamID) === Number(team.teamID)));
 
   const buildProjectPayload = (form, teamIDs = form.teamIDs) => ({
     ...projectPayload(form),
-    plannedTeamsJson: plannedTeamSnapshotJson(teamIDs),
   });
 
   const rememberProjectStudioSelection = (project) => {
@@ -666,6 +656,24 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       setMessage({ severity: 'warning', text: 'Associated team is empty.' });
       return;
     }
+    if (isStudioEditView && selectedProject.projectStatus === 'DRAFT') {
+      await savePlannedTeamSnapshots([
+        ...plannedTeamsForProject(selectedProject),
+        {
+          teamID: -Date.now(),
+          teamName: team.teamName || `Team #${team.teamID}`,
+          sourceTeamID: team.teamID,
+          workers: team.workers || [],
+          staffingSlots: (team.workers || []).map(worker => ({
+            workerID: worker.workerID ?? worker.workerId,
+            worker,
+            roleName: worker.roleTitle || worker.role || '',
+            roleDescription: worker.roleDescription || '',
+          })),
+        },
+      ]);
+      return;
+    }
     const nextTeamIDs = Array.from(new Set([...selectedProjectTeamIDs, Number(teamID)]));
     await saveProjectTeamIDs(nextTeamIDs);
   };
@@ -718,15 +726,17 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     if (!project || !workOrder) return;
     const isDraftWorkOrder = workOrder.status === 'DRAFT';
     const label = isDraftWorkOrder ? `draft work order #${workOrder.workOrderID}` : `work order #${workOrder.workOrderID}`;
-    if (!window.confirm(`Remove ${label} from ${project.projectName || 'this project'}?`)) return;
+    if (!window.confirm(`${isDraftWorkOrder ? 'Archive' : 'Remove'} ${label} ${isDraftWorkOrder ? '' : `from ${project.projectName || 'this project'}`}?`)) return;
 
     setSaving(true);
     setMessage(null);
     try {
-      await apiFetch(`/projects/${project.projectID}/${isDraftWorkOrder ? 'draft-workorders' : 'workorders'}/${workOrder.workOrderID}`, {
+      await apiFetch(isDraftWorkOrder
+        ? `/workorders/drafts/${workOrder.workOrderID}`
+        : `/projects/${project.projectID}/workorders/${workOrder.workOrderID}`, {
         method: 'DELETE',
       });
-      setMessage({ severity: 'success', text: `${isDraftWorkOrder ? 'Draft work order' : 'Work order'} removed from project.` });
+      setMessage({ severity: 'success', text: `${isDraftWorkOrder ? 'Draft work order archived' : 'Work order removed from project'}.` });
       loadData();
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
@@ -978,19 +988,11 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const snapshotsForDraft = (activeProject, draftProjectID) =>
     (activeProject.snapshots || []).filter(snapshot => Number(snapshot.sourceDraftProjectID) === Number(draftProjectID));
 
-  const parseSnapshotData = (snapshot) => {
-    try {
-      return snapshot?.snapshotData ? JSON.parse(snapshot.snapshotData) : null;
-    } catch (error) {
-      return null;
-    }
-  };
-
   const openDraftSnapshot = (activeProject, draftProjectID) => {
     const draft = projects.find(project => project.projectID === Number(draftProjectID));
     const snapshots = snapshotsForDraft(activeProject, draftProjectID);
     const snapshot = snapshots[snapshots.length - 1] || null;
-    setSnapshotDialog({ activeProject, draft, snapshot, data: parseSnapshotData(snapshot) });
+    setSnapshotDialog({ activeProject, draft, snapshot, data: null });
   };
 
   const selectSnapshot = (snapshotID) => {
@@ -998,7 +1000,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
     const snapshots = snapshotsForDraft(snapshotDialog.activeProject, snapshotDialog.draft.projectID);
     const snapshot = snapshots.find(item => item.projectSnapshotID === Number(snapshotID)) || null;
-    setSnapshotDialog(current => ({ ...current, snapshot, data: parseSnapshotData(snapshot) }));
+    setSnapshotDialog(current => ({ ...current, snapshot, data: null }));
   };
 
   const deleteSnapshot = async () => {
@@ -1455,12 +1457,22 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && (
                   <Button
                     variant="outlined"
+                    color="warning"
+                    disabled={saving}
+                    onClick={() => archiveProject(selectedProject)}
+                  >
+                    Archive Draft
+                  </Button>
+                )}
+                {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && (
+                  <Button
+                    variant="outlined"
                     color="error"
                     startIcon={<DeleteIcon />}
                     disabled={saving}
                     onClick={() => deleteDraftProject(selectedProject)}
                   >
-                    Delete
+                    Delete Permanently
                   </Button>
                 )}
                 {isActiveProjectEditor && selectedProject?.projectStatus === 'ACTIVE' && (
@@ -1590,11 +1602,11 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   <GroupsIcon color="primary" />
                   <Box>
                     <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                      {isStudioEditView ? 'Draft Project Teams' : 'Project Teams'}
+                      {isStudioEditView ? 'Planned Staffing' : 'Project Teams'}
                     </Typography>
                     {isStudioEditView && (
                       <Typography variant="body2" color="text.secondary">
-                        Plan teams without creating active worker/team history.
+                        Plan staffing without creating active team history.
                       </Typography>
                     )}
                   </Box>
@@ -1605,13 +1617,13 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                       variant={draftTeamView === 'planned' ? 'contained' : 'outlined'}
                       onClick={() => setDraftTeamView('planned')}
                     >
-                      Add / Remove
+                      Staffing Table
                     </Button>
                     <Button
                       variant={draftTeamView === 'builder' ? 'contained' : 'outlined'}
                       onClick={() => setDraftTeamView('builder')}
                     >
-                      Build Team
+                      Build Staffing
                     </Button>
                   </ButtonGroup>
                 )}
@@ -1620,13 +1632,13 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
               {isStudioEditView && draftTeamView === 'builder' ? (
                 <Stack spacing={2}>
                   <TextField
-                    label="Draft team name"
+                    label="Planned staffing name"
                     value={draftTeamName}
                     onChange={event => setDraftTeamName(event.target.value)}
                     fullWidth
                   />
                   <Typography variant="body2" color="text.secondary">
-                    Build a draft-only team from existing workers and/or existing team members. This saves only a planning snapshot until launch.
+                    Build draft-only staffing from existing workers, existing team members, or an empty plan to fill later.
                   </Typography>
                   <FormControl fullWidth>
                     <InputLabel>Use workers from teams</InputLabel>
@@ -1656,7 +1668,9 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                             checked={draftTeamWorkerIDs.includes(normalized.workerID)}
                             onChange={() => toggleDraftTeamWorker(normalized.workerID)}
                           />
-                          <Typography variant="body2">{workerName(normalized)}</Typography>
+                          <Typography variant="body2">
+                            {workerRole(normalized) ? `${workerName(normalized)} - ${workerRole(normalized)}` : workerName(normalized)}
+                          </Typography>
                         </Stack>
                       );
                     })}
@@ -1676,18 +1690,18 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     >
                       Cancel
                     </Button>
-                    <Button variant="contained" disabled={saving || (!draftTeamWorkerIDs.length && !draftTeamSourceTeamIDs.length)} onClick={saveDraftOnlyTeam}>
-                      Save Draft Team
+                    <Button variant="contained" disabled={saving} onClick={saveDraftOnlyTeam}>
+                      Save Planned Staffing
                     </Button>
                   </Stack>
                 </Stack>
               ) : (
                 <>
                   <FormControl fullWidth margin="normal">
-                    <InputLabel>{isStudioEditView ? 'Add planned team' : 'Add existing team'}</InputLabel>
+                    <InputLabel>{isStudioEditView ? 'Add existing team as staffing' : 'Add existing team'}</InputLabel>
                     <Select
                       value=""
-                      label={isStudioEditView ? 'Add planned team' : 'Add existing team'}
+                      label={isStudioEditView ? 'Add existing team as staffing' : 'Add existing team'}
                       onChange={event => addProjectTeam(event.target.value)}
                     >
                       <MenuItem value="">Select team</MenuItem>
@@ -1701,7 +1715,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                       <Box key={team.teamID} sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 2 }}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                           <Stack direction="row" spacing={1} alignItems="center">
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{team.teamName || `Team #${team.teamID}`}</Typography>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{isStudioEditView ? (team.teamName || `Planned staffing #${team.teamID}`) : (team.teamName || `Team #${team.teamID}`)}</Typography>
                             {Number(team.teamID) < 0 && <Chip size="small" label="Draft-only" />}
                           </Stack>
                           <Button size="small" color="error" disabled={saving} onClick={() => removePlannedTeam(team.teamID)}>
@@ -1709,16 +1723,23 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                           </Button>
                         </Stack>
                         <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-                          {(team.workers || []).map(worker => (
-                            <Chip key={worker.workerID ?? worker.workerId} size="small" label={workerName(normalizeWorker(worker))} />
-                          ))}
-                          {!(team.workers || []).length && <Typography variant="body2" color="text.secondary">No workers</Typography>}
+                          {staffingSlotsFor(team).map((slot, index) => {
+                            const worker = normalizeWorker(slot.worker || slot);
+                            const hasWorker = Boolean(worker.workerID);
+                            const label = hasWorker
+                              ? (slot.roleName || workerRole(worker)
+                                ? `${workerName(worker)} - ${slot.roleName || workerRole(worker)}`
+                                : workerName(worker))
+                              : (slot.roleName || 'Open staffing slot');
+                            return <Chip key={slot.id || slot.workerID || worker.workerID || index} size="small" label={label} />;
+                          })}
+                          {!staffingSlotsFor(team).length && <Typography variant="body2" color="text.secondary">{isStudioEditView ? 'Open staffing slot' : 'No workers'}</Typography>}
                         </Stack>
                       </Box>
                     ))}
                     {!plannedTeamsForProject(selectedProject).length && (
                       <Typography variant="body2" color="text.secondary">
-                        {isStudioEditView ? 'No planned teams are saved for this draft project.' : 'No teams are attached to this project.'}
+                        {isStudioEditView ? 'No planned staffing is saved for this draft project.' : 'No teams are attached to this project.'}
                       </Typography>
                     )}
                     </Stack>
@@ -1801,7 +1822,6 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 disabled={
                   saving ||
                   !workOrderForm.projectID ||
-                  (selectedWorkOrderProject?.projectStatus === 'DRAFT' && !workOrderForm.teamID && !workOrderForm.existingWorkOrderID) ||
                   !['DRAFT', 'ACTIVE'].includes(selectedWorkOrderProject?.projectStatus)
                 }
               >
@@ -1831,7 +1851,12 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                           return (
                             <TableRow key={`${workOrder.status || 'UNKNOWN'}-${workOrder.workOrderID}`}>
                               <TableCell>
-                                #{workOrder.workOrderID}
+                                <Stack spacing={0.5}>
+                                  <Typography variant="body2">#{workOrder.workOrderID}</Typography>
+                                  {workOrder.status === 'DRAFT' && workOrder.workOrderName && (
+                                    <Typography variant="caption" color="text.secondary">{workOrder.workOrderName}</Typography>
+                                  )}
+                                </Stack>
                               </TableCell>
                               <TableCell>{(workOrder.status || 'UNKNOWN').replaceAll('_', ' ')}</TableCell>
                               <TableCell>{workOrder.company?.companyName || workOrder.plannedCompanyName || 'No company'}</TableCell>
@@ -1855,7 +1880,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                                     Manage
                                   </Button>
                                   <Button size="small" variant="outlined" color="error" disabled={saving} onClick={() => removeAssociatedWorkOrder(selectedWorkOrderProject, workOrder)}>
-                                    Remove
+                                    {workOrder.status === 'DRAFT' ? 'Archive' : 'Remove'}
                                   </Button>
                                 </Stack>
                               </TableCell>
@@ -2344,7 +2369,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   <TableRow>
                     <TableCell colSpan={2}>
                       {projectTeamsDialog?.projectStatus === 'DRAFT'
-                        ? 'No planned teams are saved for this draft project.'
+                        ? 'No planned staffing is saved for this draft project.'
                         : 'No teams are associated with this project.'}
                     </TableCell>
                   </TableRow>

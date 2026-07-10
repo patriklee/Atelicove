@@ -44,6 +44,7 @@ const ProjectEditorForm = ({
   onLoadProject,
   onClearLoadedProject,
   onLaunchProject,
+  onArchiveDraftProject,
   onDeleteDraftProject,
   onSubmitForReview,
   formatMoney,
@@ -217,12 +218,23 @@ const ProjectEditorForm = ({
         {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && (
           <Button
             variant="outlined"
+            color="warning"
+            disabled={saving}
+            onClick={() => onArchiveDraftProject?.(selectedProject)}
+          >
+            Archive Draft
+          </Button>
+        )}
+
+        {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && (
+          <Button
+            variant="outlined"
             color="error"
             startIcon={<DeleteIcon />}
             disabled={saving}
             onClick={() => onDeleteDraftProject(selectedProject)}
           >
-            Delete
+            Delete Permanently
           </Button>
         )}
 

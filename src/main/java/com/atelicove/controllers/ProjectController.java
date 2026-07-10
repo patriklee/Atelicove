@@ -51,6 +51,11 @@ public class ProjectController {
 		return projectService.findDrafts();
 	}
 
+	@GetMapping("/drafts/archived")
+	public List<Project> getArchivedDraftProjects() {
+		return projectService.findArchivedDrafts();
+	}
+
 	@GetMapping("/{id}")
 	public ResponseEntity<Project> getProjectById(@PathVariable Integer id) {
 		Optional<Project> project = projectService.findById(id);
@@ -131,7 +136,10 @@ public class ProjectController {
 		if (workOrderID != null) {
 			return projectService.createDraftWorkOrderFromExisting(id, workOrderID, comment);
 		}
-		Integer teamID = requiredInteger(request.get("teamID"), "Team is required");
+		Integer teamID = optionalInteger(request.get("teamID"));
+		if (teamID == null) {
+			return projectService.createDraftWorkOrder(id, companyID, comment);
+		}
 		return projectService.createDraftWorkOrderForTeam(id, teamID, companyID, comment);
 	}
 

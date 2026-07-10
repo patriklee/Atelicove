@@ -59,6 +59,11 @@ public class WorkOrder extends ArchivableEntity {
 	private String comment;
 	private Integer previousProjectID;
 	private String previousProjectName;
+	private Integer sourceWorkOrderID;
+	private Integer sourceProjectID;
+	private Integer plannedTeamID;
+	private String plannedTeamName;
+	private String workOrderName;
 	
 	// get all items in WO
 	@OneToMany(mappedBy = "workOrder", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -105,6 +110,18 @@ public class WorkOrder extends ArchivableEntity {
 		return project;
 	}
 
+	@JsonProperty("projectID")
+	@Transient
+	public Integer getProjectID() {
+		return project == null ? null : project.getProjectID();
+	}
+
+	@JsonProperty("projectName")
+	@Transient
+	public String getProjectName() {
+		return project == null ? null : project.getProjectName();
+	}
+
 	public WorkOrderStatus getStatus() {
 		return status;
 	}
@@ -127,6 +144,50 @@ public class WorkOrder extends ArchivableEntity {
 
 	public String getPreviousProjectName() {
 		return previousProjectName;
+	}
+
+	public Integer getSourceWorkOrderID() {
+		return sourceWorkOrderID;
+	}
+
+	public Integer getSourceProjectID() {
+		return sourceProjectID;
+	}
+
+	public Integer getPlannedTeamID() {
+		return plannedTeamID;
+	}
+
+	public String getPlannedTeamName() {
+		return plannedTeamName;
+	}
+
+	public String getWorkOrderName() {
+		return workOrderName;
+	}
+
+	@JsonProperty("title")
+	@Transient
+	public String getTitle() {
+		return workOrderName;
+	}
+
+	@JsonProperty("plannedCompanyID")
+	@Transient
+	public Integer getPlannedCompanyID() {
+		return company == null ? null : company.getCompanyID();
+	}
+
+	@JsonProperty("plannedCompanyName")
+	@Transient
+	public String getPlannedCompanyName() {
+		return company == null ? null : company.getCompanyName();
+	}
+
+	@JsonProperty("draftWorkOrderID")
+	@Transient
+	public int getDraftWorkOrderID() {
+		return workOrderID;
 	}
 	
 	public List<WorkOrderItem> getItems() {
@@ -192,6 +253,26 @@ public class WorkOrder extends ArchivableEntity {
 
 	public void setPreviousProjectName(String previousProjectName) {
 		this.previousProjectName = previousProjectName;
+	}
+
+	public void setSourceWorkOrderID(Integer sourceWorkOrderID) {
+		this.sourceWorkOrderID = sourceWorkOrderID;
+	}
+
+	public void setSourceProjectID(Integer sourceProjectID) {
+		this.sourceProjectID = sourceProjectID;
+	}
+
+	public void setPlannedTeamID(Integer plannedTeamID) {
+		this.plannedTeamID = plannedTeamID;
+	}
+
+	public void setPlannedTeamName(String plannedTeamName) {
+		this.plannedTeamName = plannedTeamName;
+	}
+
+	public void setWorkOrderName(String workOrderName) {
+		this.workOrderName = workOrderName;
 	}
 	
 	/**

@@ -42,23 +42,14 @@ export const normalizeProject = (project = {}) => ({
   documents: Array.isArray(project.documents) ? project.documents : [],
   snapshots: Array.isArray(project.snapshots) ? project.snapshots : [],
   associatedActiveProject: project.associatedActiveProject || null,
-  plannedTeamsJson: project.plannedTeamsJson || '',
-  plannedTeams: Array.isArray(project.plannedTeams) ? project.plannedTeams : parsePlannedTeams(project.plannedTeamsJson),
+  plannedStaffing: Array.isArray(project.plannedStaffing) ? project.plannedStaffing : [],
+  plannedTeams: Array.isArray(project.plannedTeams)
+    ? project.plannedTeams
+    : (Array.isArray(project.plannedStaffing) ? project.plannedStaffing : []),
   teams: Array.isArray(project.teams) ? project.teams : [],
   workOrders: Array.isArray(project.workOrders) ? project.workOrders : [],
   draftWorkOrders: Array.isArray(project.draftWorkOrders) ? project.draftWorkOrders : [],
 });
-
-export function parsePlannedTeams(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
 
 export const normalizeTeam = (team = {}) => ({
   ...team,
@@ -76,6 +67,9 @@ export const workerName = (worker) =>
   worker.username ||
   worker.workerUser ||
   'Unnamed worker';
+
+export const workerRoleSummary = (worker = {}) =>
+  worker.roleTitle || worker.role || worker.roleDescription || '';
 
 export const formatMoney = (value) =>
   value === '' || value === null || value === undefined ? 'Not set' : `$${Number(value).toLocaleString()}`;
@@ -108,4 +102,3 @@ export const actionItemPayload = (form) => ({
   assignedWorker: form.assignedWorkerID ? { workerID: Number(form.assignedWorkerID) } : null,
   assignedTeam: form.assignedTeamID ? { teamID: Number(form.assignedTeamID) } : null,
 });
-

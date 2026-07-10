@@ -49,6 +49,11 @@ public class WorkOrderItem extends BaseEntity {
 	public int getWorkOrderItemID() {
 		return workOrderItemID;
 	}
+
+	@Transient
+	public int getDraftWorkOrderItemID() {
+		return workOrderItemID;
+	}
 	
 	public String getItemName() {
 		return itemName;
@@ -70,6 +75,10 @@ public class WorkOrderItem extends BaseEntity {
 
 	public void setWorkOrderItemID(int WorkOrderItemID) {
 		this.workOrderItemID = WorkOrderItemID;
+	}
+
+	public void setDraftWorkOrderItemID(int draftWorkOrderItemID) {
+		this.workOrderItemID = draftWorkOrderItemID;
 	}
 
 	public void setItemName(String itemName) {

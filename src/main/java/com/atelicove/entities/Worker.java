@@ -162,4 +162,12 @@ public class Worker extends ArchivableEntity {
 	public void setRoleTitle(String roleTitle) {
 		this.roleTitle = roleTitle;
 	}
+
+	public String getRoleDescription() {
+		return roleDescription;
+	}
+
+	public void setRoleDescription(String roleDescription) {
+		this.roleDescription = roleDescription;
+	}
 }

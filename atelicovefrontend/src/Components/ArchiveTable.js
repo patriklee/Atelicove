@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonGroup,
   Paper,
   Stack,
   Table,
@@ -22,6 +23,7 @@ const archiveConfig = {
     title: 'Projects',
     subtitle: 'Browse archived projects and their draft snapshots.',
     endpoint: '/projects/archived',
+    draftEndpoint: '/projects/drafts/archived',
     restorePath: item => `/projects/${item.projectID}/restore`,
     canDelete: false,
     key: item => item.projectID,
@@ -48,7 +50,9 @@ const archiveConfig = {
     title: 'Work Orders',
     subtitle: 'Browse archived work orders.',
     endpoint: '/workorders/archived',
+    draftEndpoint: '/workorders/drafts/archived',
     restorePath: item => `/workorders/${item.workOrderID}/restore`,
+    draftRestorePath: item => `/workorders/drafts/${item.workOrderID}/restore`,
     canDelete: false,
     key: item => item.workOrderID,
     empty: 'No archived work orders found.',
@@ -70,6 +74,19 @@ const archiveConfig = {
       { label: 'Actual Price', value: item => formatMoney(getWorkOrderActualPrice(item)) },
       { label: 'Archived', value: item => formatDateTime(item.archivedAt) },
       { label: 'Files', value: item => item.fileNo ?? '' },
+    ],
+    draftColumns: [
+      { label: 'Draft Work Order', value: item => (
+        <Stack spacing={0.5}>
+          <Typography variant="body2">#{item.workOrderID}</Typography>
+          {item.workOrderName && <Typography variant="caption" color="text.secondary">{item.workOrderName}</Typography>}
+        </Stack>
+      ) },
+      { label: 'Project', value: item => item.projectName || `Project #${item.projectID}` },
+      { label: 'Company', value: item => item.plannedCompanyName || item.company?.companyName || 'No company' },
+      { label: 'Planned Staffing', value: item => item.plannedTeamName || 'Unassigned' },
+      { label: 'Status', value: item => item.status?.replaceAll('_', ' ') || 'DRAFT' },
+      { label: 'Archived', value: item => formatDateTime(item.archivedAt) },
     ],
   },
   companies: {
@@ -124,20 +141,25 @@ const archiveConfig = {
 const ArchiveTable = ({ type }) => {
   const config = archiveConfig[type];
   const navigate = useNavigate();
+  const [archiveView, setArchiveView] = useState('active');
   const [items, setItems] = useState([]);
   const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [restoringID, setRestoringID] = useState(null);
   const [deletingID, setDeletingID] = useState(null);
 
+  const isDraftArchiveView = archiveView === 'draft' && Boolean(config.draftEndpoint);
+  const columns = isDraftArchiveView ? (config.draftColumns || config.columns) : config.columns;
+  const endpoint = isDraftArchiveView ? config.draftEndpoint : config.endpoint;
+
   const loadItems = useCallback(() => {
     setLoading(true);
     setMessage(null);
-    apiFetch(config.endpoint)
+    apiFetch(endpoint)
       .then(setItems)
       .catch(error => setMessage({ severity: 'error', text: error.message }))
       .finally(() => setLoading(false));
-  }, [config.endpoint]);
+  }, [endpoint]);
 
   useEffect(loadItems, [loadItems]);
 
@@ -146,7 +168,7 @@ const ArchiveTable = ({ type }) => {
     setRestoringID(id);
     setMessage(null);
     try {
-      await apiFetch(config.restorePath(item), { method: 'PUT' });
+      await apiFetch(isDraftArchiveView && config.draftRestorePath ? config.draftRestorePath(item) : config.restorePath(item), { method: 'PUT' });
       await loadItems();
       setMessage({ severity: 'success', text: 'Item restored.' });
     } catch (error) {
@@ -176,7 +198,19 @@ const ArchiveTable = ({ type }) => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{config.title}</Typography>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }} sx={{ mb: 0.5 }}>
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{config.title}</Typography>
+        {config.draftEndpoint && (
+          <ButtonGroup size="small" variant="outlined">
+            <Button variant={!isDraftArchiveView ? 'contained' : 'outlined'} onClick={() => setArchiveView('active')}>
+              Active
+            </Button>
+            <Button variant={isDraftArchiveView ? 'contained' : 'outlined'} onClick={() => setArchiveView('draft')}>
+              Draft
+            </Button>
+          </ButtonGroup>
+        )}
+      </Stack>
       <Typography color="text.secondary" sx={{ mb: 3 }}>{config.subtitle}</Typography>
       {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
 
@@ -184,7 +218,7 @@ const ArchiveTable = ({ type }) => {
         <Table>
           <TableHead>
             <TableRow>
-              {config.columns.map(column => (
+              {columns.map(column => (
                 <TableCell key={column.label}>{column.label}</TableCell>
               ))}
               <TableCell align="right">Actions</TableCell>
@@ -193,7 +227,7 @@ const ArchiveTable = ({ type }) => {
           <TableBody>
             {items.map(item => (
               <TableRow key={config.key(item)}>
-                {config.columns.map(column => (
+                {columns.map(column => (
                   <TableCell key={column.label}>{column.value(item, navigate)}</TableCell>
                 ))}
                 <TableCell align="right">
@@ -223,12 +257,12 @@ const ArchiveTable = ({ type }) => {
             ))}
             {!loading && !items.length && (
               <TableRow>
-                <TableCell colSpan={config.columns.length + 1}>{config.empty}</TableCell>
+                <TableCell colSpan={columns.length + 1}>{isDraftArchiveView ? `No archived draft ${config.title.toLowerCase()} found.` : config.empty}</TableCell>
               </TableRow>
             )}
             {loading && (
               <TableRow>
-                <TableCell colSpan={config.columns.length + 1}>Loading...</TableCell>
+                <TableCell colSpan={columns.length + 1}>Loading...</TableCell>
               </TableRow>
             )}
           </TableBody>

@@ -7,7 +7,7 @@ import DraftWorkOrderAttachForm from './DraftWorkOrderAttachForm';
 const allAssociatedWorkOrders = (project = {}) => [
   ...(project.workOrders || []),
   ...(project.draftWorkOrders || []),
-];
+].filter(workOrder => !workOrder.archived);
 
 const DraftWorkOrdersPanel = ({
   selectedProject,

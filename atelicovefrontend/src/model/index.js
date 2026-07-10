@@ -3,7 +3,9 @@ export function normalizeWorker(worker = {}) {
     workerID: worker.workerID ?? worker.id ?? worker.workerId ?? '',
     firstName: worker.firstName ?? worker.first_name ?? '',
     lastName: worker.lastName ?? worker.last_name ?? '',
-    role: worker.role ?? '',
+    role: worker.role ?? worker.roleTitle ?? '',
+    roleTitle: worker.roleTitle ?? worker.role ?? '',
+    roleDescription: worker.roleDescription ?? '',
     email: worker.email ?? '',
     ...worker,
   };

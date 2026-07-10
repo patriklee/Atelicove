@@ -13,6 +13,7 @@ public interface ProjectRepository extends JpaRepository<Project, Integer> {
 	List<Project> findByArchivedFalse();
 	List<Project> findByArchivedTrue();
 	List<Project> findByProjectStatusAndArchivedFalse(ProjectStatus projectStatus);
+	List<Project> findByProjectStatusAndArchivedTrue(ProjectStatus projectStatus);
 	List<Project> findByAssociatedActiveProject_ProjectID(Integer projectID);
 	long countByArchivedFalse();
 }

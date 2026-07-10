@@ -26,6 +26,13 @@ const workerLabel = (worker = {}) => (
   || `Worker #${worker.workerID ?? worker.workerId}`
 );
 
+const workerRole = (worker = {}) => worker.roleTitle || worker.role || worker.roleDescription || '';
+const staffingSlotsFor = (team = {}) => (
+  Array.isArray(team.staffingSlots) && team.staffingSlots.length
+    ? team.staffingSlots
+    : (team.workers || []).map(worker => ({ worker, workerID: worker.workerID ?? worker.workerId }))
+);
+
 const PlannedTeamsTable = ({
   selectedProject,
   teams = [],
@@ -88,8 +95,8 @@ const PlannedTeamsTable = ({
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>{isDraftMode ? 'Planned Team' : 'Team'}</TableCell>
-            <TableCell>Workers</TableCell>
+          <TableCell>{isDraftMode ? 'Planned Staffing' : 'Team'}</TableCell>
+            <TableCell>{isDraftMode ? 'Staffing Slots' : 'Workers'}</TableCell>
             <TableCell align="right">Actions</TableCell>
           </TableRow>
         </TableHead>
@@ -98,17 +105,23 @@ const PlannedTeamsTable = ({
             <TableRow key={team.teamID}>
               <TableCell>
                 <Stack spacing={0.5}>
-                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{teamLabel(team)}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{isDraftMode ? (team.teamName || `Planned staffing #${team.teamID}`) : teamLabel(team)}</Typography>
                   {Number(team.teamID) < 0 && <Chip size="small" label="Draft-only" sx={{ width: 'fit-content' }} />}
                 </Stack>
               </TableCell>
               <TableCell>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {(team.workers || []).map(worker => (
-                    <Chip key={worker.workerID ?? worker.workerId} size="small" label={workerLabel(worker)} />
-                  ))}
-                  {!(team.workers || []).length && (
-                    <Typography variant="body2" color="text.secondary">No workers planned</Typography>
+                  {staffingSlotsFor(team).map((slot, index) => {
+                    const worker = slot.worker || slot;
+                    const label = worker.workerID || worker.workerId
+                      ? workerRole({ ...worker, roleTitle: slot.roleName || worker.roleTitle, roleDescription: slot.roleDescription || worker.roleDescription })
+                        ? `${workerLabel(worker)} - ${slot.roleName || workerRole(worker)}`
+                        : workerLabel(worker)
+                      : (slot.roleName || 'Open staffing slot');
+                    return <Chip key={slot.id || slot.workerID || worker.workerID || index} size="small" label={label} />;
+                  })}
+                  {!staffingSlotsFor(team).length && (
+                    <Typography variant="body2" color="text.secondary">{isDraftMode ? 'Open staffing slot' : 'No workers planned'}</Typography>
                   )}
                 </Box>
               </TableCell>
@@ -132,7 +145,7 @@ const PlannedTeamsTable = ({
             <TableRow>
               <TableCell colSpan={3}>
                 <Typography color="text.secondary">
-                  {isDraftMode ? 'No planned teams are saved for this draft project.' : 'No teams are attached to this project.'}
+                  {isDraftMode ? 'No planned staffing is saved for this draft project.' : 'No teams are attached to this project.'}
                 </Typography>
               </TableCell>
             </TableRow>

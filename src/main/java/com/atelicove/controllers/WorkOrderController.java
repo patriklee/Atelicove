@@ -2,8 +2,6 @@ package com.atelicove.controllers;
 
 import org.springframework.web.bind.annotation.*;
 
-import com.atelicove.entities.DraftWorkOrder;
-import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.services.WorkOrderService;
@@ -37,12 +35,17 @@ public class WorkOrderController {
     }
 
     @GetMapping("/drafts")
-    public List<DraftWorkOrder> getDraftWorkOrders() {
+    public List<WorkOrder> getDraftWorkOrders() {
         return workOrderService.findDrafts();
     }
 
+    @GetMapping("/drafts/archived")
+    public List<WorkOrder> getArchivedDraftWorkOrders() {
+        return workOrderService.findArchivedDrafts();
+    }
+
     @GetMapping("/drafts/{id}")
-    public ResponseEntity<DraftWorkOrder> getDraftWorkOrderById(@PathVariable Integer id) {
+    public ResponseEntity<WorkOrder> getDraftWorkOrderById(@PathVariable Integer id) {
         return workOrderService.findDraftById(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
@@ -126,17 +129,17 @@ public class WorkOrderController {
     }
 
     @PostMapping("/drafts/{id}/items")
-    public DraftWorkOrder addDraftItem(@PathVariable Integer id, @RequestBody DraftWorkOrderItem item) {
+    public WorkOrder addDraftItem(@PathVariable Integer id, @RequestBody WorkOrderItem item) {
         return workOrderService.addDraftItem(id, item);
     }
 
     @PutMapping("/drafts/{id}/items/{itemID}")
-    public DraftWorkOrder updateDraftItem(@PathVariable Integer id, @PathVariable Integer itemID, @RequestBody DraftWorkOrderItem item) {
+    public WorkOrder updateDraftItem(@PathVariable Integer id, @PathVariable Integer itemID, @RequestBody WorkOrderItem item) {
         return workOrderService.updateDraftItem(id, itemID, item);
     }
 
     @DeleteMapping("/drafts/{id}/items/{itemID}")
-    public DraftWorkOrder deleteDraftItem(@PathVariable Integer id, @PathVariable Integer itemID) {
+    public WorkOrder deleteDraftItem(@PathVariable Integer id, @PathVariable Integer itemID) {
         return workOrderService.deleteDraftItem(id, itemID);
     }
 
@@ -148,9 +151,22 @@ public class WorkOrderController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/drafts/{id}")
+    public ResponseEntity<Void> archiveDraftWorkOrder(@PathVariable Integer id) {
+        workOrderService.archiveDraftById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}/restore")
     public WorkOrder restoreWorkOrder(@PathVariable Integer id) {
     	return workOrderService.restoreById(id);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/drafts/{id}/restore")
+    public WorkOrder restoreDraftWorkOrder(@PathVariable Integer id) {
+        return workOrderService.restoreDraftById(id);
     }
 
     @PreAuthorize("hasRole('ADMIN')")

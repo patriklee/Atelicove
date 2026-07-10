@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.atelicove.entities.PlannedStaffing;
 import com.atelicove.enums.ProjectStatus;
 
 public class ProjectDTO {
@@ -14,7 +15,6 @@ public class ProjectDTO {
 	private BigDecimal budget;
 	private BigDecimal estimatedCost;
 	private BigDecimal actualCost;
-	private String plannedTeamsJson;
 	private ProjectStatus projectStatus;
 	private LocalDateTime createdAt;
 	private LocalDateTime lastModifiedAt;
@@ -24,6 +24,7 @@ public class ProjectDTO {
 	private LocalDateTime archivedAt;
 	private List<Integer> workOrderIDs;
 	private List<Integer> teamIDs;
+	private List<PlannedStaffing> plannedStaffing;
 	private Integer associatedActiveProjectID;
 
 	public int getProjectID() {
@@ -48,10 +49,6 @@ public class ProjectDTO {
 
 	public BigDecimal getActualCost() {
 		return actualCost;
-	}
-
-	public String getPlannedTeamsJson() {
-		return plannedTeamsJson;
 	}
 
 	public ProjectStatus getProjectStatus() {
@@ -90,6 +87,10 @@ public class ProjectDTO {
 		return teamIDs;
 	}
 
+	public List<PlannedStaffing> getPlannedStaffing() {
+		return plannedStaffing;
+	}
+
 	public Integer getAssociatedActiveProjectID() {
 		return associatedActiveProjectID;
 	}
@@ -116,10 +117,6 @@ public class ProjectDTO {
 
 	public void setActualCost(BigDecimal actualCost) {
 		this.actualCost = actualCost;
-	}
-
-	public void setPlannedTeamsJson(String plannedTeamsJson) {
-		this.plannedTeamsJson = plannedTeamsJson;
 	}
 
 	public void setProjectStatus(ProjectStatus projectStatus) {
@@ -156,6 +153,10 @@ public class ProjectDTO {
 
 	public void setTeamIDs(List<Integer> teamIDs) {
 		this.teamIDs = teamIDs;
+	}
+
+	public void setPlannedStaffing(List<PlannedStaffing> plannedStaffing) {
+		this.plannedStaffing = plannedStaffing;
 	}
 
 	public void setAssociatedActiveProjectID(Integer associatedActiveProjectID) {
