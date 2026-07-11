@@ -55,6 +55,10 @@ public class DraftWorkOrder {
 		return draftWorkOrderID;
 	}
 
+	public DraftProject getDraftProject() {
+		return draftProject;
+	}
+
 	@JsonProperty("workOrderID")
 	@Transient
 	public int getWorkOrderID() {
@@ -133,6 +137,10 @@ public class DraftWorkOrder {
 
 	public void setDraftWorkOrderID(int draftWorkOrderID) {
 		this.draftWorkOrderID = draftWorkOrderID;
+	}
+
+	public void setDraftProject(DraftProject draftProject) {
+		this.draftProject = draftProject;
 	}
 
 	public void setProject(Project project) {
