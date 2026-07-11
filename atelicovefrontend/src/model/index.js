@@ -15,9 +15,17 @@ export function workerPayload(worker = {}) {
   return {
     firstName: worker.firstName ?? '',
     lastName: worker.lastName ?? '',
+    workerFName: worker.firstName ?? worker.workerFName ?? '',
+    workerLName: worker.lastName ?? worker.workerLName ?? '',
+    workerDisplayName: worker.displayName ?? worker.workerDisplayName ?? '',
+    workerUser: worker.username ?? worker.workerUser ?? '',
+    workerEmail: worker.email ?? worker.workerEmail ?? '',
+    workerPW: worker.password,
     email: worker.email ?? '',
     phone: worker.phone ?? '',
     role: worker.role ?? 'WORKER',
+    roleTitle: worker.roleTitle ?? worker.role ?? '',
+    roleDescription: worker.roleDescription ?? '',
     password: worker.password,
     isAdmin: Boolean(worker.isAdmin || worker.role === 'ADMIN'),
   };

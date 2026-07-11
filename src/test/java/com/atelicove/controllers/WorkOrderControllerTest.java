@@ -99,24 +99,24 @@ class WorkOrderControllerTest {
     @Test
     void workflowEndpointsReturnUpdatedOrders() throws Exception {
         when(workOrderService.startWorkOrder(1))
-                .thenReturn(order(1, WorkOrderStatus.IN_PROCESS));
+                .thenReturn(order(1, WorkOrderStatus.ACTIVE));
         when(workOrderService.reassignWorkOrder(1, 3))
-                .thenReturn(order(1, WorkOrderStatus.IN_PROCESS));
+                .thenReturn(order(1, WorkOrderStatus.ACTIVE));
         when(workOrderService.submitForReview(1))
                 .thenReturn(order(1, WorkOrderStatus.IN_REVIEW));
         when(workOrderService.approveWorkOrder(1))
                 .thenReturn(order(1, WorkOrderStatus.COMPLETE));
         when(workOrderService.rejectWorkOrder(2))
-                .thenReturn(order(2, WorkOrderStatus.IN_PROCESS));
+                .thenReturn(order(2, WorkOrderStatus.ACTIVE));
 
         mockMvc.perform(put("/workorders/1/start"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("IN_PROCESS"));
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
         mockMvc.perform(put("/workorders/1/assign")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"workerID\":3}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("IN_PROCESS"));
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
         mockMvc.perform(put("/workorders/1/submit"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("IN_REVIEW"));
@@ -125,7 +125,7 @@ class WorkOrderControllerTest {
                 .andExpect(jsonPath("$.status").value("COMPLETE"));
         mockMvc.perform(put("/workorders/2/reject"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("IN_PROCESS"));
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
 
     @Test

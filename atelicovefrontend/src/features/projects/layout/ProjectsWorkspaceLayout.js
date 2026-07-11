@@ -197,10 +197,10 @@ export default function ProjectsWorkspaceLayout({ workspace }) {
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
             <Box>
               <Typography variant="overline" color="text.secondary">
-                {selectedProject.projectStatus === 'DRAFT' ? 'Estimated Cost' : 'Actual Cost'}
+                {selectedProject.projectStatus === 'OPEN' ? 'Estimated Cost' : 'Actual Cost'}
               </Typography>
               <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                {selectedProject.projectStatus === 'DRAFT'
+                {selectedProject.projectStatus === 'OPEN'
                   ? formatMoney(selectedProject.estimatedCost)
                   : formatMoney(selectedProject.actualCost)}
               </Typography>
@@ -335,7 +335,7 @@ export default function ProjectsWorkspaceLayout({ workspace }) {
           </Grid>
           )}
 
-          {isEditorView && selectedProject && ['DRAFT', 'ACTIVE'].includes(selectedProject.projectStatus) && (
+          {isEditorView && selectedProject && ['OPEN', 'ACTIVE'].includes(selectedProject.projectStatus) && (
             <Grid item xs={12}>
               <WorkOrderDocuments
                 basePath={`/projects/${selectedProject.projectID}/documents`}

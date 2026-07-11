@@ -81,6 +81,8 @@ const WorkerSummary = () => {
             <TableRow><TableCell sx={{ fontWeight: 600 }}>Username</TableCell><TableCell>{worker.username}</TableCell></TableRow>
             <TableRow><TableCell sx={{ fontWeight: 600 }}>Email</TableCell><TableCell>{worker.email || 'Not set'}</TableCell></TableRow>
             <TableRow><TableCell sx={{ fontWeight: 600 }}>Role</TableCell><TableCell>{worker.isAdmin ? 'Admin' : 'Worker'}</TableCell></TableRow>
+            <TableRow><TableCell sx={{ fontWeight: 600 }}>Worker Role</TableCell><TableCell>{worker.roleTitle || 'Not set'}</TableCell></TableRow>
+            <TableRow><TableCell sx={{ fontWeight: 600 }}>Role Description</TableCell><TableCell>{worker.roleDescription || 'Not set'}</TableCell></TableRow>
             <TableRow><TableCell sx={{ fontWeight: 600 }}>Archived</TableCell><TableCell>{worker.archived ? formatDateTime(worker.archivedAt) : 'No'}</TableCell></TableRow>
           </TableBody>
         </Table>

@@ -27,11 +27,6 @@ const workerLabel = (worker = {}) => (
 );
 
 const workerRole = (worker = {}) => worker.roleTitle || worker.role || worker.roleDescription || '';
-const staffingSlotsFor = (team = {}) => (
-  Array.isArray(team.staffingSlots) && team.staffingSlots.length
-    ? team.staffingSlots
-    : (team.workers || []).map(worker => ({ worker, workerID: worker.workerID ?? worker.workerId }))
-);
 
 const PlannedTeamsTable = ({
   selectedProject,
@@ -46,7 +41,7 @@ const PlannedTeamsTable = ({
   const [teamID, setTeamID] = useState('');
 
   const plannedTeams = useMemo(() => {
-    const snapshots = selectedProject?.projectStatus === 'DRAFT'
+    const snapshots = selectedProject?.projectStatus === 'OPEN'
       ? (selectedProject?.plannedTeams || [])
       : (selectedProject?.teams || []);
 
@@ -111,16 +106,14 @@ const PlannedTeamsTable = ({
               </TableCell>
               <TableCell>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {staffingSlotsFor(team).map((slot, index) => {
-                    const worker = slot.worker || slot;
-                    const label = worker.workerID || worker.workerId
-                      ? workerRole({ ...worker, roleTitle: slot.roleName || worker.roleTitle, roleDescription: slot.roleDescription || worker.roleDescription })
-                        ? `${workerLabel(worker)} - ${slot.roleName || workerRole(worker)}`
-                        : workerLabel(worker)
-                      : (slot.roleName || 'Open staffing slot');
-                    return <Chip key={slot.id || slot.workerID || worker.workerID || index} size="small" label={label} />;
-                  })}
-                  {!staffingSlotsFor(team).length && (
+                  {(team.workers || []).map(worker => (
+                    <Chip
+                      key={worker.workerID ?? worker.workerId}
+                      size="small"
+                      label={workerRole(worker) ? `${workerLabel(worker)} - ${workerRole(worker)}` : workerLabel(worker)}
+                    />
+                  ))}
+                  {!(team.workers || []).length && (
                     <Typography variant="body2" color="text.secondary">{isDraftMode ? 'Open staffing slot' : 'No workers planned'}</Typography>
                   )}
                 </Box>

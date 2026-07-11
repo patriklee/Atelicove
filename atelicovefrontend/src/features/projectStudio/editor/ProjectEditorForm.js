@@ -84,7 +84,7 @@ const ProjectEditorForm = ({
                 {projects.filter(project => !project.archived && (
                   isProjectStudioEditView
                     ? ['ACTIVE', 'IN_REVIEW'].includes(project.projectStatus)
-                    : project.projectStatus === 'DRAFT'
+                    : project.projectStatus === 'OPEN'
                 )).map(project => (
                   <MenuItem key={project.projectID} value={project.projectID}>
                     {project.projectName || `Project #${project.projectID}`}
@@ -170,7 +170,7 @@ const ProjectEditorForm = ({
           </FormControl>
         </Grid>
 
-        {(!selectedProject || selectedProject.projectStatus === 'DRAFT') && (
+        {(!selectedProject || selectedProject.projectStatus === 'OPEN') && (
           <Grid item xs={12}>
             <FormControl fullWidth>
               <InputLabel>Attach to active project</InputLabel>
@@ -204,7 +204,7 @@ const ProjectEditorForm = ({
           </Button>
         )}
 
-        {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && (
+        {isStudioEditView && selectedProject?.projectStatus === 'OPEN' && (
           <Button
             variant="contained"
             startIcon={<RocketLaunchIcon />}
@@ -215,7 +215,7 @@ const ProjectEditorForm = ({
           </Button>
         )}
 
-        {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && (
+        {isStudioEditView && selectedProject?.projectStatus === 'OPEN' && (
           <Button
             variant="outlined"
             color="warning"
@@ -226,7 +226,7 @@ const ProjectEditorForm = ({
           </Button>
         )}
 
-        {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && (
+        {isStudioEditView && selectedProject?.projectStatus === 'OPEN' && (
           <Button
             variant="outlined"
             color="error"
@@ -262,7 +262,7 @@ const ProjectEditorForm = ({
         </Alert>
       )}
 
-      {isStudioEditView && selectedProject?.projectStatus === 'DRAFT' && selectedProject.associatedActiveProject && (
+      {isStudioEditView && selectedProject?.projectStatus === 'OPEN' && selectedProject.associatedActiveProject && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
           Attached draft projects cannot be launched as new active projects.
         </Typography>

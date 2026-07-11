@@ -116,7 +116,7 @@ export default function ProjectWorkOrdersPanel({
 
         <Grid item xs={12}>
           <TextField
-            label={selectedWorkOrderProject?.projectStatus === 'DRAFT' ? 'Draft work order note' : 'Work order note'}
+            label={selectedWorkOrderProject?.projectStatus === 'OPEN' ? 'Draft work order note' : 'Work order note'}
             fullWidth
             multiline
             minRows={2}
@@ -134,12 +134,12 @@ export default function ProjectWorkOrdersPanel({
         disabled={
           saving ||
           !workOrderForm.projectID ||
-          (selectedWorkOrderProject?.projectStatus === 'DRAFT' && !workOrderForm.teamID && !workOrderForm.existingWorkOrderID) ||
-          !['DRAFT', 'ACTIVE'].includes(selectedWorkOrderProject?.projectStatus)
+          (selectedWorkOrderProject?.projectStatus === 'OPEN' && !workOrderForm.teamID && !workOrderForm.existingWorkOrderID) ||
+          !['OPEN', 'ACTIVE'].includes(selectedWorkOrderProject?.projectStatus)
         }
       >
         {workOrderForm.existingWorkOrderID
-          ? (selectedWorkOrderProject?.projectStatus === 'DRAFT' ? 'Create Draft Copy' : 'Attach Work Order')
+          ? (selectedWorkOrderProject?.projectStatus === 'OPEN' ? 'Create Draft Copy' : 'Attach Work Order')
           : (selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'Create Work Order' : 'Create Draft')}
       </Button>
 

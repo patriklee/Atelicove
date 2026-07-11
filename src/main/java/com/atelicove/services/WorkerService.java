@@ -151,6 +151,14 @@ public class WorkerService {
     		validateUniqueEmail(request.getWorkerEmail(), worker.getWorkerID());
     		worker.setWorkerEmail(request.getWorkerEmail());
     	}
+
+        if (request.getRoleTitle() != null) {
+            worker.setRoleTitle(request.getRoleTitle());
+        }
+
+        if (request.getRoleDescription() != null) {
+            worker.setRoleDescription(request.getRoleDescription());
+        }
     }
 
     /**

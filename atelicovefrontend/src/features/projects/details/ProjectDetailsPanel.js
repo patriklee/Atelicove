@@ -47,7 +47,7 @@ const ProjectDetailsPanel = ({
         </Typography>
         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 1 }}>
           <Chip size="small" label={`Budget ${formatMoney(selectedProject.budget)}`} />
-          {selectedProject.projectStatus === 'DRAFT' ? (
+          {selectedProject.projectStatus === 'OPEN' ? (
             <>
               <Chip size="small" label={`Estimated ${formatMoney(selectedProject.estimatedCost)}`} />
               <Chip size="small" label={`Difference ${formatMoney(selectedProject.budgetDifference)}`} />

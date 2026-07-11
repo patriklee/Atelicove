@@ -10,51 +10,54 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 
 @Entity
+@Table(name = "staffing_slot")
 public class StaffingSlot {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+	private int staffingSlotID;
 
-	@ManyToOne
-	@JoinColumn(name = "worker_id")
-	private Worker worker;
-
+	private Integer workerID;
+	private String workerName;
 	private String roleName;
 
 	@Column(length = 1000)
 	private String roleDescription;
 
+	@JsonIgnore
 	@ManyToOne
 	@JoinColumn(name = "planned_staffing_id")
-	@JsonIgnore
 	private PlannedStaffing plannedStaffing;
 
-	public Long getId() {
-		return id;
+	public int getStaffingSlotID() {
+		return staffingSlotID;
 	}
 
 	public Integer getWorkerID() {
-		return worker == null ? null : worker.getWorkerID();
+		return workerID;
 	}
 
 	public String getWorkerName() {
-		if (worker == null) {
-			return null;
-		}
-		return "%s %s".formatted(
-				worker.getWorkerFName() == null ? "" : worker.getWorkerFName(),
-				worker.getWorkerLName() == null ? "" : worker.getWorkerLName()).trim();
+		return workerName;
 	}
 
-	public Worker getWorker() {
-		return worker;
+	@JsonProperty("workerDisplayName")
+	@Transient
+	public String getWorkerDisplayName() {
+		return workerName;
 	}
 
 	public String getRoleName() {
+		return roleName;
+	}
+
+	@JsonProperty("roleTitle")
+	@Transient
+	public String getRoleTitle() {
 		return roleName;
 	}
 
@@ -66,36 +69,30 @@ public class StaffingSlot {
 		return plannedStaffing;
 	}
 
-	@JsonProperty("workerDisplayName")
-	@Transient
-	public String getWorkerDisplayName() {
-		return worker == null ? null : worker.getWorkerDisplayName();
-	}
-
-	public void setId(Long id) {
-		this.id = id;
+	public void setStaffingSlotID(int staffingSlotID) {
+		this.staffingSlotID = staffingSlotID;
 	}
 
 	public void setWorkerID(Integer workerID) {
-		if (workerID == null) {
-			this.worker = null;
-			return;
-		}
-		Worker workerRef = new Worker();
-		workerRef.setWorkerID(workerID);
-		this.worker = workerRef;
+		this.workerID = workerID;
 	}
 
 	public void setWorkerName(String workerName) {
-		// Kept for request compatibility; worker names are derived from Worker.
+		this.workerName = workerName;
 	}
 
-	public void setWorker(Worker worker) {
-		this.worker = worker;
+	@JsonProperty("workerDisplayName")
+	public void setWorkerDisplayName(String workerName) {
+		this.workerName = workerName;
 	}
 
 	public void setRoleName(String roleName) {
 		this.roleName = roleName;
+	}
+
+	@JsonProperty("roleTitle")
+	public void setRoleTitle(String roleTitle) {
+		this.roleName = roleTitle;
 	}
 
 	public void setRoleDescription(String roleDescription) {

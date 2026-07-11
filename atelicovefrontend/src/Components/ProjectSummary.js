@@ -75,7 +75,7 @@ const ProjectSummary = () => {
   const actionItems = Array.isArray(project.actionItems) ? project.actionItems : [];
   const comments = Array.isArray(project.comments) ? project.comments : [];
   const projectDocuments = documents.length ? documents : (project.documents || []);
-  const projectCost = project.projectStatus === 'DRAFT' ? project.estimatedCost : project.actualCost;
+  const projectCost = project.projectStatus === 'OPEN' ? project.estimatedCost : project.actualCost;
 
   const openWorkOrder = (workOrder) => {
     if (workOrder.status !== 'DRAFT') {
@@ -99,7 +99,7 @@ const ProjectSummary = () => {
             <DetailRow label="Status" value={project.projectStatus?.replaceAll('_', ' ')} />
             <DetailRow label="Description" value={project.description} />
             <DetailRow label="Budget" value={formatMoney(project.budget)} />
-            <DetailRow label={project.projectStatus === 'DRAFT' ? 'Estimated Cost' : 'Actual Cost'} value={formatMoney(projectCost)} />
+            <DetailRow label={project.projectStatus === 'OPEN' ? 'Estimated Cost' : 'Actual Cost'} value={formatMoney(projectCost)} />
             <DetailRow label="Budget Difference" value={formatMoney(project.budgetDifference)} />
             <DetailRow label="Activated" value={formatDateTime(project.activatedAt)} />
             <DetailRow label="Completed" value={formatDateTime(project.completedAt)} />

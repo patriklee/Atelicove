@@ -309,7 +309,7 @@ const projectResponse = (project) => {
     estimatedCost,
     actualCost,
     budgetDifference: budget - estimatedCost,
-    teamCount: project.projectStatus === 'DRAFT' ? plannedTeams.length : project.teams?.length || 0,
+    teamCount: project.projectStatus === 'OPEN' ? plannedTeams.length : project.teams?.length || 0,
     workOrderCount: project.workOrders?.length || 0,
     draftWorkOrderCount: project.draftWorkOrders?.length || 0,
   };
@@ -722,7 +722,7 @@ const handleWorkOrderDocuments = (workOrder, segments, method, options) => {
 };
 
 const handleProjectDocuments = (project, segments, method, options) => {
-  if (method !== 'GET' && (project.archived || !['DRAFT', 'ACTIVE'].includes(project.projectStatus))) {
+  if (method !== 'GET' && (project.archived || !['OPEN', 'ACTIVE'].includes(project.projectStatus))) {
     throw new MockApiError('Project documents can only be changed while the project is draft or active', 409);
   }
 
@@ -808,7 +808,7 @@ const handleWorkOrders = (segments, method, options) => {
 
   if (segments[1] === 'drafts' && segments.length === 2 && method === 'GET') {
     return activeOnly(state.projects)
-      .filter(project => project.projectStatus === 'DRAFT')
+      .filter(project => project.projectStatus === 'OPEN')
       .flatMap(project => (project.draftWorkOrders || []).map(order => ({
         ...order,
         projectID: project.projectID,
@@ -920,7 +920,7 @@ const handleWorkOrders = (segments, method, options) => {
       workOrderID: nextId(state.workOrders, 'workOrderID'),
       workers: assignedWorkers,
       company: company ? clone(company) : null,
-      status: assignedWorkers.length ? 'IN_PROCESS' : 'OPEN',
+      status: assignedWorkers.length ? 'ACTIVE' : 'OPEN',
       startDateTime: new Date().toISOString(),
       endDateTime: null,
       comment: payload.comment || '',
@@ -1100,7 +1100,7 @@ const handleWorkOrders = (segments, method, options) => {
     ensureWorkOrderCanBeEdited(workOrder);
 
     workOrder.startDateTime = new Date().toISOString();
-    return setWorkOrderStatus(workOrder, 'IN_PROCESS');
+    return setWorkOrderStatus(workOrder, 'ACTIVE');
   }
 
   if (segments[2] === 'assign' && method === 'PUT') {
@@ -1118,7 +1118,7 @@ const handleWorkOrders = (segments, method, options) => {
     if (!workOrder.workers.some(item => item.workerID === worker.workerID)) {
       workOrder.workers = [...workOrder.workers, withoutPassword(worker)];
     }
-    workOrder.status = 'IN_PROCESS';
+    workOrder.status = 'ACTIVE';
     workOrder.endDateTime = null;
     touch(workOrder);
     saveState();
@@ -1136,7 +1136,7 @@ const handleWorkOrders = (segments, method, options) => {
   }
 
   if (segments[2] === 'reject' && method === 'PUT') {
-    return setWorkOrderStatus(workOrder, 'IN_PROCESS');
+    return setWorkOrderStatus(workOrder, 'ACTIVE');
   }
 
   throw new MockApiError('Mock work order route not found', 404);
@@ -1248,7 +1248,7 @@ const syncActiveProjectTeamWorkers = (project, previousTeams, currentTeams) => {
   return {
     ...project,
     workOrders: (project.workOrders || []).map(order => {
-      if (!['OPEN', 'IN_PROCESS'].includes(order.status)) return order;
+      if (!['OPEN', 'ACTIVE'].includes(order.status)) return order;
 
       const existingWorkers = new Map((order.workers || [])
         .filter(worker => !removedWorkerIDs.includes(worker.workerID))
@@ -1259,7 +1259,7 @@ const syncActiveProjectTeamWorkers = (project, previousTeams, currentTeams) => {
       return {
         ...order,
         workers,
-        status: workers.length ? 'IN_PROCESS' : 'OPEN',
+        status: workers.length ? 'ACTIVE' : 'OPEN',
       };
     }),
   };
@@ -1294,7 +1294,7 @@ const handleProjects = (segments, method, options) => {
   }
 
   if (segments[1] === 'drafts' && method === 'GET') {
-    return activeOnly(state.projects).filter(project => project.projectStatus === 'DRAFT').map(projectResponse);
+    return activeOnly(state.projects).filter(project => project.projectStatus === 'OPEN').map(projectResponse);
   }
 
   if (segments[1] === 'count' && method === 'GET') {
@@ -1311,7 +1311,7 @@ const handleProjects = (segments, method, options) => {
       budget: payload.budget ?? null,
       estimatedCost: payload.estimatedCost ?? null,
       actualCost: payload.actualCost ?? null,
-      projectStatus: 'DRAFT',
+      projectStatus: 'OPEN',
       activatedAt: null,
       completedAt: null,
       archived: false,
@@ -1356,10 +1356,10 @@ const handleProjects = (segments, method, options) => {
   }
 
   if (segments[2] === 'permanent' && method === 'DELETE') {
-    if (!project.archived && project.projectStatus !== 'DRAFT') {
+    if (!project.archived && project.projectStatus !== 'OPEN') {
       throw new MockApiError('Only archived or draft projects can be permanently deleted', 409);
     }
-    if (project.projectStatus === 'DRAFT') project.draftWorkOrders = [];
+    if (project.projectStatus === 'OPEN') project.draftWorkOrders = [];
     state.projects = state.projects.filter(item => item.projectID !== project.projectID);
     saveState();
     return null;
@@ -1375,7 +1375,7 @@ const handleProjects = (segments, method, options) => {
       actualCost: payload.actualCost ?? project.actualCost ?? null,
     });
     if (Array.isArray(payload.teamIDs)) {
-      if (project.projectStatus === 'DRAFT') {
+      if (project.projectStatus === 'OPEN') {
         project.plannedTeamsJson = payload.plannedTeamsJson || plannedTeamsJsonFromIDs(payload.teamIDs || []);
       } else {
         const previousTeams = project.teams || [];
@@ -1387,7 +1387,7 @@ const handleProjects = (segments, method, options) => {
       }
     }
     if (payload.associatedActiveProjectID) {
-      if (project.projectStatus !== 'DRAFT') {
+      if (project.projectStatus !== 'OPEN') {
         throw new MockApiError('Only draft projects can be attached to an active project', 409);
       }
       if (Number(payload.associatedActiveProjectID) === project.projectID) {
@@ -1413,7 +1413,7 @@ const handleProjects = (segments, method, options) => {
   }
 
   if (segments.length === 2 && method === 'DELETE') {
-    if (project.projectStatus === 'DRAFT') {
+    if (project.projectStatus === 'OPEN') {
       throw new MockApiError('Draft projects cannot be archived', 409);
     }
     const hasOpenWorkOrder = (project.workOrders || []).some(order => order.status !== 'COMPLETE');
@@ -1438,7 +1438,7 @@ const handleProjects = (segments, method, options) => {
   if (segments[2] === 'activate' && method === 'PUT') {
     const payload = bodyAsJson(options);
     const draftIDsToActivate = new Set((payload.activateDraftWorkOrderIDs || []).map(Number));
-    if (project.projectStatus !== 'DRAFT') {
+    if (project.projectStatus !== 'OPEN') {
       throw new MockApiError('Only draft projects can be activated', 409);
     }
     if (project.associatedActiveProject) {
@@ -1472,7 +1472,7 @@ const handleProjects = (segments, method, options) => {
           projectName: project.projectName,
           projectStatus: project.projectStatus,
         },
-        status: workers.length ? 'IN_PROCESS' : 'OPEN',
+        status: workers.length ? 'ACTIVE' : 'OPEN',
         startDateTime: project.activatedAt,
         endDateTime: null,
         comment: '',
@@ -1515,7 +1515,7 @@ const handleProjects = (segments, method, options) => {
       throw new MockApiError('Projects can only be completed when all work orders are complete', 409);
     }
     ensureProjectTeamsAreNotEmpty(project.teams || []);
-    project.projectStatus = 'COMPLETED';
+    project.projectStatus = 'COMPLETE';
     project.completedAt = now();
     touch(project);
     saveState();
@@ -1540,8 +1540,8 @@ const handleProjects = (segments, method, options) => {
     if (workOrder.project && workOrder.project.projectID !== project.projectID) {
       throw new MockApiError('Work order is already associated with another project', 409);
     }
-    if (!['OPEN', 'IN_PROCESS'].includes(workOrder.status)) {
-      throw new MockApiError('Only open or in-process work orders can be attached to active projects', 409);
+    if (!['OPEN', 'ACTIVE'].includes(workOrder.status)) {
+      throw new MockApiError('Only open or active work orders can be attached to active projects', 409);
     }
     workOrder.project = {
       projectID: project.projectID,
@@ -1586,7 +1586,7 @@ const handleProjects = (segments, method, options) => {
         projectName: project.projectName,
         projectStatus: project.projectStatus,
       },
-      status: workers.length ? 'IN_PROCESS' : 'OPEN',
+      status: workers.length ? 'ACTIVE' : 'OPEN',
       startDateTime: now(),
       endDateTime: null,
       comment: payload.comment || '',
@@ -1619,7 +1619,7 @@ const handleProjects = (segments, method, options) => {
   }
 
   if (segments[2] === 'draft-workorders' && method === 'POST') {
-    if (project.archived || project.projectStatus !== 'DRAFT') {
+    if (project.archived || project.projectStatus !== 'OPEN') {
       throw new MockApiError('Draft work orders can only be created for draft projects', 409);
     }
 
@@ -1665,7 +1665,7 @@ const handleProjects = (segments, method, options) => {
   }
 
   if (segments[2] === 'draft-workorders' && segments[3] && method === 'PUT') {
-    if (project.archived || project.projectStatus !== 'DRAFT') {
+    if (project.archived || project.projectStatus !== 'OPEN') {
       throw new MockApiError('Draft work orders can only be edited for draft projects', 409);
     }
 
@@ -1703,7 +1703,7 @@ const handleProjects = (segments, method, options) => {
   }
 
   if (segments[2] === 'comments' && method === 'POST') {
-    if (project.archived || project.projectStatus === 'COMPLETED') {
+    if (project.archived || project.projectStatus === 'COMPLETE') {
       throw new MockApiError('Completed or archived projects cannot receive comments', 409);
     }
     const payload = bodyAsJson(options);
@@ -1727,7 +1727,7 @@ const handleProjects = (segments, method, options) => {
   }
 
   if (segments[2] === 'action-items' && segments.length === 3 && method === 'POST') {
-    if (project.archived || project.projectStatus === 'COMPLETED') {
+    if (project.archived || project.projectStatus === 'COMPLETE') {
       throw new MockApiError('Action items cannot be edited on completed or archived projects', 409);
     }
     const payload = bodyAsJson(options);
@@ -1755,7 +1755,7 @@ const handleProjects = (segments, method, options) => {
     if (!actionItem) throw new MockApiError('Action item not found', 404);
 
     if (segments.length === 4 && method === 'PUT') {
-      if (project.archived || project.projectStatus === 'COMPLETED') {
+      if (project.archived || project.projectStatus === 'COMPLETE') {
         throw new MockApiError('Action items cannot be edited on completed or archived projects', 409);
       }
       const payload = bodyAsJson(options);
@@ -1769,7 +1769,7 @@ const handleProjects = (segments, method, options) => {
     }
 
     if (segments.length === 4 && method === 'DELETE') {
-      if (project.archived || project.projectStatus === 'COMPLETED') {
+      if (project.archived || project.projectStatus === 'COMPLETE') {
         throw new MockApiError('Action items cannot be edited on completed or archived projects', 409);
       }
       project.actionItems = (project.actionItems || []).filter(item => item.actionItemID !== actionItemID);
@@ -1779,7 +1779,7 @@ const handleProjects = (segments, method, options) => {
     }
 
     if (segments[4] === 'complete' && method === 'PUT') {
-      if (project.archived || project.projectStatus === 'COMPLETED') {
+      if (project.archived || project.projectStatus === 'COMPLETE') {
         throw new MockApiError('Action items cannot be completed on completed or archived projects', 409);
       }
       const { completed } = bodyAsJson(options);

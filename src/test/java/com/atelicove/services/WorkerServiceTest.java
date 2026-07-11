@@ -105,7 +105,7 @@ class WorkerServiceTest {
     void archiveByIdRejectsWorkerAssignedToOpenWorkOrder() {
         Worker worker = new Worker();
         WorkOrder workOrder = new WorkOrder();
-        workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
+        workOrder.setStatus(WorkOrderStatus.ACTIVE);
         workOrder.addWorker(worker);
         when(workerRepository.findById(1)).thenReturn(Optional.of(worker));
 

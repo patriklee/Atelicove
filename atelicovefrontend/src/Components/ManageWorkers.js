@@ -40,6 +40,8 @@ const emptyWorker = {
   displayName: '',
   username: '',
   email: '',
+  roleTitle: '',
+  roleDescription: '',
   password: '',
   confirmPassword: '',
   isAdmin: false,
@@ -58,6 +60,8 @@ const WorkerFields = ({ form, onChange, mode }) => (
     <TextField label="Display Name" name="displayName" value={form.displayName} onChange={onChange} fullWidth margin="normal" />
     <TextField label="Username" name="username" value={form.username} onChange={onChange} fullWidth margin="normal" disabled={mode === 'edit'} />
     <TextField label="Email" name="email" type="email" value={form.email} onChange={onChange} fullWidth margin="normal" />
+    <TextField label="Worker Role" name="roleTitle" value={form.roleTitle} onChange={onChange} fullWidth margin="normal" />
+    <TextField label="Role Description" name="roleDescription" value={form.roleDescription} onChange={onChange} fullWidth margin="normal" multiline minRows={2} />
     {mode === 'create' && (
       <FormControlLabel
         control={<Checkbox name="isAdmin" checked={form.isAdmin} onChange={onChange} />}
@@ -142,6 +146,8 @@ const ManageWorkers = () => {
         displayName: selectedWorker.displayName || '',
         username: selectedWorker.username || '',
         email: selectedWorker.email || '',
+        roleTitle: selectedWorker.roleTitle || '',
+        roleDescription: selectedWorker.roleDescription || '',
         password: '',
         confirmPassword: '',
         isAdmin: selectedWorker.isAdmin || false,
@@ -278,6 +284,8 @@ const ManageWorkers = () => {
           workerDisplayName: editForm.displayName,
           workerUser: editForm.username,
           workerEmail: editForm.email,
+          roleTitle: editForm.roleTitle,
+          roleDescription: editForm.roleDescription,
           admin: editForm.isAdmin,
         }),
       });
@@ -474,7 +482,7 @@ const ManageWorkers = () => {
                       </TableCell>
                       <TableCell>{worker.username}</TableCell>
                       <TableCell>{worker.email}</TableCell>
-                      <TableCell>{worker.isAdmin ? 'Admin' : 'Worker'}</TableCell>
+                      <TableCell>{worker.roleTitle || (worker.isAdmin ? 'Admin' : 'Worker')}</TableCell>
                       <TableCell>{formatDateTime(worker.createdAt)}</TableCell>
                       <TableCell>{formatDateTime(worker.lastModifiedAt)}</TableCell>
                       <TableCell align="right">

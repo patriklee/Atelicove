@@ -57,7 +57,7 @@ const ProjectActionItemsPanel = ({
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          disabled={saving || selectedProject.archived || selectedProject.projectStatus === 'COMPLETED'}
+          disabled={saving || selectedProject.archived || selectedProject.projectStatus === 'COMPLETE'}
           onClick={() => onActionItemFormChange({ ...emptyActionItemForm, projectID: selectedProject.projectID })}
         >
           Add Action Item
@@ -135,7 +135,7 @@ const ProjectActionItemsPanel = ({
                   <Checkbox
                     size="small"
                     checked={Boolean(item.completed)}
-                    disabled={saving || selectedProject.projectStatus === 'COMPLETED' || selectedProject.archived}
+                    disabled={saving || selectedProject.projectStatus === 'COMPLETE' || selectedProject.archived}
                     onChange={event => onSetActionItemCompleted(selectedProject, item, event.target.checked)}
                   />
                 </TableCell>
@@ -147,7 +147,7 @@ const ProjectActionItemsPanel = ({
                 <TableCell>{actionItemAssigneeName(item)}</TableCell>
                 <TableCell align="right">
                   <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <Button size="small" variant="outlined" startIcon={<EditIcon />} disabled={saving || selectedProject.archived || selectedProject.projectStatus === 'COMPLETED'} onClick={() => onLoadActionItemIntoForm(selectedProject, item)}>
+                    <Button size="small" variant="outlined" startIcon={<EditIcon />} disabled={saving || selectedProject.archived || selectedProject.projectStatus === 'COMPLETE'} onClick={() => onLoadActionItemIntoForm(selectedProject, item)}>
                       Edit
                     </Button>
                     {canManageProject && (

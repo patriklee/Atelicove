@@ -15,6 +15,7 @@ public class ProjectDTO {
 	private BigDecimal budget;
 	private BigDecimal estimatedCost;
 	private BigDecimal actualCost;
+	private List<PlannedStaffing> plannedTeams;
 	private ProjectStatus projectStatus;
 	private LocalDateTime createdAt;
 	private LocalDateTime lastModifiedAt;
@@ -24,7 +25,6 @@ public class ProjectDTO {
 	private LocalDateTime archivedAt;
 	private List<Integer> workOrderIDs;
 	private List<Integer> teamIDs;
-	private List<PlannedStaffing> plannedStaffing;
 	private Integer associatedActiveProjectID;
 
 	public int getProjectID() {
@@ -49,6 +49,10 @@ public class ProjectDTO {
 
 	public BigDecimal getActualCost() {
 		return actualCost;
+	}
+
+	public List<PlannedStaffing> getPlannedTeams() {
+		return plannedTeams;
 	}
 
 	public ProjectStatus getProjectStatus() {
@@ -87,10 +91,6 @@ public class ProjectDTO {
 		return teamIDs;
 	}
 
-	public List<PlannedStaffing> getPlannedStaffing() {
-		return plannedStaffing;
-	}
-
 	public Integer getAssociatedActiveProjectID() {
 		return associatedActiveProjectID;
 	}
@@ -117,6 +117,10 @@ public class ProjectDTO {
 
 	public void setActualCost(BigDecimal actualCost) {
 		this.actualCost = actualCost;
+	}
+
+	public void setPlannedTeams(List<PlannedStaffing> plannedTeams) {
+		this.plannedTeams = plannedTeams;
 	}
 
 	public void setProjectStatus(ProjectStatus projectStatus) {
@@ -153,10 +157,6 @@ public class ProjectDTO {
 
 	public void setTeamIDs(List<Integer> teamIDs) {
 		this.teamIDs = teamIDs;
-	}
-
-	public void setPlannedStaffing(List<PlannedStaffing> plannedStaffing) {
-		this.plannedStaffing = plannedStaffing;
 	}
 
 	public void setAssociatedActiveProjectID(Integer associatedActiveProjectID) {

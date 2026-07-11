@@ -27,29 +27,46 @@ export const emptyActionItemForm = {
 
 export const commentTypes = ['GENERAL', 'QUESTION', 'DECISION', 'WARNING', 'UPDATE'];
 
-export const normalizeProject = (project = {}) => ({
-  ...project,
-  projectID: project.projectID ?? project.projectId ?? 0,
-  projectName: project.projectName ?? '',
-  description: project.description ?? '',
-  budget: project.budget ?? '',
-  estimatedCost: project.estimatedCost ?? '',
-  actualCost: project.actualCost ?? '',
-  budgetDifference: project.budgetDifference ?? '',
-  projectStatus: project.projectStatus ?? 'DRAFT',
-  comments: Array.isArray(project.comments) ? project.comments : [],
-  actionItems: Array.isArray(project.actionItems) ? project.actionItems : [],
-  documents: Array.isArray(project.documents) ? project.documents : [],
-  snapshots: Array.isArray(project.snapshots) ? project.snapshots : [],
-  associatedActiveProject: project.associatedActiveProject || null,
-  plannedStaffing: Array.isArray(project.plannedStaffing) ? project.plannedStaffing : [],
-  plannedTeams: Array.isArray(project.plannedTeams)
-    ? project.plannedTeams
-    : (Array.isArray(project.plannedStaffing) ? project.plannedStaffing : []),
-  teams: Array.isArray(project.teams) ? project.teams : [],
-  workOrders: Array.isArray(project.workOrders) ? project.workOrders : [],
-  draftWorkOrders: Array.isArray(project.draftWorkOrders) ? project.draftWorkOrders : [],
+const staffingPlanID = (team = {}) => Number(team.plannedStaffingID ?? team.teamID ?? team.id);
+
+const normalizeStaffingPlan = (team = {}) => ({
+  ...team,
+  plannedStaffingID: staffingPlanID(team),
+  teamID: staffingPlanID(team),
+  staffingName: team.staffingName || team.teamName || '',
+  teamName: team.teamName || team.staffingName || '',
+  staffingSlots: Array.isArray(team.staffingSlots) ? team.staffingSlots : Array.isArray(team.workers) ? team.workers : [],
+  workers: Array.isArray(team.staffingSlots) ? team.staffingSlots : Array.isArray(team.workers) ? team.workers : [],
 });
+
+export const normalizeProject = (project = {}) => {
+  const plannedTeams = Array.isArray(project.plannedStaffing)
+    ? project.plannedStaffing
+    : Array.isArray(project.plannedTeams)
+      ? project.plannedTeams
+      : [];
+
+  return {
+    ...project,
+    projectID: project.projectID ?? project.projectId ?? 0,
+    projectName: project.projectName ?? '',
+    description: project.description ?? '',
+    budget: project.budget ?? '',
+    estimatedCost: project.estimatedCost ?? '',
+    actualCost: project.actualCost ?? '',
+    budgetDifference: project.budgetDifference ?? '',
+    projectStatus: project.projectStatus ?? 'OPEN',
+    comments: Array.isArray(project.comments) ? project.comments : [],
+    actionItems: Array.isArray(project.actionItems) ? project.actionItems : [],
+    documents: Array.isArray(project.documents) ? project.documents : [],
+    snapshots: Array.isArray(project.snapshots) ? project.snapshots : [],
+    associatedActiveProject: project.associatedActiveProject || null,
+    plannedTeams: plannedTeams.map(normalizeStaffingPlan),
+    teams: Array.isArray(project.teams) ? project.teams : [],
+    workOrders: Array.isArray(project.workOrders) ? project.workOrders : [],
+    draftWorkOrders: Array.isArray(project.draftWorkOrders) ? project.draftWorkOrders : [],
+  };
+};
 
 export const normalizeTeam = (team = {}) => ({
   ...team,

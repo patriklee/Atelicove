@@ -274,7 +274,7 @@ const ProjectDialogs = ({
               {!plannedTeamsForProject(projectTeamsDialog || {}).length && (
                 <TableRow>
                   <TableCell colSpan={2}>
-                    {projectTeamsDialog?.projectStatus === 'DRAFT'
+                    {projectTeamsDialog?.projectStatus === 'OPEN'
                       ? 'No planned staffing is saved for this draft project.'
                       : 'No teams are associated with this project.'}
                   </TableCell>

@@ -21,7 +21,7 @@ const statusColor = (status) => {
   switch (status) {
     case 'COMPLETE':
       return 'success';
-    case 'IN_PROCESS':
+    case 'ACTIVE':
       return 'info';
     case 'DRAFT':
       return 'warning';

@@ -157,7 +157,7 @@ public class TeamService {
 
 		for (WorkOrder workOrder : project.getWorkOrders()) {
 			if (workOrder.getStatus() != WorkOrderStatus.OPEN &&
-					workOrder.getStatus() != WorkOrderStatus.IN_PROCESS) {
+					workOrder.getStatus() != WorkOrderStatus.ACTIVE) {
 				continue;
 			}
 
@@ -167,7 +167,7 @@ public class TeamService {
 
 			workOrder.setStatus(workOrder.getWorkers().isEmpty()
 					? WorkOrderStatus.OPEN
-					: WorkOrderStatus.IN_PROCESS);
+					: WorkOrderStatus.ACTIVE);
 		}
 	}
 
@@ -194,7 +194,7 @@ public class TeamService {
 
 			for (WorkOrder workOrder : project.getWorkOrders()) {
 				if (workOrder.getStatus() != WorkOrderStatus.OPEN &&
-						workOrder.getStatus() != WorkOrderStatus.IN_PROCESS) {
+						workOrder.getStatus() != WorkOrderStatus.ACTIVE) {
 					continue;
 				}
 
@@ -208,7 +208,7 @@ public class TeamService {
 
 				workOrder.setStatus(workOrder.getWorkers().isEmpty()
 						? WorkOrderStatus.OPEN
-						: WorkOrderStatus.IN_PROCESS);
+						: WorkOrderStatus.ACTIVE);
 			}
 
 			projectRepository.save(project);

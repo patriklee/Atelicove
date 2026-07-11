@@ -83,7 +83,7 @@ class WODocumentServiceTest {
     void uploadSavesValidatedDocument() {
         WorkOrder workOrder = new WorkOrder();
         workOrder.setWorkOrderID(1);
-        workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
+        workOrder.setStatus(WorkOrderStatus.ACTIVE);
         Worker worker = new Worker("Pat", "Lee", "plee", "plee@test.com", "encoded-password", false);
         MockMultipartFile file = new MockMultipartFile(
                 "file", "inspection.pdf", "application/pdf", new byte[] { 1, 2, 3 });
@@ -106,7 +106,7 @@ class WODocumentServiceTest {
     void uploadToProjectSavesValidatedDocumentForDraftProject() {
         Project project = new Project();
         project.setProjectID(7);
-        project.setProjectStatus(ProjectStatus.DRAFT);
+        project.setProjectStatus(ProjectStatus.OPEN);
         Worker worker = new Worker("Pat", "Lee", "plee", "plee@test.com", "encoded-password", true);
         MockMultipartFile file = new MockMultipartFile(
                 "file", "proposal.pdf", "application/pdf", new byte[] { 4, 5, 6 });
@@ -151,7 +151,7 @@ class WODocumentServiceTest {
     @Test
     void uploadRejectsUnsupportedFileType() {
         WorkOrder workOrder = new WorkOrder();
-        workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
+        workOrder.setStatus(WorkOrderStatus.ACTIVE);
         Worker worker = new Worker("Pat", "Lee", "plee", "plee@test.com", "encoded-password", false);
         MockMultipartFile file = new MockMultipartFile(
                 "file", "song.mp3", "audio/mpeg", new byte[] { 1 });

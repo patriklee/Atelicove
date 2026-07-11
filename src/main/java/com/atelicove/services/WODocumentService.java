@@ -209,7 +209,7 @@ public class WODocumentService {
             throw new IllegalStateException("Archived projects cannot have documents changed");
         }
 
-        if (project.getProjectStatus() != ProjectStatus.DRAFT &&
+        if (project.getProjectStatus() != ProjectStatus.OPEN &&
                 project.getProjectStatus() != ProjectStatus.ACTIVE) {
             throw new IllegalStateException("Project documents can only be changed while the project is draft or active");
         }

@@ -80,14 +80,14 @@ const ProjectStudioProjectsTable = ({
                 <TableCell>{project.projectStatus.replaceAll('_', ' ')}</TableCell>
                 <TableCell>
                   <Typography variant="body2">{formatMoney(project.budget)}</Typography>
-                  {project.projectStatus === 'DRAFT' && (
+                  {project.projectStatus === 'OPEN' && (
                     <Typography variant="caption" color="text.secondary">
                       Difference: {formatMoney(project.budgetDifference)}
                     </Typography>
                   )}
                 </TableCell>
                 <TableCell>
-                  {project.projectStatus === 'DRAFT' ? (
+                  {project.projectStatus === 'OPEN' ? (
                     <Typography variant="body2">Estimated: {formatMoney(project.estimatedCost)}</Typography>
                   ) : (
                     <Typography variant="body2">Actual: {formatMoney(project.actualCost)}</Typography>

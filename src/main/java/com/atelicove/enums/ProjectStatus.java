@@ -1,8 +1,8 @@
 package com.atelicove.enums;
 
 public enum ProjectStatus {
-	DRAFT,
+	OPEN,
 	ACTIVE,
 	IN_REVIEW,
-	COMPLETED
+	COMPLETE
 }

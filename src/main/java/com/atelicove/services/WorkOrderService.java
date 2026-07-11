@@ -10,11 +10,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.atelicove.entities.Company;
+import com.atelicove.entities.DraftWorkOrder;
+import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.CompanyRepository;
+import com.atelicove.repositories.DraftWorkOrderRepository;
 import com.atelicove.repositories.WorkOrderRepository;
 import com.atelicove.repositories.WorkerRepository;
 
@@ -22,14 +25,17 @@ import com.atelicove.repositories.WorkerRepository;
 public class WorkOrderService{
 
     private final WorkOrderRepository workOrderRepository;
+    private final DraftWorkOrderRepository draftWorkOrderRepository;
     private final WorkerRepository workerRepository;
     private final CompanyRepository companyRepository;
 
     public WorkOrderService(
             WorkOrderRepository workOrderRepository,
+            DraftWorkOrderRepository draftWorkOrderRepository,
             WorkerRepository workerRepository,
             CompanyRepository companyRepository) {
         this.workOrderRepository = workOrderRepository;
+        this.draftWorkOrderRepository = draftWorkOrderRepository;
         this.workerRepository = workerRepository;
         this.companyRepository = companyRepository;
     }
@@ -39,7 +45,7 @@ public class WorkOrderService{
      * already been started, submitted, completed, or drafted can enter this state.
      *
      * @param workOrderID work order to start
-     * @return the saved work order with an in-process status
+     * @return the saved work order with an active status
      */
     @Transactional
     public WorkOrder startWorkOrder(Integer workOrderID) {
@@ -49,15 +55,13 @@ public class WorkOrderService{
     		throw new IllegalStateException("Only open work orders can be started");
     	}
     	
-    	workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
+        workOrder.setStatus(WorkOrderStatus.ACTIVE);
     	
     	return workOrderRepository.save(workOrder);
     }
 
     public List<WorkOrder> findByCompanyID(Integer companyID) {
-        return workOrderRepository.findByCompany_CompanyIDAndArchivedFalse(companyID).stream()
-                .filter(workOrder -> workOrder.getStatus() != WorkOrderStatus.DRAFT)
-                .toList();
+        return workOrderRepository.findByCompany_CompanyIDAndArchivedFalse(companyID);
     }
     
     public Optional<WorkOrder> findById(Integer id) {
@@ -65,50 +69,40 @@ public class WorkOrderService{
     }
     
     public List<WorkOrder> findActive() {
-        return workOrderRepository.findByArchivedFalse().stream()
-                .filter(workOrder -> workOrder.getStatus() != WorkOrderStatus.DRAFT)
-                .toList();
+        return workOrderRepository.findByArchivedFalse();
     }
 
-    public List<WorkOrder> findDrafts() {
-        return workOrderRepository.findByStatusAndArchivedFalse(WorkOrderStatus.DRAFT).stream()
+    public List<DraftWorkOrder> findDrafts() {
+        return draftWorkOrderRepository.findAll().stream()
+                .filter(draftWorkOrder -> !draftWorkOrder.isArchived())
                 .filter(draftWorkOrder -> draftWorkOrder.getProject() != null && !draftWorkOrder.getProject().isArchived())
                 .toList();
     }
 
-    public List<WorkOrder> findArchivedDrafts() {
-        return workOrderRepository.findByStatusAndArchivedTrue(WorkOrderStatus.DRAFT);
-    }
-
-    public Optional<WorkOrder> findDraftById(Integer id) {
-        return workOrderRepository.findById(id)
-                .filter(draftWorkOrder -> draftWorkOrder.getStatus() == WorkOrderStatus.DRAFT)
+    public Optional<DraftWorkOrder> findDraftById(Integer id) {
+        return draftWorkOrderRepository.findById(id)
                 .filter(draftWorkOrder -> !draftWorkOrder.isArchived())
                 .filter(draftWorkOrder -> draftWorkOrder.getProject() != null && !draftWorkOrder.getProject().isArchived());
     }
 
-    public Optional<WorkOrder> findArchivedDraftById(Integer id) {
-        return workOrderRepository.findById(id)
-                .filter(draftWorkOrder -> draftWorkOrder.getStatus() == WorkOrderStatus.DRAFT)
-                .filter(WorkOrder::isArchived);
+    public List<DraftWorkOrder> findArchivedDrafts() {
+        return draftWorkOrderRepository.findAll().stream()
+                .filter(DraftWorkOrder::isArchived)
+                .toList();
     }
 
     public List<WorkOrder> findAll() {
-        return workOrderRepository.findAll().stream()
-                .filter(workOrder -> workOrder.getStatus() != WorkOrderStatus.DRAFT)
-                .toList();
+        return workOrderRepository.findAll();
     }
 
     public List<WorkOrder> findArchived() {
-        return workOrderRepository.findByArchivedTrue().stream()
-                .filter(workOrder -> workOrder.getStatus() != WorkOrderStatus.DRAFT)
-                .toList();
+        return workOrderRepository.findByArchivedTrue();
     }
 
     /**
      * Creates a normal work order and attaches only active workers and companies.
      * New work orders are opened when no worker is assigned and moved directly to
-     * in-process when workers are provided.
+     * active when workers are provided.
      *
      * @param workOrder work order details from the request
      * @return the saved work order
@@ -138,7 +132,7 @@ public class WorkOrderService{
     				throw new IllegalStateException("Archived workers cannot be assigned");
     			}
     		}
-    		workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
+            workOrder.setStatus(WorkOrderStatus.ACTIVE);
     	}
 
     	if (workOrder.getCompany() != null) {
@@ -183,7 +177,7 @@ public class WorkOrderService{
         }
 
         workOrder.addWorker(worker);
-        workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
+        workOrder.setStatus(WorkOrderStatus.ACTIVE);
 
         return workOrderRepository.save(workOrder);
     }
@@ -301,24 +295,24 @@ public class WorkOrderService{
     }
 
     @Transactional
-    public WorkOrder addDraftItem(Integer draftWorkOrderID, WorkOrderItem item) {
-        WorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
+    public DraftWorkOrder addDraftItem(Integer draftWorkOrderID, DraftWorkOrderItem item) {
+        DraftWorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
 
         if (item.getItemType() == null) {
             throw new IllegalArgumentException("Item type is required");
         }
-        item.setWorkOrderItemID(0);
+        item.setDraftWorkOrderItemID(0);
         draftWorkOrder.addItem(item);
 
-        return workOrderRepository.save(draftWorkOrder);
+        return draftWorkOrderRepository.save(draftWorkOrder);
     }
 
     @Transactional
-    public WorkOrder updateDraftItem(Integer draftWorkOrderID, Integer itemID, WorkOrderItem request) {
-        WorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
+    public DraftWorkOrder updateDraftItem(Integer draftWorkOrderID, Integer itemID, DraftWorkOrderItem request) {
+        DraftWorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
 
-        WorkOrderItem item = draftWorkOrder.getItems().stream()
-                .filter(existingItem -> existingItem.getWorkOrderItemID() == itemID)
+        DraftWorkOrderItem item = draftWorkOrder.getItems().stream()
+                .filter(existingItem -> existingItem.getDraftWorkOrderItemID() == itemID)
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Draft work order item not found"));
 
@@ -327,25 +321,33 @@ public class WorkOrderService{
         item.setPrice(request.getPrice());
         item.setItemType(request.getItemType());
 
-        return workOrderRepository.save(draftWorkOrder);
+        return draftWorkOrderRepository.save(draftWorkOrder);
     }
 
     @Transactional
-    public WorkOrder deleteDraftItem(Integer draftWorkOrderID, Integer itemID) {
-        WorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
+    public DraftWorkOrder deleteDraftItem(Integer draftWorkOrderID, Integer itemID) {
+        DraftWorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
 
-        WorkOrderItem item = draftWorkOrder.getItems().stream()
-                .filter(existingItem -> existingItem.getWorkOrderItemID() == itemID)
+        DraftWorkOrderItem item = draftWorkOrder.getItems().stream()
+                .filter(existingItem -> existingItem.getDraftWorkOrderItemID() == itemID)
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Draft work order item not found"));
 
         draftWorkOrder.removeItem(item);
 
-        return workOrderRepository.save(draftWorkOrder);
+        return draftWorkOrderRepository.save(draftWorkOrder);
+    }
+
+    @Transactional
+    public void archiveDraftById(Integer draftWorkOrderID) {
+        DraftWorkOrder draftWorkOrder = draftWorkOrderRepository.findById(draftWorkOrderID)
+                .orElseThrow(() -> new IllegalArgumentException("Draft work order not found"));
+        draftWorkOrder.setArchived(true);
+        draftWorkOrderRepository.save(draftWorkOrder);
     }
 
     /**
-     * Archives a completed work order instead of deleting it. Open, in-process,
+     * Archives a completed work order instead of deleting it. Open, active,
      * review, and draft work orders stay visible so unfinished work is not hidden.
      *
      * @param id completed work order to archive
@@ -361,12 +363,6 @@ public class WorkOrderService{
         archiveWorkOrder(workOrder);
     }
 
-    @Transactional
-    public void archiveDraftById(Integer id) {
-        WorkOrder draftWorkOrder = getRequiredDraftWorkOrder(id);
-        archiveWorkOrder(draftWorkOrder);
-    }
-
     private void archiveWorkOrder(WorkOrder workOrder) {
         workOrder.setArchived(true);
         workOrder.setArchivedAt(LocalDateTime.now());
@@ -379,15 +375,6 @@ public class WorkOrderService{
         workOrder.setArchived(false);
         workOrder.setArchivedAt(null);
         return workOrderRepository.save(workOrder);
-    }
-
-    @Transactional
-    public WorkOrder restoreDraftById(Integer id) {
-        WorkOrder draftWorkOrder = findArchivedDraftById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Archived draft work order not found"));
-        draftWorkOrder.setArchived(false);
-        draftWorkOrder.setArchivedAt(null);
-        return workOrderRepository.save(draftWorkOrder);
     }
 
     /**
@@ -417,9 +404,7 @@ public class WorkOrderService{
     }
     
     public long count() {
-        return workOrderRepository.findByArchivedFalse().stream()
-                .filter(workOrder -> workOrder.getStatus() != WorkOrderStatus.DRAFT)
-                .count();
+        return workOrderRepository.countByArchivedFalse();
     }
     
     // Work order add/delete/submit stuff
@@ -433,17 +418,17 @@ public class WorkOrderService{
      */
     @Transactional
     public WorkOrder submitForReview(Integer workOrderID) {
-    	WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
+        WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
         ensureWorkOrderCanBeEdited(workOrder);
-    	
-    	if (workOrder.getStatus() != WorkOrderStatus.IN_PROCESS &&
-    			workOrder.getStatus() != WorkOrderStatus.OPEN) {
-    		throw new IllegalStateException("Only open or in-process work orders can be submitted");
-    	}
-    	
-    	workOrder.setStatus(WorkOrderStatus.IN_REVIEW);
-    	
-    	return workOrderRepository.save(workOrder);
+
+        if (workOrder.getStatus() != WorkOrderStatus.ACTIVE &&
+                workOrder.getStatus() != WorkOrderStatus.OPEN) {
+            throw new IllegalStateException("Only open or active work orders can be submitted");
+        }
+
+        workOrder.setStatus(WorkOrderStatus.IN_REVIEW);
+
+        return workOrderRepository.save(workOrder);
     }
     
     /**
@@ -475,7 +460,7 @@ public class WorkOrderService{
     		throw new IllegalStateException("Only work orders under review can be rejected");
     	}
     	
-        workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
+        workOrder.setStatus(WorkOrderStatus.ACTIVE);
         
         return workOrderRepository.save(workOrder);
     }
@@ -492,7 +477,7 @@ public class WorkOrderService{
         return result.get();
     }
 
-    private WorkOrder getRequiredDraftWorkOrder(Integer draftWorkOrderID) {
+    private DraftWorkOrder getRequiredDraftWorkOrder(Integer draftWorkOrderID) {
         return findDraftById(draftWorkOrderID)
                 .orElseThrow(() -> new IllegalArgumentException("Draft work order not found"));
     }

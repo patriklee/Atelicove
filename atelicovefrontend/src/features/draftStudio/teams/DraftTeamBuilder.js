@@ -39,7 +39,7 @@ const DraftTeamBuilder = ({
   const availableWorkers = useMemo(() => workers.filter(worker => !worker.archived), [workers]);
   const availableTeams = useMemo(() => teams.filter(team => (team.workers || []).length), [teams]);
   const draftedTeams = useMemo(() => (
-    selectedProject?.projectStatus === 'DRAFT' ? (selectedProject?.plannedTeams || []) : []
+    selectedProject?.projectStatus === 'OPEN' ? (selectedProject?.plannedTeams || []) : []
   ), [selectedProject]);
 
   const workersByID = useMemo(() => {
@@ -142,13 +142,8 @@ const DraftTeamBuilder = ({
       teamID: selectedDraftTeamID || -Date.now(),
       sourceDraftTeamID: selectedDraftTeamID,
       teamName: teamName.trim() || 'Planned Staffing',
-      sourceTeamID: sourceTeamIDs.length === 1 ? sourceTeamIDs[0] : null,
-      staffingSlots: selectedWorkers.map(worker => ({
-        workerID: Number(worker.workerID ?? worker.workerId),
-        worker,
-        roleName: worker.roleTitle || worker.role || '',
-        roleDescription: worker.roleDescription || '',
-      })),
+      workerIDs: selectedWorkers.map(worker => Number(worker.workerID ?? worker.workerId)),
+      sourceTeamIDs,
       projectID: selectedProject?.projectID,
       draftOnly: true,
     });
