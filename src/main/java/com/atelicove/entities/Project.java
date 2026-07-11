@@ -120,7 +120,7 @@ public class Project extends ArchivableEntity {
 	}
 
 	public BigDecimal getEstimatedCost() {
-		return sumDraftWorkOrderItems();
+		return calculateEstimatedCost();
 	}
 
 	public BigDecimal getActualCost() {
@@ -247,14 +247,6 @@ public class Project extends ArchivableEntity {
 
 	public void setBudget(BigDecimal budget) {
 		this.budget = budget;
-	}
-
-	public void setEstimatedCost(BigDecimal estimatedCost) {
-		this.estimatedCost = estimatedCost;
-	}
-
-	public void setActualCost(BigDecimal actualCost) {
-		this.actualCost = actualCost;
 	}
 
 	public void setProjectStatus(ProjectStatus projectStatus) {
