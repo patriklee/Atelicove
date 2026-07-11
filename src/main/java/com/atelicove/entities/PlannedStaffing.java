@@ -33,13 +33,8 @@ public class PlannedStaffing {
 	private String notes;
 
 	@JsonIgnore
-	@ManyToOne
-	@JoinColumn(name = "project_id")
-	private Project project;
-
-	@JsonIgnore
-	@ManyToOne
-	@JoinColumn(name = "draft_project_id")
+	@ManyToOne(optional = false)
+	@JoinColumn(name = "draft_project_id", nullable = false)
 	private DraftProject draftProject;
 
 	@OneToMany(mappedBy = "plannedStaffing", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -71,10 +66,6 @@ public class PlannedStaffing {
 
 	public String getNotes() {
 		return notes;
-	}
-
-	public Project getProject() {
-		return project;
 	}
 
 	public DraftProject getDraftProject() {
@@ -110,10 +101,6 @@ public class PlannedStaffing {
 
 	public void setNotes(String notes) {
 		this.notes = notes;
-	}
-
-	public void setProject(Project project) {
-		this.project = project;
 	}
 
 	public void setDraftProject(DraftProject draftProject) {

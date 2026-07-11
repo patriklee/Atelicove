@@ -1,6 +1,10 @@
 package com.atelicove.services;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +21,7 @@ import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.ProjectStatus;
+import com.atelicove.enums.DraftProposalStatus;
 import com.atelicove.enums.WorkOrderStatus;
 
 import jakarta.persistence.EntityManager;
@@ -50,15 +55,18 @@ public class DraftProjectLaunchService {
 		project.setProjectStatus(ProjectStatus.OPEN);
 		project.setActivatedAt(launchedAt);
 		entityManager.persist(project);
+		Map<Integer, Team> plannedTeams = convertPlannedStaffing(draftProject, project);
 
 		for (DraftWorkOrder draftWorkOrder : draftProject.getDraftWorkOrders()) {
 			if (draftWorkOrder.isArchived()) {
 				continue;
 			}
 
-			WorkOrder workOrder = convert(draftWorkOrder, launchedAt);
+			WorkOrder workOrder = convert(draftWorkOrder, launchedAt, plannedTeams);
 			project.addWorkOrder(workOrder);
-			entityManager.persist(workOrder);
+			if (draftWorkOrder.getSourceWorkOrderID() == null) {
+				entityManager.persist(workOrder);
+			}
 		}
 
 		entityManager.flush();
@@ -79,11 +87,12 @@ public class DraftProjectLaunchService {
 				requireExisting(Team.class, staffing.getSourceTeamID(), "team");
 			}
 			for (StaffingSlot slot : staffing.getStaffingSlots()) {
-				if (slot.getWorkerID() != null) {
-					Worker worker = requireExisting(Worker.class, slot.getWorkerID(), "worker");
-					if (worker.isArchived()) {
-						throw unavailable("worker", slot.getWorkerID(), "is archived");
-					}
+				if (slot.getWorkerID() == null) {
+					throw new IllegalStateException("Planned staffing worker ID is required");
+				}
+				Worker worker = requireExisting(Worker.class, slot.getWorkerID(), "worker");
+				if (worker.isArchived()) {
+					throw unavailable("worker", slot.getWorkerID(), "is archived");
 				}
 			}
 		}
@@ -96,6 +105,7 @@ public class DraftProjectLaunchService {
 				continue;
 			}
 
+			validateProposalStatus(draftWorkOrder);
 			validateReferences(draftWorkOrder);
 			for (DraftWorkOrderItem item : draftWorkOrder.getItems()) {
 				if (item.getItemName() == null || item.getItemName().isBlank()) {
@@ -111,6 +121,13 @@ public class DraftProjectLaunchService {
 		}
 	}
 
+	private void validateProposalStatus(DraftWorkOrder draftWorkOrder) {
+		DraftProposalStatus status = draftWorkOrder.getProposalStatus();
+		if (status != DraftProposalStatus.PRIVATE && status != DraftProposalStatus.ACCEPTED) {
+			throw new IllegalStateException("Draft work order proposal is not approved for launch");
+		}
+	}
+
 	private void validateReferences(DraftWorkOrder draftWorkOrder) {
 		if (draftWorkOrder.getPlannedCompanyID() != null) {
 			Company company = requireExisting(Company.class, draftWorkOrder.getPlannedCompanyID(), "company");
@@ -119,7 +136,11 @@ public class DraftProjectLaunchService {
 			}
 		}
 		if (draftWorkOrder.getPlannedTeamID() != null) {
-			requireExisting(Team.class, draftWorkOrder.getPlannedTeamID(), "team");
+			boolean plannedTeamExists = draftWorkOrder.getDraftProject().getPlannedStaffing().stream()
+					.anyMatch(staffing -> staffing.getPlannedStaffingID() == draftWorkOrder.getPlannedTeamID());
+			if (!plannedTeamExists) {
+				throw unavailable("planned staffing", draftWorkOrder.getPlannedTeamID(), "does not exist");
+			}
 		}
 		if (draftWorkOrder.getSourceWorkOrderID() != null) {
 			WorkOrder source = requireExisting(
@@ -128,6 +149,13 @@ public class DraftProjectLaunchService {
 					"source work order");
 			if (source.isArchived()) {
 				throw unavailable("source work order", draftWorkOrder.getSourceWorkOrderID(), "is archived");
+			}
+			if (source.getStatus() != WorkOrderStatus.OPEN && source.getStatus() != WorkOrderStatus.ACTIVE) {
+				throw unavailable("source work order", draftWorkOrder.getSourceWorkOrderID(), "is read-only");
+			}
+			if (source.getProject() != null) {
+				throw unavailable("source work order", draftWorkOrder.getSourceWorkOrderID(),
+						"already belongs to another project");
 			}
 		}
 		if (draftWorkOrder.getSourceProjectID() != null) {
@@ -151,25 +179,87 @@ public class DraftProjectLaunchService {
 				"Draft project references " + referenceName + " " + id + " that " + reason);
 	}
 
-	private WorkOrder convert(DraftWorkOrder draftWorkOrder, LocalDateTime launchedAt) {
-		WorkOrder workOrder = new WorkOrder();
-		workOrder.setStatus(WorkOrderStatus.OPEN);
-		workOrder.setStartDateTime(launchedAt);
-		workOrder.setEndDateTime(null);
+	private Map<Integer, Team> convertPlannedStaffing(
+	        DraftProject draftProject,
+	        Project project) {
+
+	    Map<Integer, Team> plannedTeams = new HashMap<>();
+
+	    for (PlannedStaffing staffing
+	            : draftProject.getPlannedStaffing()) {
+
+	        Team team;
+
+	        if (staffing.getSourceTeamID() != null) {
+	            team = entityManager.find(
+	                Team.class,
+	                staffing.getSourceTeamID()
+	            );
+	        } else {
+	            team = new Team();
+	            team.setTeamName(
+	                staffing.getStaffingName()
+	            );
+
+	            for (StaffingSlot slot
+	                    : staffing.getStaffingSlots()) {
+
+	                Worker worker = entityManager.find(
+	                    Worker.class,
+	                    slot.getWorkerID()
+	                );
+
+	                team.getWorkers().add(worker);
+	            }
+
+	            entityManager.persist(team);
+	        }
+
+	        project.addTeam(team);
+
+	        plannedTeams.put(
+	            staffing.getPlannedStaffingID(),
+	            team
+	        );
+	    }
+
+	    return plannedTeams;
+	}
+
+	private WorkOrder convert(
+			DraftWorkOrder draftWorkOrder,
+			LocalDateTime launchedAt,
+			Map<Integer, Team> plannedTeams) {
+		WorkOrder workOrder;
+		if (draftWorkOrder.getSourceWorkOrderID() == null) {
+			workOrder = new WorkOrder();
+			workOrder.setStatus(WorkOrderStatus.OPEN);
+			workOrder.setStartDateTime(launchedAt);
+			workOrder.setEndDateTime(null);
+		} else {
+			workOrder = entityManager.find(WorkOrder.class, draftWorkOrder.getSourceWorkOrderID());
+		}
 		workOrder.setComment(draftWorkOrder.getComment());
 
-		if (draftWorkOrder.getPlannedCompanyID() != null) {
-			Company company = entityManager.getReference(Company.class, draftWorkOrder.getPlannedCompanyID());
-			workOrder.setCompany(company);
-		}
+		Company company = draftWorkOrder.getPlannedCompanyID() == null
+				? null
+				: entityManager.getReference(Company.class, draftWorkOrder.getPlannedCompanyID());
+		workOrder.setCompany(company);
 
+		List<WorkOrderItem> items = new ArrayList<>();
 		for (DraftWorkOrderItem draftItem : draftWorkOrder.getItems()) {
 			WorkOrderItem item = new WorkOrderItem();
 			item.setItemName(draftItem.getItemName());
 			item.setQuantity(draftItem.getQuantity());
 			item.setPrice(draftItem.getPrice());
 			item.setItemType(draftItem.getItemType());
-			workOrder.addItem(item);
+			items.add(item);
+		}
+		workOrder.setItems(items);
+
+		if (draftWorkOrder.getPlannedTeamID() != null) {
+			Team team = plannedTeams.get(draftWorkOrder.getPlannedTeamID());
+			workOrder.setWorkers(team.getWorkers());
 		}
 
 		return workOrder;
