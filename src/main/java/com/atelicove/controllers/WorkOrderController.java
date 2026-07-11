@@ -13,6 +13,8 @@ import java.util.Optional;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import com.atelicove.services.AuthorizationService;
 import java.util.Map;
 
 @RestController
@@ -20,9 +22,11 @@ import java.util.Map;
 public class WorkOrderController {
 
     private final WorkOrderService workOrderService;
+    private final AuthorizationService authorizationService;
 
-    public WorkOrderController(WorkOrderService workOrderService) {
+    public WorkOrderController(WorkOrderService workOrderService, AuthorizationService authorizationService) {
         this.workOrderService = workOrderService;
+        this.authorizationService = authorizationService;
     }
     
     @PreAuthorize("hasRole('ADMIN')")
@@ -111,35 +115,42 @@ public class WorkOrderController {
     }
 
     @PutMapping("/{id}/comment")
-    public WorkOrder updateComment(@PathVariable Integer id, @RequestBody Map<String, String> request) {
+    public WorkOrder updateComment(@PathVariable Integer id, @RequestBody Map<String, String> request, Authentication authentication) {
+        authorizationService.requireWorkOrderAccess(id, authentication);
     	return workOrderService.updateComment(id, request.get("comment"));
     }
 
     @PostMapping("/{id}/items")
-    public WorkOrder addItem(@PathVariable Integer id, @RequestBody WorkOrderItem item) {
+    public WorkOrder addItem(@PathVariable Integer id, @RequestBody WorkOrderItem item, Authentication authentication) {
+        authorizationService.requireWorkOrderAccess(id, authentication);
     	return workOrderService.addItem(id, item);
     }
 
     @PutMapping("/{id}/items/{itemID}")
-    public WorkOrder updateItem(@PathVariable Integer id, @PathVariable Integer itemID, @RequestBody WorkOrderItem item) {
+    public WorkOrder updateItem(@PathVariable Integer id, @PathVariable Integer itemID, @RequestBody WorkOrderItem item, Authentication authentication) {
+        authorizationService.requireWorkOrderAccess(id, authentication);
     	return workOrderService.updateItem(id, itemID, item);
     }
 
     @DeleteMapping("/{id}/items/{itemID}")
-    public WorkOrder deleteItem(@PathVariable Integer id, @PathVariable Integer itemID) {
+    public WorkOrder deleteItem(@PathVariable Integer id, @PathVariable Integer itemID, Authentication authentication) {
+        authorizationService.requireWorkOrderAccess(id, authentication);
     	return workOrderService.deleteItem(id, itemID);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/drafts/{id}/items")
     public DraftWorkOrder addDraftItem(@PathVariable Integer id, @RequestBody DraftWorkOrderItem item) {
         return workOrderService.addDraftItem(id, item);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/drafts/{id}/items/{itemID}")
     public DraftWorkOrder updateDraftItem(@PathVariable Integer id, @PathVariable Integer itemID, @RequestBody DraftWorkOrderItem item) {
         return workOrderService.updateDraftItem(id, itemID, item);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/drafts/{id}/items/{itemID}")
     public DraftWorkOrder deleteDraftItem(@PathVariable Integer id, @PathVariable Integer itemID) {
         return workOrderService.deleteDraftItem(id, itemID);
@@ -149,6 +160,19 @@ public class WorkOrderController {
     @DeleteMapping("/drafts/{id}")
     public ResponseEntity<Void> archiveDraftWorkOrder(@PathVariable Integer id) {
         workOrderService.archiveDraftById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/drafts/{id}/restore")
+    public DraftWorkOrder restoreDraftWorkOrder(@PathVariable Integer id) {
+        return workOrderService.restoreDraftById(id);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/drafts/{id}/permanent")
+    public ResponseEntity<Void> deleteDraftWorkOrderPermanently(@PathVariable Integer id) {
+        workOrderService.deleteDraftPermanentlyById(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -178,7 +202,8 @@ public class WorkOrderController {
     }
     
     @PutMapping("/{id}/submit")
-    public WorkOrder submitForReview(@PathVariable Integer id) {
+    public WorkOrder submitForReview(@PathVariable Integer id, Authentication authentication) {
+        authorizationService.requireWorkOrderAccess(id, authentication);
     	return workOrderService.submitForReview(id);
     }
     

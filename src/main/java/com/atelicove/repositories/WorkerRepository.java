@@ -13,4 +13,5 @@ public interface WorkerRepository extends JpaRepository<Worker, Integer> {
     Optional<Worker> findByWorkerEmailIgnoreCase(String workerEmail);
     List<Worker> findByArchivedFalse();
     List<Worker> findByArchivedTrue();
+    long countByIsAdminTrueAndArchivedFalse();
 }

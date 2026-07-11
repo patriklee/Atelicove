@@ -114,6 +114,23 @@ class WorkerServiceTest {
     }
 
     @Test
+    void finalActiveAdministratorCannotBeDemotedArchivedOrDeleted() {
+        Worker admin = new Worker();
+        admin.setWorkerID(1);
+        admin.setAdmin(true);
+        Worker demotion = new Worker();
+        demotion.setAdmin(false);
+        when(workerRepository.findById(1)).thenReturn(Optional.of(admin));
+        when(workerRepository.countByIsAdminTrueAndArchivedFalse()).thenReturn(1L);
+
+        assertThrows(IllegalStateException.class, () -> workerService.updateWorker(1, demotion));
+        assertThrows(IllegalStateException.class, () -> workerService.archiveById(1));
+        assertThrows(IllegalStateException.class, () -> workerService.deletePermanentlyById(1));
+        verify(workerRepository, never()).save(admin);
+        verify(workerRepository, never()).delete(admin);
+    }
+
+    @Test
     void restoreByIdClearsArchiveFields() {
         Worker worker = new Worker();
         worker.setArchived(true);

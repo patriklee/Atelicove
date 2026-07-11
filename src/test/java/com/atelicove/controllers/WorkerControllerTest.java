@@ -26,19 +26,21 @@ import com.atelicove.controllers.WorkerController;
 import com.atelicove.entities.Worker;
 import com.atelicove.exceptions.GlobalExceptionHandler;
 import com.atelicove.services.WorkerService;
+import com.atelicove.services.AuthorizationService;
 
 @ExtendWith(MockitoExtension.class)
 class WorkerControllerTest {
 
     @Mock
     private WorkerService workerService;
+    @Mock private AuthorizationService authorizationService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new WorkerController(workerService))
+                .standaloneSetup(new WorkerController(workerService, authorizationService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

@@ -1,5 +1,7 @@
 package com.atelicove.entities;
 
+import java.math.BigDecimal;
+
 import com.atelicove.enums.ItemType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -22,14 +24,14 @@ public class DraftWorkOrderItem extends BaseEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private int draftWorkOrderItemID;
 
-	@Column(nullable = false)
+	@Column(nullable = false, length = 255)
 	private String itemName;
 
 	@Column(nullable = false)
 	private int quantity;
 
-	@Column(nullable = false)
-	private double price;
+	@Column(nullable = false, precision = 12, scale = 2)
+	private BigDecimal price;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
@@ -52,7 +54,7 @@ public class DraftWorkOrderItem extends BaseEntity {
 		return quantity;
 	}
 
-	public double getPrice() {
+	public BigDecimal getPrice() {
 		return price;
 	}
 
@@ -76,7 +78,7 @@ public class DraftWorkOrderItem extends BaseEntity {
 		this.quantity = quantity;
 	}
 
-	public void setPrice(double price) {
+	public void setPrice(BigDecimal price) {
 		this.price = price;
 	}
 

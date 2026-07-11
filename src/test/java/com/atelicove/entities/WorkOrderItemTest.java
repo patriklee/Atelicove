@@ -15,7 +15,7 @@ class WorkOrderItemTest {
     @Test
     void constructorSetsItemDetails() {
         WorkOrder workOrder = new WorkOrder();
-        WorkOrderItem item = new WorkOrderItem("Replacement valve", 3, 24.99, ItemType.MATERIAL, workOrder);
+        WorkOrderItem item = new WorkOrderItem("Replacement valve", 3, new java.math.BigDecimal("24.99"), ItemType.MATERIAL, workOrder);
 
         assertAll(
                 () -> assertEquals("Replacement valve", item.getItemName()),
@@ -33,7 +33,7 @@ class WorkOrderItemTest {
         item.setWorkOrderItemID(15);
         item.setItemName("Labor");
         item.setQuantity(2);
-        item.setPrice(85.50);
+        item.setPrice(new java.math.BigDecimal("85.50"));
         item.setItemType(ItemType.LABOR);
         item.setWorkOrder(workOrder);
 

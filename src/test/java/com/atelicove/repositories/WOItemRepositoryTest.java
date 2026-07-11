@@ -25,7 +25,7 @@ class WOItemRepositoryTest {
     void saveAndFindByIdPersistsItemAndWorkOrderRelationship() {
         WorkOrder workOrder = workOrderRepository.saveAndFlush(new WorkOrder());
         WorkOrderItem item =
-                new WorkOrderItem("Replacement valve", 2, 24.99, ItemType.MATERIAL, workOrder);
+                new WorkOrderItem("Replacement valve", 2, new java.math.BigDecimal("24.99"), ItemType.MATERIAL, workOrder);
 
         WorkOrderItem saved = itemRepository.saveAndFlush(item);
 
@@ -45,7 +45,7 @@ class WOItemRepositoryTest {
     void deleteByIdRemovesItem() {
         WorkOrder workOrder = workOrderRepository.saveAndFlush(new WorkOrder());
         WorkOrderItem saved = itemRepository.saveAndFlush(
-                new WorkOrderItem("Labor", 1, 85.00, ItemType.LABOR, workOrder));
+                new WorkOrderItem("Labor", 1, new java.math.BigDecimal("85.00"), ItemType.LABOR, workOrder));
 
         itemRepository.deleteById(saved.getWorkOrderItemID());
         itemRepository.flush();

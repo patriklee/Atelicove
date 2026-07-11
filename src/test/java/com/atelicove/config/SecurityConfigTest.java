@@ -63,6 +63,14 @@ class SecurityConfigTest {
     }
 
     @Test
+    void unauthenticatedMutationIsRejected() throws Exception {
+        mockMvc.perform(post("/workorders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void adminMethodRejectsWorkerAndAllowsAdmin() throws Exception {
         mockMvc.perform(get("/workers")
                         .with(user("worker").roles("WORKER")))

@@ -136,7 +136,7 @@ public class WorkOrderServiceTest {
         WorkOrderItem item = new WorkOrderItem();
         item.setItemName("Inspection");
         item.setQuantity(1);
-        item.setPrice(100);
+        item.setPrice(new java.math.BigDecimal("100"));
         item.setItemType(ItemType.LABOR);
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
         when(workOrderRepository.save(workOrder)).thenReturn(workOrder);

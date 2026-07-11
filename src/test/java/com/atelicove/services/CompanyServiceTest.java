@@ -100,6 +100,22 @@ class CompanyServiceTest {
     }
 
     @Test
+    void softArchivePreservesHistoricalWorkOrderRelationship() {
+        Company company = new Company();
+        company.setCompanyID(1);
+        WorkOrder completed = new WorkOrder();
+        completed.setStatus(WorkOrderStatus.COMPLETE);
+        completed.setCompany(company);
+        when(companyRepository.findById(1)).thenReturn(Optional.of(company));
+        when(workOrderRepository.findByCompany_CompanyID(1)).thenReturn(List.of(completed));
+
+        companyService.archiveById(1);
+
+        assertSame(company, completed.getCompany());
+        verify(companyRepository).save(company);
+    }
+
+    @Test
     void restoreByIdClearsArchiveFields() {
         Company company = new Company();
         company.setArchived(true);

@@ -1,9 +1,12 @@
 package com.atelicove.entities;
 
+import java.math.BigDecimal;
+
 import jakarta.persistence.*;
 
 import com.atelicove.enums.ItemType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 
 @Entity
@@ -12,16 +15,17 @@ public class WorkOrderItem extends BaseEntity {
 	
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) //AutoGenerates an ID
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private int workOrderItemID;
     
-    @Column(nullable = false)
+    @Column(nullable = false, length = 255)
     private String itemName;
 
     @Column(nullable = false)
     private int quantity;
 
-    @Column(nullable = false)
-    private double price;
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal price;
 	
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -34,11 +38,11 @@ public class WorkOrderItem extends BaseEntity {
 
 	public WorkOrderItem() {}
 
-	public WorkOrderItem(String itemName, int quantity, double price, WorkOrder workOrder) {
+	public WorkOrderItem(String itemName, int quantity, BigDecimal price, WorkOrder workOrder) {
 		this(itemName, quantity, price, ItemType.OTHER, workOrder);
 	}
 	
-	public WorkOrderItem(String itemName, int quantity, double price, ItemType itemType, WorkOrder workOrder) {
+	public WorkOrderItem(String itemName, int quantity, BigDecimal price, ItemType itemType, WorkOrder workOrder) {
 		this.itemName = itemName;
 		this.quantity = quantity;
 		this.price = price;
@@ -56,7 +60,7 @@ public class WorkOrderItem extends BaseEntity {
 	public int getQuantity() {
 		return quantity;
 	}
-	public double getPrice() {
+	public BigDecimal getPrice() {
 		return price;
 	}
 	
@@ -80,7 +84,7 @@ public class WorkOrderItem extends BaseEntity {
 		this.quantity = quantity;
 	}
 
-	public void setPrice(double price) {
+	public void setPrice(BigDecimal price) {
 		this.price = price;
 	}
 	

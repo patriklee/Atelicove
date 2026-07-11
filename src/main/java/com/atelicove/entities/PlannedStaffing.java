@@ -37,6 +37,11 @@ public class PlannedStaffing {
 	@JoinColumn(name = "project_id")
 	private Project project;
 
+	@JsonIgnore
+	@ManyToOne
+	@JoinColumn(name = "draft_project_id")
+	private DraftProject draftProject;
+
 	@OneToMany(mappedBy = "plannedStaffing", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<StaffingSlot> staffingSlots = new ArrayList<>();
 
@@ -72,6 +77,10 @@ public class PlannedStaffing {
 		return project;
 	}
 
+	public DraftProject getDraftProject() {
+		return draftProject;
+	}
+
 	public List<StaffingSlot> getStaffingSlots() {
 		return staffingSlots;
 	}
@@ -105,6 +114,10 @@ public class PlannedStaffing {
 
 	public void setProject(Project project) {
 		this.project = project;
+	}
+
+	public void setDraftProject(DraftProject draftProject) {
+		this.draftProject = draftProject;
 	}
 
 	public void setStaffingSlots(List<StaffingSlot> staffingSlots) {

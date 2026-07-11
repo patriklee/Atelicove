@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import com.atelicove.dto.PasswordResetRequest;
 import com.atelicove.entities.Worker;
 import com.atelicove.services.WorkerService;
+import com.atelicove.services.AuthorizationService;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,9 +18,11 @@ import java.util.Optional;
 public class WorkerController {
 
     private final WorkerService workerService;
+    private final AuthorizationService authorizationService;
 
-    public WorkerController(WorkerService WorkerService) {
+    public WorkerController(WorkerService WorkerService, AuthorizationService authorizationService) {
         this.workerService = WorkerService;
+        this.authorizationService = authorizationService;
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -41,7 +44,8 @@ public class WorkerController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Worker> getWorkerById(@PathVariable Integer id) {
+    public ResponseEntity<Worker> getWorkerById(@PathVariable Integer id, Authentication authentication) {
+        authorizationService.requireOwnWorkerOrAdmin(id, authentication);
     	
     	Optional<Worker> worker = workerService.findById(id);
     	
@@ -53,11 +57,12 @@ public class WorkerController {
     }
 
     @GetMapping("/username/{username}")
-    public ResponseEntity<Worker> getWorkerByUsername(@PathVariable String username) {
+    public ResponseEntity<Worker> getWorkerByUsername(@PathVariable String username, Authentication authentication) {
     	
         Optional<Worker> worker = workerService.findByUsername(username);
 
         if (worker.isPresent()) {
+            authorizationService.requireOwnWorkerOrAdmin(worker.get().getWorkerID(), authentication);
             return ResponseEntity.ok(worker.get());
         }
         
@@ -87,15 +92,7 @@ public class WorkerController {
      */
     @PutMapping("/{id}/profile")
     public Worker updateProfile(@PathVariable Integer id, @RequestBody Worker worker, Authentication authentication) {
-        Optional<Worker> currentWorker = workerService.findByUsername(authentication.getName());
-        boolean isOwnProfile = currentWorker.isPresent() && currentWorker.get().getWorkerID() == id;
-        boolean isAdmin = authentication.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
-
-        if (!isOwnProfile && !isAdmin) {
-            throw new IllegalStateException("Only your own profile can be updated");
-        }
-
+        authorizationService.requireOwnWorkerOrAdmin(id, authentication);
     	return workerService.updateProfile(id, worker);
     }
 

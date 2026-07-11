@@ -3,6 +3,7 @@ package com.atelicove.entities;
 import com.atelicove.enums.DocumentType;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(name = "work_order_document")
@@ -10,17 +11,20 @@ public class Document extends BaseEntity {
 	
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private int documentID;
 
     @ManyToOne
     @JoinColumn(name = "work_order_id")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private WorkOrder workOrder;
 
     @ManyToOne
     @JoinColumn(name = "project_id")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Project project;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 255)
     private String fileName;
 
     @Enumerated(EnumType.STRING)
@@ -33,9 +37,10 @@ public class Document extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "uploaded_by_worker_id", nullable = false)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Worker uploadedByWorker;
     
-    @Column(nullable = false)
+    @Column(nullable = false, length = 100)
     private String mimeType;
     
     private long fileSize;
@@ -149,4 +154,12 @@ public class Document extends BaseEntity {
 	public void setFileSize(long fileSize) {
 		this.fileSize = fileSize;
 	}
+
+    @PrePersist
+    @PreUpdate
+    private void validateSingleParent() {
+        if ((workOrder == null) == (project == null)) {
+            throw new IllegalStateException("Document must belong to exactly one work order or project");
+        }
+    }
 }

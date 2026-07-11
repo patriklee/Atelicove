@@ -129,7 +129,7 @@ class EntityRelationshipZombiesTest {
         void oneItemPersistsWithItsRequiredWorkOrder() {
             WorkOrder workOrder = workOrderRepository.saveAndFlush(new WorkOrder());
             WorkOrderItem item = itemRepository.saveAndFlush(
-                    new WorkOrderItem("Labor", 1, 85.00, workOrder));
+                    new WorkOrderItem("Labor", 1, new java.math.BigDecimal("85.00"), workOrder));
             int itemId = item.getWorkOrderItemID();
             int workOrderId = workOrder.getWorkOrderID();
             clearPersistenceContext();
@@ -167,9 +167,9 @@ class EntityRelationshipZombiesTest {
             WorkOrder workOrder = new WorkOrder();
             workOrder.addWorker(firstWorker);
             workOrder.addWorker(secondWorker);
-            workOrder.addItem(new WorkOrderItem("Labor", 2, 75.00, workOrder));
-            workOrder.addItem(new WorkOrderItem("Parts", 3, 20.00, workOrder));
-            workOrder.addItem(new WorkOrderItem("Travel", 1, 35.00, workOrder));
+            workOrder.addItem(new WorkOrderItem("Labor", 2, new java.math.BigDecimal("75.00"), workOrder));
+            workOrder.addItem(new WorkOrderItem("Parts", 3, new java.math.BigDecimal("20.00"), workOrder));
+            workOrder.addItem(new WorkOrderItem("Travel", 1, new java.math.BigDecimal("35.00"), workOrder));
             workOrder = workOrderRepository.saveAndFlush(workOrder);
             int workOrderId = workOrder.getWorkOrderID();
             clearPersistenceContext();
@@ -189,7 +189,7 @@ class EntityRelationshipZombiesTest {
         @Test
         void removingItemDeletesOrphanDatabaseRow() {
             WorkOrder workOrder = new WorkOrder();
-            WorkOrderItem item = new WorkOrderItem("Temporary item", 1, 10.00, workOrder);
+            WorkOrderItem item = new WorkOrderItem("Temporary item", 1, new java.math.BigDecimal("10.00"), workOrder);
             workOrder.addItem(item);
             workOrder = workOrderRepository.saveAndFlush(workOrder);
             int workOrderId = workOrder.getWorkOrderID();
@@ -207,7 +207,7 @@ class EntityRelationshipZombiesTest {
         @Test
         void deletingWorkOrderCascadesToItsItems() {
             WorkOrder workOrder = new WorkOrder();
-            workOrder.addItem(new WorkOrderItem("Cascaded item", 1, 10.00, workOrder));
+            workOrder.addItem(new WorkOrderItem("Cascaded item", 1, new java.math.BigDecimal("10.00"), workOrder));
             workOrder = workOrderRepository.saveAndFlush(workOrder);
             int itemId = workOrder.getItems().get(0).getWorkOrderItemID();
 
@@ -302,7 +302,7 @@ class EntityRelationshipZombiesTest {
             WorkOrderItem item = new WorkOrderItem();
             item.setItemName("Invalid item");
             item.setQuantity(1);
-            item.setPrice(10.00);
+            item.setPrice(new java.math.BigDecimal("10.00"));
 
             assertThatThrownBy(() -> itemRepository.saveAndFlush(item))
                     .isInstanceOf(RuntimeException.class);
@@ -329,7 +329,7 @@ class EntityRelationshipZombiesTest {
             WorkOrder workOrder = new WorkOrder();
             workOrder.setCompany(company);
             workOrder.addWorker(worker);
-            workOrder.addItem(new WorkOrderItem("Service", 2, 50.00, workOrder));
+            workOrder.addItem(new WorkOrderItem("Service", 2, new java.math.BigDecimal("50.00"), workOrder));
             workOrder = workOrderRepository.saveAndFlush(workOrder);
 
             Document document = new Document(

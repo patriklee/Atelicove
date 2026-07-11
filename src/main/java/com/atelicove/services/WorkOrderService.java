@@ -73,22 +73,21 @@ public class WorkOrderService{
     }
 
     public List<DraftWorkOrder> findDrafts() {
-        return draftWorkOrderRepository.findAll().stream()
-                .filter(draftWorkOrder -> !draftWorkOrder.isArchived())
-                .filter(draftWorkOrder -> draftWorkOrder.getProject() != null && !draftWorkOrder.getProject().isArchived())
+        return draftWorkOrderRepository.findByArchivedFalse().stream()
+                .filter(draftWorkOrder -> draftWorkOrder.getDraftProject() == null
+                        || !draftWorkOrder.getDraftProject().isArchived())
                 .toList();
     }
 
     public Optional<DraftWorkOrder> findDraftById(Integer id) {
         return draftWorkOrderRepository.findById(id)
                 .filter(draftWorkOrder -> !draftWorkOrder.isArchived())
-                .filter(draftWorkOrder -> draftWorkOrder.getProject() != null && !draftWorkOrder.getProject().isArchived());
+                .filter(draftWorkOrder -> draftWorkOrder.getDraftProject() == null
+                        || !draftWorkOrder.getDraftProject().isArchived());
     }
 
     public List<DraftWorkOrder> findArchivedDrafts() {
-        return draftWorkOrderRepository.findAll().stream()
-                .filter(DraftWorkOrder::isArchived)
-                .toList();
+        return draftWorkOrderRepository.findByArchivedTrue();
     }
 
     public List<WorkOrder> findAll() {
@@ -108,9 +107,20 @@ public class WorkOrderService{
      * @return the saved work order
      */
     public WorkOrder createWorkOrder(WorkOrder workOrder) {
+		if (workOrder == null) {
+			throw new IllegalArgumentException("Work order is required");
+		}
+		validateDateRange(workOrder.getStartDateTime(), workOrder.getEndDateTime());
     	workOrder.setWorkOrderID(0);
     	workOrder.setArchived(false);
-    	workOrder.setArchivedAt(null);
+		workOrder.setArchivedAt(null);
+		workOrder.setProject(null);
+
+		for (WorkOrderItem item : workOrder.getItems()) {
+			validateItem(item.getItemName(), item.getQuantity(), item.getPrice(), item.getItemType());
+			item.setWorkOrderItemID(0);
+			item.setWorkOrder(workOrder);
+		}
 
     	if (workOrder.getWorkers() == null || workOrder.getWorkers().isEmpty()) {
     		workOrder.setStatus(WorkOrderStatus.OPEN);
@@ -252,9 +262,7 @@ public class WorkOrderService{
         WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
         ensureWorkOrderCanBeEdited(workOrder);
 
-        if (item.getItemType() == null) {
-            throw new IllegalArgumentException("Item type is required");
-        }
+        validateItem(item.getItemName(), item.getQuantity(), item.getPrice(), item.getItemType());
         item.setWorkOrderItemID(0);
         workOrder.addItem(item);
 
@@ -266,6 +274,7 @@ public class WorkOrderService{
         WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
         ensureWorkOrderCanBeEdited(workOrder);
 
+        validateItem(request.getItemName(), request.getQuantity(), request.getPrice(), request.getItemType());
         WorkOrderItem item = workOrder.getItems().stream()
                 .filter(existingItem -> existingItem.getWorkOrderItemID() == itemID)
                 .findFirst()
@@ -298,9 +307,7 @@ public class WorkOrderService{
     public DraftWorkOrder addDraftItem(Integer draftWorkOrderID, DraftWorkOrderItem item) {
         DraftWorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
 
-        if (item.getItemType() == null) {
-            throw new IllegalArgumentException("Item type is required");
-        }
+        validateItem(item.getItemName(), item.getQuantity(), item.getPrice(), item.getItemType());
         item.setDraftWorkOrderItemID(0);
         draftWorkOrder.addItem(item);
 
@@ -311,6 +318,7 @@ public class WorkOrderService{
     public DraftWorkOrder updateDraftItem(Integer draftWorkOrderID, Integer itemID, DraftWorkOrderItem request) {
         DraftWorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
 
+        validateItem(request.getItemName(), request.getQuantity(), request.getPrice(), request.getItemType());
         DraftWorkOrderItem item = draftWorkOrder.getItems().stream()
                 .filter(existingItem -> existingItem.getDraftWorkOrderItemID() == itemID)
                 .findFirst()
@@ -323,6 +331,27 @@ public class WorkOrderService{
 
         return draftWorkOrderRepository.save(draftWorkOrder);
     }
+
+    private void validateItem(String itemName, int quantity, java.math.BigDecimal price, com.atelicove.enums.ItemType itemType) {
+        if (itemName == null || itemName.isBlank()) {
+            throw new IllegalArgumentException("Item name is required");
+        }
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Item quantity must be greater than zero");
+        }
+        if (price == null || price.signum() < 0) {
+            throw new IllegalArgumentException("Item price is required and cannot be negative");
+        }
+        if (itemType == null) {
+            throw new IllegalArgumentException("Item type is required");
+        }
+    }
+
+	private void validateDateRange(LocalDateTime startDateTime, LocalDateTime endDateTime) {
+		if (startDateTime != null && endDateTime != null && endDateTime.isBefore(startDateTime)) {
+			throw new IllegalArgumentException("End date cannot precede start date");
+		}
+	}
 
     @Transactional
     public DraftWorkOrder deleteDraftItem(Integer draftWorkOrderID, Integer itemID) {
@@ -343,7 +372,30 @@ public class WorkOrderService{
         DraftWorkOrder draftWorkOrder = draftWorkOrderRepository.findById(draftWorkOrderID)
                 .orElseThrow(() -> new IllegalArgumentException("Draft work order not found"));
         draftWorkOrder.setArchived(true);
+        draftWorkOrder.setArchivedAt(LocalDateTime.now());
         draftWorkOrderRepository.save(draftWorkOrder);
+    }
+
+    @Transactional
+    public DraftWorkOrder restoreDraftById(Integer draftWorkOrderID) {
+        DraftWorkOrder draftWorkOrder = draftWorkOrderRepository.findById(draftWorkOrderID)
+                .orElseThrow(() -> new IllegalArgumentException("Draft work order not found"));
+        draftWorkOrder.setArchived(false);
+        draftWorkOrder.setArchivedAt(null);
+        return draftWorkOrderRepository.save(draftWorkOrder);
+    }
+
+    @Transactional
+    public void deleteDraftPermanentlyById(Integer draftWorkOrderID) {
+        DraftWorkOrder draftWorkOrder = draftWorkOrderRepository.findById(draftWorkOrderID)
+                .orElseThrow(() -> new IllegalArgumentException("Draft work order not found"));
+        if (!draftWorkOrder.isArchived()) {
+            throw new IllegalStateException("Only archived draft work orders can be permanently deleted");
+        }
+        if (draftWorkOrder.getDraftProject() != null) {
+            draftWorkOrder.getDraftProject().removeDraftWorkOrder(draftWorkOrder);
+        }
+        draftWorkOrderRepository.delete(draftWorkOrder);
     }
 
     /**

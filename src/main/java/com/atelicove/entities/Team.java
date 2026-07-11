@@ -1,10 +1,10 @@
 package com.atelicove.entities;
 
-import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.Column;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -21,9 +21,8 @@ public class Team {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private int teamID;
 
+	@Column(length = 255)
 	private String teamName;
-
-	private LocalDateTime projectStartedAt;
 
 	@ManyToMany
 	@JoinTable(
@@ -42,10 +41,6 @@ public class Team {
 		return teamName;
 	}
 
-	public LocalDateTime getProjectStartedAt() {
-		return projectStartedAt;
-	}
-
 	public Set<Worker> getWorkers() {
 		return workers;
 	}
@@ -56,10 +51,6 @@ public class Team {
 
 	public void setTeamName(String teamName) {
 		this.teamName = teamName;
-	}
-
-	public void setProjectStartedAt(LocalDateTime projectStartedAt) {
-		this.projectStartedAt = projectStartedAt;
 	}
 
 	public void setWorkers(Set<Worker> workers) {

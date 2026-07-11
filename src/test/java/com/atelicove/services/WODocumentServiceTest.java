@@ -16,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.core.Authentication;
 
 import com.atelicove.entities.Project;
 import com.atelicove.entities.WorkOrder;
@@ -43,6 +44,12 @@ class WODocumentServiceTest {
 
     @Mock
     private ProjectRepository projectRepository;
+
+    @Mock
+    private AuthorizationService authorizationService;
+
+    @Mock
+    private Authentication authentication;
 
     @InjectMocks
     private WODocumentService service;
@@ -89,11 +96,11 @@ class WODocumentServiceTest {
                 "file", "inspection.pdf", "application/pdf", new byte[] { 1, 2, 3 });
 
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
-        when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse("plee")).thenReturn(Optional.of(worker));
+        when(authorizationService.requireWorkOrderAccess(1, authentication)).thenReturn(worker);
         when(repository.save(any(Document.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Document saved = service.upload(1, file, DocumentType.OTHER, "plee");
+        Document saved = service.upload(1, file, DocumentType.OTHER, authentication);
 
         assertEquals("inspection.pdf", saved.getFileName());
         assertEquals("application/pdf", saved.getMimeType());
@@ -112,11 +119,11 @@ class WODocumentServiceTest {
                 "file", "proposal.pdf", "application/pdf", new byte[] { 4, 5, 6 });
 
         when(projectRepository.findById(7)).thenReturn(Optional.of(project));
-        when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse("plee")).thenReturn(Optional.of(worker));
+        when(authorizationService.requireProjectAccess(7, authentication)).thenReturn(worker);
         when(repository.save(any(Document.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Document saved = service.uploadToProject(7, file, DocumentType.REPORT, "plee");
+        Document saved = service.uploadToProject(7, file, DocumentType.REPORT, authentication);
 
         assertEquals("proposal.pdf", saved.getFileName());
         assertEquals(DocumentType.REPORT, saved.getDocumentType());
@@ -127,13 +134,13 @@ class WODocumentServiceTest {
     @Test
     void uploadToProjectRejectsActiveProject() {
         Project project = new Project();
-        project.setProjectStatus(ProjectStatus.ACTIVE);
+        project.setProjectStatus(ProjectStatus.OPEN);
         MockMultipartFile file = new MockMultipartFile(
                 "file", "proposal.pdf", "application/pdf", new byte[] { 4 });
 
         when(projectRepository.findById(7)).thenReturn(Optional.of(project));
 
-        assertThrows(IllegalStateException.class, () -> service.uploadToProject(7, file, DocumentType.REPORT, "plee"));
+        assertThrows(IllegalStateException.class, () -> service.uploadToProject(7, file, DocumentType.REPORT, authentication));
     }
 
     @Test
@@ -145,7 +152,7 @@ class WODocumentServiceTest {
 
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
 
-        assertThrows(IllegalStateException.class, () -> service.upload(1, file, DocumentType.OTHER, "plee"));
+        assertThrows(IllegalStateException.class, () -> service.upload(1, file, DocumentType.OTHER, authentication));
     }
 
     @Test
@@ -157,8 +164,8 @@ class WODocumentServiceTest {
                 "file", "song.mp3", "audio/mpeg", new byte[] { 1 });
 
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
-        when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse("plee")).thenReturn(Optional.of(worker));
+        when(authorizationService.requireWorkOrderAccess(1, authentication)).thenReturn(worker);
 
-        assertThrows(IllegalArgumentException.class, () -> service.upload(1, file, DocumentType.OTHER, "plee"));
+        assertThrows(IllegalArgumentException.class, () -> service.upload(1, file, DocumentType.OTHER, authentication));
     }
 }

@@ -4,13 +4,16 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.MappedSuperclass;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @MappedSuperclass
 public abstract class ArchivableEntity extends BaseEntity {
 	
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(nullable = false)
     private boolean archived = false;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column
     private LocalDateTime archivedAt;
 

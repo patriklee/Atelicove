@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import com.atelicove.dto.DocumentDTO;
 import com.atelicove.services.WODocumentService;
@@ -17,6 +18,7 @@ public class DocumentController {
         this.service = service;
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/documents")
     public List<DocumentDTO> getAllDocuments() {
         return service.findAll().stream()

@@ -19,6 +19,7 @@ public class WorkOrder extends ArchivableEntity {
 	
 	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private int workOrderID;
     
 	@ManyToMany
@@ -35,6 +36,7 @@ public class WorkOrder extends ArchivableEntity {
 
 	@ManyToOne
 	@JoinColumn(name = "project_id")
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	@JsonIgnoreProperties({
 		"associatedActiveProject",
 		"associatedDrafts",
@@ -57,7 +59,9 @@ public class WorkOrder extends ArchivableEntity {
     
 	private LocalDateTime endDateTime;
 	private String comment;
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private Integer previousProjectID;
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private String previousProjectName;
 	
 	// get all items in WO

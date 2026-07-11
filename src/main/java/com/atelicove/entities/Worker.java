@@ -15,6 +15,7 @@ public class Worker extends ArchivableEntity {
 	
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) //AutoGenerates an ID
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private int workerID;
     
     private String roleTitle;
@@ -47,6 +48,7 @@ public class Worker extends ArchivableEntity {
 
     private boolean isAdmin;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 

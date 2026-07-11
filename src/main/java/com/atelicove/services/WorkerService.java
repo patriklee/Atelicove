@@ -3,6 +3,7 @@ package com.atelicove.services;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Locale;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class WorkerService {
      * @return the saved worker with an encoded password
      */
     public Worker createWorker(Worker worker) {
+		normalizeIdentity(worker);
     	validateWorkerRequiredFields(worker);
     	validateUniqueUsername(worker.getWorkerUser(), null);
     	validateUniqueEmail(worker.getWorkerEmail(), null);
@@ -82,21 +84,26 @@ public class WorkerService {
      * @param request fields to apply
      * @return the saved worker
      */
-    public Worker updateWorker(Integer id, Worker request) {
+	public Worker updateWorker(Integer id, Worker request) {
     	Worker worker = workerRepository.findById(id)
     			.orElseThrow(() -> new IllegalArgumentException("Worker not found"));
 
     	updateWorkerProfileFields(worker, request);
 
     	if (request.getWorkerUser() != null) {
-    		if (request.getWorkerUser().isBlank()) {
+		String username = request.getWorkerUser().trim();
+		if (username.isBlank()) {
     			throw new IllegalArgumentException("Username is required");
     		}
-    		validateUniqueUsername(request.getWorkerUser(), id);
-    		worker.setWorkerUser(request.getWorkerUser());
+		validateUniqueUsername(username, id);
+		worker.setWorkerUser(username);
     	}
 
-    	worker.setAdmin(request.isAdmin());
+	if (worker.isAdmin() && !request.isAdmin() && !worker.isArchived()
+			&& workerRepository.countByIsAdminTrueAndArchivedFalse() <= 1) {
+		throw new IllegalStateException("The final active administrator cannot be demoted");
+	}
+	worker.setAdmin(request.isAdmin());
 
     	return workerRepository.save(worker);
     }
@@ -145,11 +152,12 @@ public class WorkerService {
     	}
 
     	if (request.getWorkerEmail() != null) {
-    		if (request.getWorkerEmail().isBlank()) {
+		String email = normalizeEmail(request.getWorkerEmail());
+		if (email.isBlank()) {
     			throw new IllegalArgumentException("Email is required");
     		}
-    		validateUniqueEmail(request.getWorkerEmail(), worker.getWorkerID());
-    		worker.setWorkerEmail(request.getWorkerEmail());
+		validateUniqueEmail(email, worker.getWorkerID());
+		worker.setWorkerEmail(email);
     	}
 
         if (request.getRoleTitle() != null) {
@@ -160,6 +168,19 @@ public class WorkerService {
             worker.setRoleDescription(request.getRoleDescription());
         }
     }
+
+	private void normalizeIdentity(Worker worker) {
+		if (worker.getWorkerUser() != null) {
+			worker.setWorkerUser(worker.getWorkerUser().trim());
+		}
+		if (worker.getWorkerEmail() != null) {
+			worker.setWorkerEmail(normalizeEmail(worker.getWorkerEmail()));
+		}
+	}
+
+	private String normalizeEmail(String email) {
+		return email.trim().toLowerCase(Locale.ROOT);
+	}
 
     /**
      * Archives a worker only when they are not assigned to any unfinished work
@@ -176,6 +197,7 @@ public class WorkerService {
     	}
     	
     	Worker worker = result.get();
+        ensureNotFinalActiveAdministrator(worker, "archived");
         boolean hasOpenWorkOrders = worker.getWorkOrders().stream()
                 .anyMatch(workOrder -> workOrder.getStatus() != WorkOrderStatus.COMPLETE);
 
@@ -203,7 +225,8 @@ public class WorkerService {
     	Worker worker = workerRepository.findById(id)
     			.orElseThrow(() -> new IllegalArgumentException("Worker not found"));
 
-    	if (worker.isArchived()) {
+	ensureNotFinalActiveAdministrator(worker, "deleted");
+	if (worker.isArchived()) {
     		throw new IllegalStateException("Archived workers can only be restored");
     	}
 
@@ -212,6 +235,13 @@ public class WorkerService {
     	}
 
     	workerRepository.delete(worker);
+    }
+
+    private void ensureNotFinalActiveAdministrator(Worker worker, String operation) {
+        if (worker.isAdmin() && !worker.isArchived()
+                && workerRepository.countByIsAdminTrueAndArchivedFalse() <= 1) {
+            throw new IllegalStateException("The final active administrator cannot be " + operation);
+        }
     }
     
     /**

@@ -1,6 +1,5 @@
 package com.atelicove.services;
 
-import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -111,13 +110,6 @@ public class TeamService {
 			}
 			project.addTeam(team);
 
-			if (project.getProjectStatus() == ProjectStatus.ACTIVE && team.getProjectStartedAt() == null) {
-				team.setProjectStartedAt(LocalDateTime.now());
-			}
-		}
-
-		if (teamDTO.getProjectStartedAt() != null) {
-			team.setProjectStartedAt(teamDTO.getProjectStartedAt());
 		}
 
 		if (teamDTO.getWorkerIDs() != null) {
@@ -143,7 +135,7 @@ public class TeamService {
 	}
 
 	private void removeTeamWorkersFromActiveProjectWorkOrders(Project project, Team team) {
-		if (project.getProjectStatus() != ProjectStatus.ACTIVE) {
+		if (project.getProjectStatus() != ProjectStatus.OPEN) {
 			return;
 		}
 
@@ -180,7 +172,7 @@ public class TeamService {
 
 		for (Project project : projectRepository.findAll()) {
 			if (!project.getTeams().contains(team) ||
-					project.getProjectStatus() != ProjectStatus.ACTIVE) {
+					project.getProjectStatus() != ProjectStatus.OPEN) {
 				continue;
 			}
 

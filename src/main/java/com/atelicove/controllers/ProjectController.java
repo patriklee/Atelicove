@@ -2,10 +2,11 @@ package com.atelicove.controllers;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import com.atelicove.services.AuthorizationService;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,9 +27,11 @@ import com.atelicove.services.ProjectService;
 public class ProjectController {
 
 	private final ProjectService projectService;
+	private final AuthorizationService authorizationService;
 
-	public ProjectController(ProjectService projectService) {
+	public ProjectController(ProjectService projectService, AuthorizationService authorizationService) {
 		this.projectService = projectService;
+		this.authorizationService = authorizationService;
 	}
 
 	@GetMapping
@@ -46,20 +49,11 @@ public class ProjectController {
 		return projectService.findArchived();
 	}
 
-	@GetMapping("/drafts")
-	public List<Project> getDraftProjects() {
-		return projectService.findDrafts();
-	}
-
 	@GetMapping("/{id}")
 	public ResponseEntity<Project> getProjectById(@PathVariable Integer id) {
-		Optional<Project> project = projectService.findById(id);
-
-		if (project.isPresent()) {
-			return ResponseEntity.ok(project.get());
-		}
-
-		return ResponseEntity.notFound().build();
+		return projectService.findById(id)
+				.map(ResponseEntity::ok)
+				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
 
 	@PreAuthorize("hasRole('ADMIN')")
@@ -75,23 +69,14 @@ public class ProjectController {
 	}
 
 	@PreAuthorize("hasRole('ADMIN')")
-	@PutMapping("/{id}/activate")
-	public Project activateProject(
-			@PathVariable Integer id,
-			@RequestBody(required = false) Map<String, Object> request) {
-		List<Integer> activateDraftWorkOrderIDs = optionalIntegerList(
-				request == null ? null : request.get("activateDraftWorkOrderIDs"));
-		return projectService.activateProject(id, activateDraftWorkOrderIDs);
-	}
-
-	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping("/{id}/complete")
 	public Project completeProject(@PathVariable Integer id) {
 		return projectService.completeProject(id);
 	}
 
 	@PutMapping("/{id}/submit")
-	public Project submitForReview(@PathVariable Integer id) {
+	public Project submitForReview(@PathVariable Integer id, Authentication authentication) {
+		authorizationService.requireProjectAccess(id, authentication);
 		return projectService.submitForReview(id);
 	}
 
@@ -122,45 +107,15 @@ public class ProjectController {
 		return projectService.removeWorkOrder(id, workOrderID);
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
-	@PostMapping("/{id}/draft-workorders")
-	public Project createDraftWorkOrderForTeam(@PathVariable Integer id, @RequestBody Map<String, Object> request) {
-		Integer workOrderID = optionalInteger(request.get("workOrderID"));
-		Integer companyID = optionalInteger(request.get("companyID"));
-		String comment = request.get("comment") == null ? null : request.get("comment").toString();
-		if (workOrderID != null) {
-			return projectService.createDraftWorkOrderFromExisting(id, workOrderID, comment);
-		}
-		Integer teamID = requiredInteger(request.get("teamID"), "Team is required");
-		return projectService.createDraftWorkOrderForTeam(id, teamID, companyID, comment);
-	}
-
-	@PreAuthorize("hasRole('ADMIN')")
-	@DeleteMapping("/{id}/draft-workorders/{draftWorkOrderID}")
-	public Project removeDraftWorkOrder(@PathVariable Integer id, @PathVariable Integer draftWorkOrderID) {
-		return projectService.removeDraftWorkOrder(id, draftWorkOrderID);
-	}
-
-	@PreAuthorize("hasRole('ADMIN')")
-	@PutMapping("/{id}/draft-workorders/{draftWorkOrderID}")
-	public Project updateDraftWorkOrder(
-			@PathVariable Integer id,
-			@PathVariable Integer draftWorkOrderID,
-			@RequestBody Map<String, Object> request) {
-		Integer companyID = optionalInteger(request.get("companyID"));
-		Integer teamID = optionalInteger(request.get("teamID"));
-		String comment = request.get("comment") == null ? null : request.get("comment").toString();
-		return projectService.updateDraftWorkOrder(id, draftWorkOrderID, companyID, comment, teamID, request.containsKey("teamID"));
-	}
-
 	@PostMapping("/{id}/comments")
-	public Project addComment(@PathVariable Integer id, @RequestBody ProjectComments comment) {
-		Integer authorWorkerID = comment.getAuthor() == null ? null : comment.getAuthor().getWorkerID();
-		return projectService.addComment(id, comment, authorWorkerID);
+	public Project addComment(@PathVariable Integer id, @RequestBody ProjectComments comment, Authentication authentication) {
+		var currentWorker = authorizationService.requireProjectAccess(id, authentication);
+		return projectService.addComment(id, comment, currentWorker.getWorkerID());
 	}
 
 	@PostMapping("/{id}/action-items")
-	public Project addActionItem(@PathVariable Integer id, @RequestBody ProjectActionItem actionItem) {
+	public Project addActionItem(@PathVariable Integer id, @RequestBody ProjectActionItem actionItem, Authentication authentication) {
+		authorizationService.requireProjectAccess(id, authentication);
 		return projectService.addActionItem(id, actionItem);
 	}
 
@@ -168,7 +123,8 @@ public class ProjectController {
 	public Project updateActionItem(
 			@PathVariable Integer id,
 			@PathVariable Integer actionItemID,
-			@RequestBody ProjectActionItem actionItem) {
+			@RequestBody ProjectActionItem actionItem, Authentication authentication) {
+		authorizationService.requireProjectAccess(id, authentication);
 		return projectService.updateActionItem(id, actionItemID, actionItem);
 	}
 
@@ -176,12 +132,14 @@ public class ProjectController {
 	public Project completeActionItem(
 			@PathVariable Integer id,
 			@PathVariable Integer actionItemID,
-			@RequestBody Map<String, Boolean> request) {
+			@RequestBody Map<String, Boolean> request, Authentication authentication) {
+		authorizationService.requireProjectAccess(id, authentication);
 		return projectService.setActionItemCompleted(id, actionItemID, Boolean.TRUE.equals(request.get("completed")));
 	}
 
 	@DeleteMapping("/{id}/action-items/{actionItemID}")
-	public Project removeActionItem(@PathVariable Integer id, @PathVariable Integer actionItemID) {
+	public Project removeActionItem(@PathVariable Integer id, @PathVariable Integer actionItemID, Authentication authentication) {
+		authorizationService.requireProjectAccess(id, authentication);
 		return projectService.removeActionItem(id, actionItemID);
 	}
 
@@ -216,14 +174,6 @@ public class ProjectController {
 		return projectService.count();
 	}
 
-	private Integer requiredInteger(Object value, String message) {
-		Integer result = optionalInteger(value);
-		if (result == null) {
-			throw new IllegalArgumentException(message);
-		}
-		return result;
-	}
-
 	private Integer optionalInteger(Object value) {
 		if (value == null || value.toString().isBlank()) {
 			return null;
@@ -232,15 +182,5 @@ public class ProjectController {
 			return number.intValue();
 		}
 		return Integer.valueOf(value.toString());
-	}
-
-	private List<Integer> optionalIntegerList(Object value) {
-		if (!(value instanceof List<?> list)) {
-			return List.of();
-		}
-		return list.stream()
-				.map(this::optionalInteger)
-				.filter(item -> item != null)
-				.toList();
 	}
 }

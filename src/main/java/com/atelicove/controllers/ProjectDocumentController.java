@@ -1,6 +1,5 @@
 package com.atelicove.controllers;
 
-import java.security.Principal;
 import java.util.List;
 
 import org.springframework.core.io.ByteArrayResource;
@@ -16,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.core.Authentication;
 
 import com.atelicove.dto.DocumentDTO;
 import com.atelicove.entities.Document;
@@ -33,8 +33,8 @@ public class ProjectDocumentController {
     }
 
     @GetMapping
-    public List<DocumentDTO> getDocuments(@PathVariable Integer projectID) {
-        return service.findByProject(projectID).stream()
+    public List<DocumentDTO> getDocuments(@PathVariable Integer projectID, Authentication authentication) {
+        return service.findByProject(projectID, authentication).stream()
                 .map(DocumentDTO::new)
                 .toList();
     }
@@ -44,17 +44,17 @@ public class ProjectDocumentController {
             @PathVariable Integer projectID,
             @RequestParam("file") MultipartFile file,
             @RequestParam("documentType") DocumentType documentType,
-            Principal principal) {
+            Authentication authentication) {
 
-        return new DocumentDTO(service.uploadToProject(projectID, file, documentType, principal.getName()));
+        return new DocumentDTO(service.uploadToProject(projectID, file, documentType, authentication));
     }
 
     @GetMapping("/{documentID}/download")
     public ResponseEntity<ByteArrayResource> downloadDocument(
             @PathVariable Integer projectID,
-            @PathVariable Integer documentID) {
+            @PathVariable Integer documentID, Authentication authentication) {
 
-        Document document = service.getRequiredProjectDocument(projectID, documentID);
+        Document document = service.getRequiredProjectDocument(projectID, documentID, authentication);
         ByteArrayResource resource = new ByteArrayResource(document.getDocumentData());
 
         return ResponseEntity.ok()
@@ -71,9 +71,9 @@ public class ProjectDocumentController {
     public ResponseEntity<Void> deleteDocument(
             @PathVariable Integer projectID,
             @PathVariable Integer documentID,
-            Principal principal) {
+            Authentication authentication) {
 
-        service.deleteFromProject(projectID, documentID, principal.getName());
+        service.deleteFromProject(projectID, documentID, authentication);
         return ResponseEntity.noContent().build();
     }
 }

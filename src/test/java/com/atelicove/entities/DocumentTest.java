@@ -68,7 +68,6 @@ class DocumentTest {
         document.setFileName("contract.txt");
         document.setDocumentType(DocumentType.CONTRACT);
         document.setDocumentData(data);
-        document.setCreatedAt(uploadedAt);
         document.setUploadedByWorker(worker);
         document.setMimeType("text/plain");
         document.setFileSize(data.length);
@@ -80,7 +79,6 @@ class DocumentTest {
                 () -> assertEquals("contract.txt", document.getFileName()),
                 () -> assertEquals(DocumentType.CONTRACT, document.getDocumentType()),
                 () -> assertArrayEquals(data, document.getDocumentData()),
-                () -> assertEquals(uploadedAt, document.getCreatedAt()),
                 () -> assertSame(worker, document.getUploadedByWorker()),
                 () -> assertEquals("text/plain", document.getMimeType()),
                 () -> assertEquals(data.length, document.getFileSize()));

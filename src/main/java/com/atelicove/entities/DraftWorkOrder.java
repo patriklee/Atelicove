@@ -3,17 +3,18 @@ package com.atelicove.entities;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.atelicove.enums.DraftProposalStatus;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
@@ -21,7 +22,7 @@ import jakarta.persistence.Transient;
 
 @Entity
 @Table(name = "draft_work_order")
-public class DraftWorkOrder {
+public class DraftWorkOrder extends ArchivableEntity {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,11 +32,6 @@ public class DraftWorkOrder {
 	@JoinColumn(name = "draft_project_id")
 	private DraftProject draftProject;
 
-	@ManyToOne(optional = false)
-	@JoinColumn(name = "project_id", nullable = false)
-	@JsonIgnore
-	private Project project;
-
 	private Integer sourceWorkOrderID;
 	private Integer plannedTeamID;
 	private String plannedTeamName;
@@ -43,7 +39,10 @@ public class DraftWorkOrder {
 	private String plannedCompanyName;
 	private Integer sourceProjectID;
 	private String workOrderName;
-	private boolean archived = false;
+
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false)
+	private DraftProposalStatus proposalStatus = DraftProposalStatus.PRIVATE;
 
 	@Column(length = 2000)
 	private String comment;
@@ -63,22 +62,6 @@ public class DraftWorkOrder {
 	@Transient
 	public int getWorkOrderID() {
 		return draftWorkOrderID;
-	}
-
-	public Project getProject() {
-		return project;
-	}
-
-	@JsonProperty("projectID")
-	@Transient
-	public Integer getProjectID() {
-		return project == null ? null : project.getProjectID();
-	}
-
-	@JsonProperty("projectName")
-	@Transient
-	public String getProjectName() {
-		return project == null ? null : project.getProjectName();
 	}
 
 	public Integer getSourceWorkOrderID() {
@@ -109,8 +92,8 @@ public class DraftWorkOrder {
 		return workOrderName;
 	}
 
-	public boolean isArchived() {
-		return archived;
+	public DraftProposalStatus getProposalStatus() {
+		return proposalStatus;
 	}
 
 	@JsonProperty("company")
@@ -143,10 +126,6 @@ public class DraftWorkOrder {
 		this.draftProject = draftProject;
 	}
 
-	public void setProject(Project project) {
-		this.project = project;
-	}
-
 	public void setSourceWorkOrderID(Integer sourceWorkOrderID) {
 		this.sourceWorkOrderID = sourceWorkOrderID;
 	}
@@ -175,8 +154,8 @@ public class DraftWorkOrder {
 		this.workOrderName = workOrderName;
 	}
 
-	public void setArchived(boolean archived) {
-		this.archived = archived;
+	public void setProposalStatus(DraftProposalStatus proposalStatus) {
+		this.proposalStatus = proposalStatus;
 	}
 
 	public void setComment(String comment) {

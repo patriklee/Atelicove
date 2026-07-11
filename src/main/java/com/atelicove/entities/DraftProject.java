@@ -9,35 +9,40 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.Transient;
+import jakarta.persistence.Table;
 
 @Entity
-public class DraftProject {
+@Table(name = "draft_project")
+public class DraftProject extends ArchivableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long draftProjectId;
 
     private String draftName;
 
     @Column(length = 2000)
     private String description;
 
-    private boolean archived = false;
+    @ManyToOne
+    @JoinColumn(name = "source_project_id")
+    private Project sourceProject;
 
     @OneToMany(mappedBy = "draftProject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DraftWorkOrder> draftWorkOrders = new ArrayList<>();
 
-    @Transient
+    @OneToMany(mappedBy = "draftProject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlannedStaffing> plannedStaffing = new ArrayList<>();
 
-	public Long getId() {
-		return id;
+	public Long getDraftProjectId() {
+		return draftProjectId;
 	}
 
-	public void setId(Long id) {
-		this.id = id;
+	public void setDraftProjectId(Long draftProjectId) {
+		this.draftProjectId = draftProjectId;
 	}
 
 	public String getDraftName() {
@@ -56,12 +61,12 @@ public class DraftProject {
 		this.description = description;
 	}
 
-	public boolean isArchived() {
-		return archived;
+	public Project getSourceProject() {
+		return sourceProject;
 	}
 
-	public void setArchived(boolean archived) {
-		this.archived = archived;
+	public void setSourceProject(Project sourceProject) {
+		this.sourceProject = sourceProject;
 	}
 
 	public List<DraftWorkOrder> getDraftWorkOrders() {
@@ -81,7 +86,13 @@ public class DraftProject {
 	}
 
 	public void addDraftWorkOrder(DraftWorkOrder draftWorkOrder) {
-		if (draftWorkOrder != null && !draftWorkOrders.contains(draftWorkOrder)) {
+		if (draftWorkOrder != null) {
+			if (draftWorkOrder.getDraftProject() != null && draftWorkOrder.getDraftProject() != this) {
+				throw new IllegalStateException("Draft work order already belongs to a different draft project");
+			}
+			if (draftWorkOrders.contains(draftWorkOrder)) {
+				return;
+			}
 			draftWorkOrders.add(draftWorkOrder);
 			draftWorkOrder.setDraftProject(this);
 		}
@@ -99,8 +110,34 @@ public class DraftProject {
 	}
 
 	public void setPlannedStaffing(List<PlannedStaffing> plannedStaffing) {
-		this.plannedStaffing = plannedStaffing == null ? new ArrayList<>() : plannedStaffing;
+		for (PlannedStaffing staffing : new ArrayList<>(this.plannedStaffing)) {
+			removePlannedStaffing(staffing);
+		}
+
+		if (plannedStaffing != null) {
+			for (PlannedStaffing staffing : plannedStaffing) {
+				addPlannedStaffing(staffing);
+			}
+		}
 	}
 
-    // getters/setters
+	public void addPlannedStaffing(PlannedStaffing staffing) {
+		if (staffing != null) {
+			if (staffing.getDraftProject() != null && staffing.getDraftProject() != this) {
+				throw new IllegalStateException("Planned staffing already belongs to a different draft project");
+			}
+			if (plannedStaffing.contains(staffing)) {
+				return;
+			}
+			plannedStaffing.add(staffing);
+			staffing.setDraftProject(this);
+		}
+	}
+
+	public void removePlannedStaffing(PlannedStaffing staffing) {
+		if (staffing != null && plannedStaffing.remove(staffing)
+				&& staffing.getDraftProject() == this) {
+			staffing.setDraftProject(null);
+		}
+	}
 }

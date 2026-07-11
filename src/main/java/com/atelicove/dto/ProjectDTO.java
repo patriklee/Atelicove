@@ -4,28 +4,34 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.atelicove.entities.PlannedStaffing;
 import com.atelicove.enums.ProjectStatus;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class ProjectDTO {
 
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private int projectID;
 	private String projectName;
 	private String description;
 	private BigDecimal budget;
-	private BigDecimal estimatedCost;
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private BigDecimal actualCost;
-	private List<PlannedStaffing> plannedTeams;
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private ProjectStatus projectStatus;
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private LocalDateTime createdAt;
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private LocalDateTime lastModifiedAt;
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private LocalDateTime activatedAt;
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private LocalDateTime completedAt;
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private boolean archived;
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	private LocalDateTime archivedAt;
 	private List<Integer> workOrderIDs;
 	private List<Integer> teamIDs;
-	private Integer associatedActiveProjectID;
 
 	public int getProjectID() {
 		return projectID;
@@ -43,16 +49,8 @@ public class ProjectDTO {
 		return budget;
 	}
 
-	public BigDecimal getEstimatedCost() {
-		return estimatedCost;
-	}
-
 	public BigDecimal getActualCost() {
 		return actualCost;
-	}
-
-	public List<PlannedStaffing> getPlannedTeams() {
-		return plannedTeams;
 	}
 
 	public ProjectStatus getProjectStatus() {
@@ -91,10 +89,6 @@ public class ProjectDTO {
 		return teamIDs;
 	}
 
-	public Integer getAssociatedActiveProjectID() {
-		return associatedActiveProjectID;
-	}
-
 	public void setProjectID(int projectID) {
 		this.projectID = projectID;
 	}
@@ -111,16 +105,8 @@ public class ProjectDTO {
 		this.budget = budget;
 	}
 
-	public void setEstimatedCost(BigDecimal estimatedCost) {
-		this.estimatedCost = estimatedCost;
-	}
-
 	public void setActualCost(BigDecimal actualCost) {
 		this.actualCost = actualCost;
-	}
-
-	public void setPlannedTeams(List<PlannedStaffing> plannedTeams) {
-		this.plannedTeams = plannedTeams;
 	}
 
 	public void setProjectStatus(ProjectStatus projectStatus) {
@@ -159,7 +145,4 @@ public class ProjectDTO {
 		this.teamIDs = teamIDs;
 	}
 
-	public void setAssociatedActiveProjectID(Integer associatedActiveProjectID) {
-		this.associatedActiveProjectID = associatedActiveProjectID;
-	}
 }

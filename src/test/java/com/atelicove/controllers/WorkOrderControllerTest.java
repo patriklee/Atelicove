@@ -27,19 +27,21 @@ import com.atelicove.entities.WorkOrder;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.exceptions.GlobalExceptionHandler;
 import com.atelicove.services.WorkOrderService;
+import com.atelicove.services.AuthorizationService;
 
 @ExtendWith(MockitoExtension.class)
 class WorkOrderControllerTest {
 
     @Mock
     private WorkOrderService workOrderService;
+    @Mock private AuthorizationService authorizationService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new WorkOrderController(workOrderService))
+                .standaloneSetup(new WorkOrderController(workOrderService, authorizationService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

@@ -1,6 +1,5 @@
 package com.atelicove.dto;
 
-import java.time.LocalDateTime;
 import java.util.Set;
 
 public class TeamDTO {
@@ -9,7 +8,6 @@ public class TeamDTO {
 	private String teamName;
 	private Integer projectID;
 	private Set<Integer> workerIDs;
-	private LocalDateTime projectStartedAt;
 
 	public int getTeamID() {
 		return teamID;
@@ -25,10 +23,6 @@ public class TeamDTO {
 
 	public Set<Integer> getWorkerIDs() {
 		return workerIDs;
-	}
-
-	public LocalDateTime getProjectStartedAt() {
-		return projectStartedAt;
 	}
 
 	public void setTeamID(int teamID) {
@@ -47,7 +41,4 @@ public class TeamDTO {
 		this.workerIDs = workerIDs;
 	}
 
-	public void setProjectStartedAt(LocalDateTime projectStartedAt) {
-		this.projectStartedAt = projectStartedAt;
-	}
 }

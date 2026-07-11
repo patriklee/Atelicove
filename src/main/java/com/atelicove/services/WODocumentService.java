@@ -4,6 +4,7 @@ import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.core.Authentication;
 
 import com.atelicove.entities.Document;
 import com.atelicove.entities.Project;
@@ -32,18 +33,19 @@ public class WODocumentService {
 
 	private final WODocumentRepository repository;
     private final WorkOrderRepository workOrderRepository;
-    private final WorkerRepository workerRepository;
     private final ProjectRepository projectRepository;
+    private final AuthorizationService authorizationService;
 
     public WODocumentService(
             WODocumentRepository repository,
             WorkOrderRepository workOrderRepository,
             WorkerRepository workerRepository,
-            ProjectRepository projectRepository) {
+            ProjectRepository projectRepository,
+            AuthorizationService authorizationService) {
         this.repository = repository;
         this.workOrderRepository = workOrderRepository;
-        this.workerRepository = workerRepository;
         this.projectRepository = projectRepository;
+        this.authorizationService = authorizationService;
     }
 
     public List<Document> findAll() {
@@ -55,6 +57,7 @@ public class WODocumentService {
     }
 
     public Document save(Document document) {
+        validateParent(document);
         return repository.save(document);
     }
 
@@ -66,8 +69,18 @@ public class WODocumentService {
         return repository.findByWorkOrder_WorkOrderIDOrderByCreatedAtDesc(workOrderID);
     }
 
+    public List<Document> findByWorkOrder(Integer workOrderID, Authentication authentication) {
+        authorizationService.requireWorkOrderAccess(workOrderID, authentication);
+        return findByWorkOrder(workOrderID);
+    }
+
     public List<Document> findByProject(Integer projectID) {
         return repository.findByProject_ProjectIDOrderByCreatedAtDesc(projectID);
+    }
+
+    public List<Document> findByProject(Integer projectID, Authentication authentication) {
+        authorizationService.requireProjectAccess(projectID, authentication);
+        return findByProject(projectID);
     }
 
     public Document getRequiredDocument(Integer workOrderID, Integer documentID) {
@@ -75,9 +88,19 @@ public class WODocumentService {
                 .orElseThrow(() -> new IllegalArgumentException("Document not found"));
     }
 
+    public Document getRequiredDocument(Integer workOrderID, Integer documentID, Authentication authentication) {
+        authorizationService.requireWorkOrderAccess(workOrderID, authentication);
+        return getRequiredDocument(workOrderID, documentID);
+    }
+
     public Document getRequiredProjectDocument(Integer projectID, Integer documentID) {
         return repository.findByDocumentIDAndProject_ProjectID(documentID, projectID)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found"));
+    }
+
+    public Document getRequiredProjectDocument(Integer projectID, Integer documentID, Authentication authentication) {
+        authorizationService.requireProjectAccess(projectID, authentication);
+        return getRequiredProjectDocument(projectID, documentID);
     }
 
     /**
@@ -91,9 +114,9 @@ public class WODocumentService {
      * @return the saved work order document
      */
     @Transactional
-    public Document upload(Integer workOrderID, MultipartFile file, DocumentType documentType, String username) {
+    public Document upload(Integer workOrderID, MultipartFile file, DocumentType documentType, Authentication authentication) {
         WorkOrder workOrder = getEditableWorkOrder(workOrderID);
-        Worker worker = getActiveUploader(username);
+        Worker worker = authorizationService.requireWorkOrderAccess(workOrderID, authentication);
 
         if (documentType == null) {
             throw new IllegalArgumentException("Document type is required");
@@ -110,6 +133,7 @@ public class WODocumentService {
                     file.getContentType(),
                     file.getSize());
 
+            validateParent(document);
             return repository.save(document);
         } catch (Exception exception) {
             throw new IllegalStateException("Document could not be uploaded");
@@ -127,10 +151,9 @@ public class WODocumentService {
      * @return the saved project document
      */
     @Transactional
-    public Document uploadToProject(Integer projectID, MultipartFile file, DocumentType documentType, String username) {
+    public Document uploadToProject(Integer projectID, MultipartFile file, DocumentType documentType, Authentication authentication) {
         Project project = getEditableProject(projectID);
-        Worker worker = getActiveUploader(username);
-        ensureUploaderCanManageProjectDocuments(project, worker);
+        Worker worker = authorizationService.requireProjectAccess(projectID, authentication);
 
         if (documentType == null) {
             throw new IllegalArgumentException("Document type is required");
@@ -147,6 +170,7 @@ public class WODocumentService {
                     file.getContentType(),
                     file.getSize());
 
+            validateParent(document);
             return repository.save(document);
         } catch (Exception exception) {
             throw new IllegalStateException("Document could not be uploaded");
@@ -161,7 +185,8 @@ public class WODocumentService {
      * @param documentID document to remove
      */
     @Transactional
-    public void deleteFromWorkOrder(Integer workOrderID, Integer documentID) {
+    public void deleteFromWorkOrder(Integer workOrderID, Integer documentID, Authentication authentication) {
+        authorizationService.requireWorkOrderAccess(workOrderID, authentication);
         getEditableWorkOrder(workOrderID);
         Document document = getRequiredDocument(workOrderID, documentID);
         repository.delete(document);
@@ -176,10 +201,9 @@ public class WODocumentService {
      * @param username authenticated user requesting deletion
      */
     @Transactional
-    public void deleteFromProject(Integer projectID, Integer documentID, String username) {
+    public void deleteFromProject(Integer projectID, Integer documentID, Authentication authentication) {
         Project project = getEditableProject(projectID);
-        Worker worker = getActiveUploader(username);
-        ensureUploaderCanManageProjectDocuments(project, worker);
+        authorizationService.requireProjectAccess(projectID, authentication);
         Document document = getRequiredProjectDocument(projectID, documentID);
         repository.delete(document);
     }
@@ -209,31 +233,11 @@ public class WODocumentService {
             throw new IllegalStateException("Archived projects cannot have documents changed");
         }
 
-        if (project.getProjectStatus() != ProjectStatus.OPEN &&
-                project.getProjectStatus() != ProjectStatus.ACTIVE) {
+		if (project.getProjectStatus() != ProjectStatus.OPEN) {
             throw new IllegalStateException("Project documents can only be changed while the project is draft or active");
         }
 
         return project;
-    }
-
-    private Worker getActiveUploader(String username) {
-        return workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(username)
-                .orElseThrow(() -> new IllegalArgumentException("Uploader not found"));
-    }
-
-    private void ensureUploaderCanManageProjectDocuments(Project project, Worker worker) {
-        if (worker.isAdmin() || isAssignedToProject(project, worker.getWorkerID())) {
-            return;
-        }
-
-        throw new IllegalStateException("Only admins or assigned workers can manage project documents");
-    }
-
-    private boolean isAssignedToProject(Project project, int workerID) {
-        return project.getTeams().stream()
-                .flatMap(team -> team.getWorkers().stream())
-                .anyMatch(worker -> worker.getWorkerID() == workerID);
     }
 
     /**
@@ -275,5 +279,14 @@ public class WODocumentService {
         }
 
         return originalFileName.replace("\\", "/").substring(originalFileName.replace("\\", "/").lastIndexOf('/') + 1);
+    }
+
+    private void validateParent(Document document) {
+        if (document == null) {
+            throw new IllegalArgumentException("Document is required");
+        }
+        if ((document.getWorkOrder() == null) == (document.getProject() == null)) {
+            throw new IllegalArgumentException("Document must belong to exactly one work order or project");
+        }
     }
 }
