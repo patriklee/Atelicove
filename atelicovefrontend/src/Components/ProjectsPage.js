@@ -37,6 +37,8 @@ import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import SaveIcon from '@mui/icons-material/Save';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
+import { projectService } from '../services/projectService';
+import { draftLaunchErrorMessage, isPlaceholderStaffingSlot } from '../features/projectStudio/draftUtils';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../model';
 import { useAuth } from './AuthContext';
 import WorkOrderDocuments from './WorkOrderDocuments';
@@ -185,8 +187,6 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const [projectTeamsDialog, setProjectTeamsDialog] = useState(null);
   const [projectCommentsDialog, setProjectCommentsDialog] = useState(null);
   const [launchSignatureProject, setLaunchSignatureProject] = useState(null);
-  const [launchSignature, setLaunchSignature] = useState('');
-  const [launchDraftWorkOrderIDs, setLaunchDraftWorkOrderIDs] = useState([]);
   const [draftTeamView, setDraftTeamView] = useState('planned');
   const [draftTeamName, setDraftTeamName] = useState('');
   const [draftTeamWorkerIDs, setDraftTeamWorkerIDs] = useState([]);
@@ -394,9 +394,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
   const staffingSlotSnapshot = (worker = {}) => {
     const normalized = normalizeWorker(worker);
+    const activeWorker = workers.find(item => Number(item.workerID) === Number(normalized.workerID) && !item.archived);
     return {
       staffingSlotID: worker.staffingSlotID || 0,
-      workerID: normalized.workerID || null,
+      workerID: activeWorker?.workerID || null,
       workerName: worker.workerName || workerName(normalized),
       roleName: worker.roleName || normalized.roleTitle || normalized.role || '',
       roleDescription: normalized.roleDescription || worker.roleDescription || '',
@@ -488,22 +489,6 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const updateDraftSourceTeams = (teamIDs) => {
     const numericIDs = teamIDs.map(Number).filter(Number.isFinite);
     setDraftTeamSourceTeamIDs(numericIDs);
-
-    const slots = numericIDs
-      .map(id => teams.find(team => Number(team.teamID) === id))
-      .filter(Boolean)
-      .flatMap(team => (team.workers || []).map(worker => ({
-        ...staffingSlotSnapshot(worker),
-        staffingSlotID: -Date.now() - Number(worker.workerID || 0),
-      })));
-
-    setDraftTeamWorkerIDs(current => {
-      const existingWorkerIDs = new Set(current.map(slot => Number(slot.workerID)).filter(Number.isFinite));
-      return [
-        ...current,
-        ...slots.filter(slot => !slot.workerID || !existingWorkerIDs.has(Number(slot.workerID))),
-      ];
-    });
   };
 
   const resetDraftStaffingBuilder = () => {
@@ -516,12 +501,17 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   };
 
   const editDraftStaffing = (team) => {
+    const sourceWorkerIDs = new Set(teams
+      .find(item => Number(item.teamID) === Number(team.sourceTeamID))
+      ?.workers?.map(worker => Number(worker.workerID)) || []);
     setDraftTeamName(team.staffingName || team.teamName || '');
     setDraftTeamSourceTeamIDs(team.sourceTeamID ? [Number(team.sourceTeamID)] : []);
-    setDraftTeamWorkerIDs((team.staffingSlots || team.workers || []).map((slot, index) => ({
+    setDraftTeamWorkerIDs((team.staffingSlots || team.workers || [])
+      .filter(slot => !sourceWorkerIDs.has(Number(slot.workerID)))
+      .map((slot, index) => ({
       ...staffingSlotSnapshot(slot),
       staffingSlotID: slot.staffingSlotID || -Date.now() - index,
-    })));
+      })));
     setDraftTeamView('builder');
   };
 
@@ -943,39 +933,33 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const requestLaunchProject = (project) => {
     if (!project) return;
     if (project.associatedActiveProject || (project.projectID === Number(projectForm.projectID) && projectForm.associatedActiveProjectID)) {
-      setMessage({ severity: 'warning', text: 'Attached draft projects stay as draft references and cannot be launched.' });
+      setMessage({ severity: 'warning', text: 'Drafts associated with an active project remain references and cannot be launched.' });
       return;
     }
 
     setLaunchSignatureProject(project);
-    setLaunchSignature('');
-    setLaunchDraftWorkOrderIDs([]);
   };
 
   const launchProject = async () => {
     const project = launchSignatureProject;
-    if (!project || !launchSignature.trim()) return;
+    if (!project) return;
 
     setSaving(true);
     setMessage(null);
     try {
-      const activated = await apiFetch(`/projects/${project.projectID}/activate`, {
-        method: 'PUT',
-        body: JSON.stringify({ activateDraftWorkOrderIDs: launchDraftWorkOrderIDs.map(Number) }),
-      });
+      const launchedProject = await projectService.launchDraft(project.projectID);
 
-      setMessage({
-        severity: 'success',
-        text: `${activated.projectName || `Project #${activated.projectID}`} launched with signature.`,
-      });
+      setProjects(current => current.filter(item => item.projectID !== project.projectID));
+      setMessage({ severity: 'success', text: 'Project launched successfully.' });
       setLaunchSignatureProject(null);
-      setLaunchSignature('');
-      setLaunchDraftWorkOrderIDs([]);
-      resetProjectForm();
+      clearLoadedProject();
       setStudioView('draft');
-      loadData();
+      await loadData();
+      navigate(launchedProject?.projectID
+        ? `/admin/projects/${launchedProject.projectID}`
+        : '/admin/projects/active');
     } catch (error) {
-      setMessage({ severity: 'error', text: error.message });
+      setMessage({ severity: 'error', text: draftLaunchErrorMessage(error) });
     } finally {
       setSaving(false);
     }
@@ -1537,7 +1521,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     disabled={saving || Boolean(selectedProject.associatedActiveProject || projectForm.associatedActiveProjectID)}
                     onClick={() => requestLaunchProject(selectedProject)}
                   >
-                    Launch Project
+                    Launch as new project
                   </Button>
                 )}
                 {isStudioEditView && selectedProject?.projectStatus === 'OPEN' && (
@@ -1584,7 +1568,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
               )}
               {isStudioEditView && selectedProject?.projectStatus === 'OPEN' && selectedProject.associatedActiveProject && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Attached draft projects cannot be launched as new active projects.
+                  Drafts associated with an active project remain references and cannot be launched.
                 </Typography>
               )}
             </Paper>
@@ -1724,14 +1708,14 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     fullWidth
                   />
                   <Typography variant="body2" color="text.secondary">
-                    Build draft-only staffing from existing workers, existing team members, or an empty plan to fill later.
+                    Reference an active team without changing it, then add any additional planned workers or placeholder roles for this draft.
                   </Typography>
                   <FormControl fullWidth>
-                    <InputLabel>Use workers from teams</InputLabel>
+                    <InputLabel>Referenced active team</InputLabel>
                     <Select
                       multiple
                       value={draftTeamSourceTeamIDs}
-                      label="Use workers from teams"
+                      label="Referenced active team"
                       onChange={event => updateDraftSourceTeams(event.target.value.map(Number))}
                       renderValue={selected => selected
                         .map(teamID => teams.find(team => Number(team.teamID) === Number(teamID))?.teamName || `Team #${teamID}`)
@@ -1744,8 +1728,20 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                       ))}
                     </Select>
                   </FormControl>
+                  {draftTeamSourceTeamIDs.map(teamID => {
+                    const sourceTeam = teams.find(team => Number(team.teamID) === Number(teamID));
+                    return sourceTeam ? (
+                      <Box key={teamID} sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 1.5 }}>
+                        <Typography variant="subtitle2">Referenced active team: {sourceTeam.teamName || `Team #${teamID}`}</Typography>
+                        <Typography variant="caption" color="text.secondary">Current membership is read-only here. Manage permanent membership in Team Management.</Typography>
+                        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+                          {(sourceTeam.workers || []).map(worker => <Chip key={worker.workerID} size="small" label={workerName(normalizeWorker(worker))} />)}
+                        </Stack>
+                      </Box>
+                    ) : null;
+                  })}
                   <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 1.5 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Add staffing slot</Typography>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Additional planned workers</Typography>
                     <Stack spacing={1.5}>
                       <FormControl fullWidth size="small">
                         <InputLabel>Existing worker</InputLabel>
@@ -1794,12 +1790,13 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     </Stack>
                   </Box>
                   <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 1, p: 1.5 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Staffing slots</Typography>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Additional planned workers</Typography>
                     <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
                       {draftTeamWorkerIDs.map(slot => (
                         <Chip
                           key={slot.staffingSlotID}
-                          label={`${slot.workerName || 'Unfilled position'}${slot.roleName ? ` - ${slot.roleName}` : ''}`}
+                          color={isPlaceholderStaffingSlot(slot) ? 'warning' : 'default'}
+                          label={`${slot.workerName || 'Unassigned role'}${slot.roleName ? ` - ${slot.roleName}` : ''}${isPlaceholderStaffingSlot(slot) ? ' · Placeholder · Planning only' : ''}`}
                           onDelete={() => removeDraftStaffingSlot(slot.staffingSlotID)}
                         />
                       ))}
@@ -1826,10 +1823,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
               ) : (
                 <>
                   <FormControl fullWidth margin="normal">
-                    <InputLabel>{isStudioEditView ? 'Add existing team as staffing' : 'Add existing team'}</InputLabel>
+                    <InputLabel>{isStudioEditView ? 'Add referenced active team' : 'Add existing team'}</InputLabel>
                     <Select
                       value=""
-                      label={isStudioEditView ? 'Add existing team as staffing' : 'Add existing team'}
+                      label={isStudioEditView ? 'Add referenced active team' : 'Add existing team'}
                       onChange={event => addProjectTeam(event.target.value)}
                     >
                       <MenuItem value="">Select team</MenuItem>
@@ -1844,6 +1841,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                         <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                           <Stack direction="row" spacing={1} alignItems="center">
                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{isStudioEditView ? (team.teamName || `Planned staffing #${team.teamID}`) : (team.teamName || `Team #${team.teamID}`)}</Typography>
+                            {team.sourceTeamID && <Chip size="small" label="Referenced active team" />}
                             {Number(team.teamID) < 0 && <Chip size="small" label="Draft-only" />}
                           </Stack>
                           <Stack direction="row" spacing={1}>
@@ -1861,11 +1859,13 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                           {(team.workers || []).map(worker => {
                             const normalized = normalizeWorker(worker);
                             const role = workerRole(normalized);
+                            const placeholder = isPlaceholderStaffingSlot(worker);
                             return (
                               <Chip
-                                key={normalized.workerID}
+                                key={worker.staffingSlotID || normalized.workerID || worker.workerName}
                                 size="small"
-                                label={role ? `${workerName(normalized)} - ${role}` : workerName(normalized)}
+                                color={placeholder ? 'warning' : 'default'}
+                                label={`${role ? `${workerName(normalized)} - ${role}` : workerName(normalized)}${placeholder ? ' · Placeholder · Planning only' : ''}`}
                               />
                             );
                           })}
@@ -1894,10 +1894,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth>
-                    <InputLabel>Attach existing work order</InputLabel>
+                    <InputLabel>{selectedWorkOrderProject?.projectStatus === 'OPEN' ? 'Copy active work order as template' : 'Attach existing work order'}</InputLabel>
                     <Select
                       value={workOrderForm.existingWorkOrderID}
-                      label="Attach existing work order"
+                      label={selectedWorkOrderProject?.projectStatus === 'OPEN' ? 'Copy active work order as template' : 'Attach existing work order'}
                       onChange={event => setWorkOrderForm(current => ({
                         ...current,
                         existingWorkOrderID: event.target.value,
@@ -1912,6 +1912,11 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                         </MenuItem>
                       ))}
                     </Select>
+                    {selectedWorkOrderProject?.projectStatus === 'OPEN' && workOrderForm.existingWorkOrderID && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                        The source work order will remain unchanged when this draft launches.
+                      </Typography>
+                    )}
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1989,6 +1994,11 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                               <TableCell>
                                 <Stack spacing={0.5}>
                                   <Typography variant="body2">#{workOrder.workOrderID}</Typography>
+                                  {workOrder.status === 'DRAFT' && workOrder.sourceWorkOrderID && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      Template source: Work Order #{workOrder.sourceWorkOrderID}. Source remains unchanged.
+                                    </Typography>
+                                  )}
                                   {workOrder.status === 'DRAFT' && workOrder.workOrderName && (
                                     <Typography variant="caption" color="text.secondary">{workOrder.workOrderName}</Typography>
                                   )}
@@ -2378,48 +2388,39 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       )}
 
       <Dialog open={Boolean(launchSignatureProject)} onClose={() => setLaunchSignatureProject(null)} fullWidth maxWidth="sm">
-        <DialogTitle>Launch Project Signature</DialogTitle>
+        <DialogTitle>Launch as new project</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
-              A signature is required before this draft can be launched as an active project.
+              Launching will create a new active project and new work orders from this draft. Any active work orders or teams used as references will remain unchanged. Placeholder staffing entries will not be assigned. After a successful launch, this draft will be removed.
             </Typography>
+            {(launchSignatureProject?.plannedTeams || []).some(team => (team.staffingSlots || team.workers || []).some(isPlaceholderStaffingSlot)) && (
+              <Alert severity="warning">
+                Some planned staffing entries are placeholders and will not be assigned when this project launches.
+              </Alert>
+            )}
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Draft work orders to create on launch</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>New active work orders to create from draft work orders</Typography>
               {(launchSignatureProject?.draftWorkOrders || []).map(workOrder => (
                 <Stack key={workOrder.workOrderID} direction="row" spacing={1} alignItems="center">
-                  <Checkbox
-                    checked={launchDraftWorkOrderIDs.includes(workOrder.workOrderID)}
-                    onChange={event => setLaunchDraftWorkOrderIDs(current => (
-                      event.target.checked
-                        ? Array.from(new Set([...current, workOrder.workOrderID]))
-                        : current.filter(id => id !== workOrder.workOrderID)
-                    ))}
-                  />
                   <Typography variant="body2">
-                    #{workOrder.workOrderID} - {workOrder.plannedTeamName || 'No planned team'}
+                    Draft work order #{workOrder.workOrderID} will become a new active work order
+                    {workOrder.sourceWorkOrderID ? ` (based on active work order #${workOrder.sourceWorkOrderID}, which will remain unchanged)` : ''}.
                   </Typography>
                 </Stack>
               ))}
               {!(launchSignatureProject?.draftWorkOrders || []).length && (
                 <Typography variant="body2" color="text.secondary">
-                  No draft work orders will be created.
+                  This draft has no work orders to create.
                 </Typography>
               )}
             </Box>
-            <TextField
-              label="Signature"
-              fullWidth
-              value={launchSignature}
-              onChange={event => setLaunchSignature(event.target.value)}
-              autoFocus
-            />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setLaunchSignatureProject(null)} disabled={saving}>Cancel</Button>
-          <Button variant="contained" startIcon={<RocketLaunchIcon />} disabled={saving || !launchSignature.trim()} onClick={launchProject}>
-            Launch Project
+          <Button variant="contained" startIcon={<RocketLaunchIcon />} disabled={saving} onClick={launchProject}>
+            Launch as new project
           </Button>
         </DialogActions>
       </Dialog>

@@ -62,10 +62,10 @@ export default function ProjectWorkOrdersPanel({
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <FormControl fullWidth>
-            <InputLabel>Attach existing work order</InputLabel>
+            <InputLabel>{selectedWorkOrderProject?.projectStatus === 'OPEN' ? 'Copy active work order as template' : 'Attach existing work order'}</InputLabel>
             <Select
               value={workOrderForm.existingWorkOrderID}
-              label="Attach existing work order"
+              label={selectedWorkOrderProject?.projectStatus === 'OPEN' ? 'Copy active work order as template' : 'Attach existing work order'}
               onChange={handleExistingWorkOrderChange}
             >
               <MenuItem value="">Create new</MenuItem>
@@ -164,7 +164,14 @@ export default function ProjectWorkOrdersPanel({
                   const workersOutsideTeam = workersOutsideWorkOrderTeam(selectedWorkOrderProject, workOrder);
                   return (
                     <TableRow key={`${workOrder.status || 'UNKNOWN'}-${workOrder.workOrderID}`}>
-                      <TableCell>#{workOrder.workOrderID}</TableCell>
+                      <TableCell>
+                        #{workOrder.workOrderID}
+                        {workOrder.sourceWorkOrderID && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Template source: Work Order #{workOrder.sourceWorkOrderID}. Source remains unchanged.
+                          </Typography>
+                        )}
+                      </TableCell>
                       <TableCell>{(workOrder.status || 'UNKNOWN').replaceAll('_', ' ')}</TableCell>
                       <TableCell>{workOrder.company?.companyName || workOrder.plannedCompanyName || 'No company'}</TableCell>
                       <TableCell>

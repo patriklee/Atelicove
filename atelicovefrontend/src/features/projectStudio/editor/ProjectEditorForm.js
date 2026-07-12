@@ -211,7 +211,7 @@ const ProjectEditorForm = ({
             disabled={saving || Boolean(selectedProject.associatedActiveProject || projectForm.associatedActiveProjectID)}
             onClick={() => onLaunchProject(selectedProject)}
           >
-            Launch Project
+            Launch as new project
           </Button>
         )}
 
@@ -264,7 +264,7 @@ const ProjectEditorForm = ({
 
       {isStudioEditView && selectedProject?.projectStatus === 'OPEN' && selectedProject.associatedActiveProject && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          Attached draft projects cannot be launched as new active projects.
+          Drafts associated with an active project remain references and cannot be launched.
         </Typography>
       )}
     </Paper>

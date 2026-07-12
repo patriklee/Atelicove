@@ -205,7 +205,6 @@ const ManageWorkOrders = () => {
     canEditSelectedWorkOrder && (
       selectedModifyIsDraft
         ? Number(removeTeamID || 0) !== Number(selectedModifyWorkOrder?.plannedTeamID || 0) ||
-          Boolean(selectedModifyWorker && removeTeamID && !isSelectedWorkerAssigned) ||
           selectedModifyCompany?.companyID !== selectedModifyWorkOrder?.company?.companyID ||
           modifyDraftComment !== (selectedModifyWorkOrder?.comment || '')
         : (
@@ -449,21 +448,6 @@ const ManageWorkOrders = () => {
         });
         updated = (project.draftWorkOrders || []).find(order => order.workOrderID === selectedModifyWorkOrder.workOrderID) || selectedModifyWorkOrder;
 
-        if (selectedModifyWorker && removeTeamID && !isSelectedWorkerAssigned) {
-          const teamToUpdate = teams.find(team => team.teamID === Number(removeTeamID));
-          const workerIDs = Array.from(new Set([
-            ...((teamToUpdate?.workers || []).map(worker => normalizeWorker(worker).workerID)),
-            selectedModifyWorker.workerID,
-          ]));
-          await apiFetch(`/teams/${removeTeamID}`, {
-            method: 'PUT',
-            body: JSON.stringify({
-              teamName: teamToUpdate?.teamName || '',
-              workerIDs,
-              projectStartedAt: teamToUpdate?.projectStartedAt || null,
-            }),
-          });
-        }
       } else if (selectedModifyWorker && !isSelectedWorkerAssigned) {
         updated = await apiFetch(`/workorders/${selectedModifyWorkOrder.workOrderID}/assign`, {
           method: 'PUT',
@@ -725,11 +709,11 @@ const ManageWorkOrders = () => {
               </Select>
             </FormControl>
 
-            <FormControl fullWidth margin="normal" disabled={!canEditSelectedWorkOrder || (selectedModifyIsDraft && !removeTeamID)}>
-              <InputLabel>{selectedModifyIsDraft ? 'Worker to Add to Team' : 'Worker'}</InputLabel>
+            <FormControl fullWidth margin="normal" disabled={!canEditSelectedWorkOrder || selectedModifyIsDraft}>
+              <InputLabel>{selectedModifyIsDraft ? 'Active team members (read-only)' : 'Worker'}</InputLabel>
               <Select
                 value={removeWorkerID}
-                label={selectedModifyIsDraft ? 'Worker to Add to Team' : 'Worker'}
+                label={selectedModifyIsDraft ? 'Active team members (read-only)' : 'Worker'}
                 onChange={event => setRemoveWorkerID(event.target.value)}
               >
                 <MenuItem value="">No Worker</MenuItem>
@@ -799,7 +783,10 @@ const ManageWorkOrders = () => {
               <Box sx={{ mt: 3 }}>
                 {selectedModifyIsDraft && (
                   <>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Planned Team</Typography>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Referenced active team</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                      Membership is read-only here and remains unchanged when the draft launches.
+                    </Typography>
                     <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
                       {selectedDraftTeam ? (
                         <Chip
@@ -811,7 +798,7 @@ const ManageWorkOrders = () => {
                 )}
 
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  {selectedModifyIsDraft ? 'Team Workers' : 'Assigned Workers'}
+                  {selectedModifyIsDraft ? 'Current active team members' : 'Assigned Workers'}
                 </Typography>
                 <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                   {displayedModifyWorkers.length ? displayedModifyWorkers.map(worker => (

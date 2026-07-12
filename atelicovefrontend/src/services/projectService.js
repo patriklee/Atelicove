@@ -9,6 +9,6 @@ export const projectService = {
   update: (projectID, payload) => apiFetch(`/projects/${projectID}`, { method: 'PUT', body: JSON.stringify(payload) }),
   archive: (projectID) => apiFetch(`/projects/${projectID}`, { method: 'DELETE' }),
   restore: (projectID) => apiFetch(`/projects/${projectID}/restore`, { method: 'PUT' }),
-  launchDraft: (projectID, payload = {}) => apiFetch(`/projects/${projectID}/activate`, { method: 'PUT', body: JSON.stringify(payload) }),
+  launchDraft: (draftProjectID) => apiFetch(`/draft-projects/${draftProjectID}/launch`, { method: 'POST' }),
   downloadDocument: (projectID, documentID) => apiDownload(`/projects/${projectID}/documents/${documentID}/download`),
 };
