@@ -3,8 +3,10 @@ package com.atelicove.services;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,18 +57,16 @@ public class DraftProjectLaunchService {
 		project.setProjectStatus(ProjectStatus.OPEN);
 		project.setActivatedAt(launchedAt);
 		entityManager.persist(project);
-		Map<Integer, Team> plannedTeams = convertPlannedStaffing(draftProject, project);
+		StaffingConversion staffing = convertPlannedStaffing(draftProject, project);
 
 		for (DraftWorkOrder draftWorkOrder : draftProject.getDraftWorkOrders()) {
 			if (draftWorkOrder.isArchived()) {
 				continue;
 			}
 
-			WorkOrder workOrder = convert(draftWorkOrder, launchedAt, plannedTeams);
+			WorkOrder workOrder = convert(draftWorkOrder, launchedAt, staffing);
 			project.addWorkOrder(workOrder);
-			if (draftWorkOrder.getSourceWorkOrderID() == null) {
-				entityManager.persist(workOrder);
-			}
+			entityManager.persist(workOrder);
 		}
 
 		entityManager.flush();
@@ -88,9 +88,12 @@ public class DraftProjectLaunchService {
 			}
 			for (StaffingSlot slot : staffing.getStaffingSlots()) {
 				if (slot.getWorkerID() == null) {
-					throw new IllegalStateException("Planned staffing worker ID is required");
+					continue;
 				}
-				Worker worker = requireExisting(Worker.class, slot.getWorkerID(), "worker");
+				Worker worker = entityManager.find(Worker.class, slot.getWorkerID());
+				if (worker == null) {
+					throw unavailable("worker", slot.getWorkerID(), "does not exist");
+				}
 				if (worker.isArchived()) {
 					throw unavailable("worker", slot.getWorkerID(), "is archived");
 				}
@@ -153,10 +156,6 @@ public class DraftProjectLaunchService {
 			if (source.getStatus() != WorkOrderStatus.OPEN && source.getStatus() != WorkOrderStatus.ACTIVE) {
 				throw unavailable("source work order", draftWorkOrder.getSourceWorkOrderID(), "is read-only");
 			}
-			if (source.getProject() != null) {
-				throw unavailable("source work order", draftWorkOrder.getSourceWorkOrderID(),
-						"already belongs to another project");
-			}
 		}
 		if (draftWorkOrder.getSourceProjectID() != null) {
 			Project source = requireExisting(Project.class, draftWorkOrder.getSourceProjectID(), "source project");
@@ -179,66 +178,38 @@ public class DraftProjectLaunchService {
 				"Draft project references " + referenceName + " " + id + " that " + reason);
 	}
 
-	private Map<Integer, Team> convertPlannedStaffing(
-	        DraftProject draftProject,
-	        Project project) {
+	private StaffingConversion convertPlannedStaffing(DraftProject draftProject, Project project) {
+		Map<Integer, Set<Worker>> staffingWorkers = new HashMap<>();
 
-	    Map<Integer, Team> plannedTeams = new HashMap<>();
+		for (PlannedStaffing staffing : draftProject.getPlannedStaffing()) {
+			Set<Worker> workers = new HashSet<>();
+			if (staffing.getSourceTeamID() != null) {
+				Team team = requireExisting(Team.class, staffing.getSourceTeamID(), "team");
+				project.addTeam(team);
+				team.getWorkers().stream().filter(worker -> !worker.isArchived()).forEach(workers::add);
+			} else {
+				for (StaffingSlot slot : staffing.getStaffingSlots()) {
+					if (slot.getWorkerID() == null) {
+						continue;
+					}
+					Worker worker = entityManager.find(Worker.class, slot.getWorkerID());
+					workers.add(worker);
+				}
+			}
+			staffingWorkers.put(staffing.getPlannedStaffingID(), workers);
+		}
 
-	    for (PlannedStaffing staffing
-	            : draftProject.getPlannedStaffing()) {
-
-	        Team team;
-
-	        if (staffing.getSourceTeamID() != null) {
-	            team = entityManager.find(
-	                Team.class,
-	                staffing.getSourceTeamID()
-	            );
-	        } else {
-	            team = new Team();
-	            team.setTeamName(
-	                staffing.getStaffingName()
-	            );
-
-	            for (StaffingSlot slot
-	                    : staffing.getStaffingSlots()) {
-
-	                Worker worker = entityManager.find(
-	                    Worker.class,
-	                    slot.getWorkerID()
-	                );
-
-	                team.getWorkers().add(worker);
-	            }
-
-	            entityManager.persist(team);
-	        }
-
-	        project.addTeam(team);
-
-	        plannedTeams.put(
-	            staffing.getPlannedStaffingID(),
-	            team
-	        );
-	    }
-
-	    return plannedTeams;
+		return new StaffingConversion(staffingWorkers);
 	}
 
 	private WorkOrder convert(
 			DraftWorkOrder draftWorkOrder,
 			LocalDateTime launchedAt,
-			Map<Integer, Team> plannedTeams) {
-		WorkOrder workOrder;
-		if (draftWorkOrder.getSourceWorkOrderID() == null) {
-			workOrder = new WorkOrder();
-			workOrder.setStatus(WorkOrderStatus.OPEN);
-			workOrder.setStartDateTime(launchedAt);
-			workOrder.setEndDateTime(null);
-		} else {
-			workOrder = entityManager.find(WorkOrder.class, draftWorkOrder.getSourceWorkOrderID());
-		}
+			StaffingConversion staffing) {
+		WorkOrder workOrder = new WorkOrder();
+		workOrder.setStatus(WorkOrderStatus.OPEN);
+		workOrder.setStartDateTime(launchedAt);
+		workOrder.setEndDateTime(null);
 		workOrder.setComment(draftWorkOrder.getComment());
 
 		Company company = draftWorkOrder.getPlannedCompanyID() == null
@@ -258,10 +229,12 @@ public class DraftProjectLaunchService {
 		workOrder.setItems(items);
 
 		if (draftWorkOrder.getPlannedTeamID() != null) {
-			Team team = plannedTeams.get(draftWorkOrder.getPlannedTeamID());
-			workOrder.setWorkers(team.getWorkers());
+			Set<Worker> workers = staffing.staffingWorkers().get(draftWorkOrder.getPlannedTeamID());
+			workOrder.setWorkers(workers == null ? Set.of() : new HashSet<>(workers));
 		}
 
 		return workOrder;
 	}
+
+	private record StaffingConversion(Map<Integer, Set<Worker>> staffingWorkers) {}
 }

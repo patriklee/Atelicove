@@ -30,6 +30,8 @@ public class DraftWorkOrder extends ArchivableEntity {
 	
 	@ManyToOne
 	@JoinColumn(name = "draft_project_id")
+	// Admin project drafts may own work orders; worker proposals may remain
+	// independent. Both are draft-only and never modify live entities directly.
 	private DraftProject draftProject;
 
 	private Integer sourceWorkOrderID;

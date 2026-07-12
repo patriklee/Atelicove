@@ -12,6 +12,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.atelicove.entities.DraftProject;
+import com.atelicove.entities.Company;
 import com.atelicove.entities.DraftWorkOrder;
 import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.entities.PlannedStaffing;
@@ -19,6 +20,7 @@ import com.atelicove.entities.Project;
 import com.atelicove.entities.StaffingSlot;
 import com.atelicove.entities.Team;
 import com.atelicove.entities.WorkOrder;
+import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.ItemType;
 import com.atelicove.enums.WorkOrderStatus;
@@ -73,10 +75,16 @@ class DraftProjectLaunchTransactionTest {
     }
 
     @Test
-    void sourceBackedDraftUpdatesExistingWorkOrderWithoutCreatingDuplicate() {
+    void sourceBackedDraftCreatesNewWorkOrderAndLeavesSourceGraphUnchanged() {
         int[] ids = transactions.execute(status -> {
             WorkOrder source = new WorkOrder();
             source.setComment("Old comment");
+            WorkOrderItem sourceItem = new WorkOrderItem();
+            sourceItem.setItemName("Original item");
+            sourceItem.setQuantity(7);
+            sourceItem.setPrice(new BigDecimal("10.00"));
+            sourceItem.setItemType(ItemType.MATERIAL);
+            source.addItem(sourceItem);
             entityManager.persist(source);
             entityManager.flush();
 
@@ -93,22 +101,34 @@ class DraftProjectLaunchTransactionTest {
 
         transactions.executeWithoutResult(status -> {
             WorkOrder source = entityManager.find(WorkOrder.class, ids[1]);
-            assertThat(count("WorkOrder")).isEqualTo(1);
-            assertThat(source.getComment()).isEqualTo("Approved comment");
+            Project project = entityManager.find(Project.class, launched.getProjectID());
+            assertThat(count("WorkOrder")).isEqualTo(2);
+            assertThat(source.getComment()).isEqualTo("Old comment");
             assertThat(source.getItems()).singleElement().satisfies(item ->
-                    assertThat(item.getQuantity()).isEqualTo(3));
-            assertThat(source.getProject().getProjectID()).isEqualTo(launched.getProjectID());
+                    assertThat(item.getQuantity()).isEqualTo(7));
+            assertThat(source.getProject()).isNull();
+            assertThat(project.getWorkOrders()).singleElement().satisfies(created -> {
+                assertThat(created.getWorkOrderID()).isNotEqualTo(source.getWorkOrderID());
+                assertThat(created.getComment()).isEqualTo("Approved comment");
+                assertThat(created.getItems()).singleElement().satisfies(item -> {
+                    assertThat(item.getQuantity()).isEqualTo(3);
+                    assertThat(item.getWorkOrderItemID()).isNotEqualTo(source.getItems().get(0).getWorkOrderItemID());
+                });
+            });
         });
     }
 
     @Test
-    void plannedStaffingResolvesExistingTeamAndCreatesNewTeamWithAssignedWorkers() {
+    void plannedStaffingAttachesExistingTeamUnchangedAndAssignsWorkersWithoutCreatingTeam() {
         int[] ids = transactions.execute(status -> {
             Team existingTeam = new Team();
             existingTeam.setTeamName("Existing team");
+            Worker existingMember = worker("existing-member@example.com");
             Worker worker = worker("planned-worker@example.com");
             entityManager.persist(existingTeam);
+            entityManager.persist(existingMember);
             entityManager.persist(worker);
+            existingTeam.getWorkers().add(existingMember);
 
             DraftProject draft = draftWithWorkOrder("Staffed launch", 1);
             PlannedStaffing existing = new PlannedStaffing();
@@ -121,27 +141,74 @@ class DraftProjectLaunchTransactionTest {
             StaffingSlot slot = new StaffingSlot();
             slot.setWorkerID(worker.getWorkerID());
             created.addStaffingSlot(slot);
+            StaffingSlot placeholder = new StaffingSlot();
+            placeholder.setWorkerName("Future hire");
+            created.addStaffingSlot(placeholder);
             draft.addPlannedStaffing(created);
 
             entityManager.persist(draft);
             entityManager.flush();
             draft.getDraftWorkOrders().get(0).setPlannedTeamID(created.getPlannedStaffingID());
-            return new int[] { draft.getDraftProjectId().intValue(), existingTeam.getTeamID(), worker.getWorkerID() };
+            return new int[] {
+                    draft.getDraftProjectId().intValue(), existingTeam.getTeamID(),
+                    existingMember.getWorkerID(), worker.getWorkerID()
+            };
         });
 
         Project launched = launchService.launch(ids[0]);
 
         transactions.executeWithoutResult(status -> {
             Project project = entityManager.find(Project.class, launched.getProjectID());
-            assertThat(project.getTeams()).hasSize(2);
-            assertThat(project.getTeams()).extracting(Team::getTeamID).contains(ids[1]);
-            Team created = project.getTeams().stream()
-                    .filter(team -> team.getTeamID() != ids[1])
-                    .findFirst().orElseThrow();
-            assertThat(created.getTeamName()).isEqualTo("Created team");
-            assertThat(created.getWorkers()).extracting(Worker::getWorkerID).containsExactly(ids[2]);
+            assertThat(project.getTeams()).singleElement().satisfies(team -> {
+                assertThat(team.getTeamID()).isEqualTo(ids[1]);
+                assertThat(team.getTeamName()).isEqualTo("Existing team");
+                assertThat(team.getWorkers()).extracting(Worker::getWorkerID).containsExactly(ids[2]);
+            });
+            assertThat(count("Team")).isEqualTo(1);
+            assertThat(count("Worker")).isEqualTo(2);
             assertThat(project.getWorkOrders()).singleElement().satisfies(workOrder ->
-                    assertThat(workOrder.getWorkers()).extracting(Worker::getWorkerID).containsExactly(ids[2]));
+                    assertThat(workOrder.getWorkers()).extracting(Worker::getWorkerID).containsExactly(ids[3]));
+        });
+    }
+
+    @Test
+    void missingActiveWorkerReferenceFailsButPlaceholderIsIgnored() {
+        int[] ids = transactions.execute(status -> {
+            DraftProject placeholderDraft = draftWithWorkOrder("Placeholder worker", 1);
+            PlannedStaffing placeholderStaffing = new PlannedStaffing();
+            StaffingSlot placeholder = new StaffingSlot();
+            placeholder.setWorkerName("Future hire");
+            placeholder.setRoleName("Electrician");
+            placeholderStaffing.addStaffingSlot(placeholder);
+            placeholderDraft.addPlannedStaffing(placeholderStaffing);
+
+            DraftProject missingWorkerDraft = draftWithWorkOrder("Missing worker", 1);
+            PlannedStaffing missingStaffing = new PlannedStaffing();
+            StaffingSlot missing = new StaffingSlot();
+            missing.setWorkerID(999999);
+            missingStaffing.addStaffingSlot(missing);
+            missingWorkerDraft.addPlannedStaffing(missingStaffing);
+
+            entityManager.persist(placeholderDraft);
+            entityManager.persist(missingWorkerDraft);
+            entityManager.flush();
+            return new int[] {
+                    placeholderDraft.getDraftProjectId().intValue(),
+                    missingWorkerDraft.getDraftProjectId().intValue()
+            };
+        });
+
+        launchService.launch(ids[0]);
+        assertThatThrownBy(() -> launchService.launch(ids[1]))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("worker 999999")
+                .hasMessageContaining("does not exist");
+
+        transactions.executeWithoutResult(status -> {
+            assertThat(count("Worker")).isZero();
+            assertThat(entityManager.find(DraftProject.class, (long) ids[0])).isNull();
+            assertThat(entityManager.find(DraftProject.class, (long) ids[1])).isNotNull();
+            assertThat(count("Project")).isEqualTo(1);
         });
     }
 
@@ -173,6 +240,47 @@ class DraftProjectLaunchTransactionTest {
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("archived");
         assertThatThrownBy(() -> launchService.launch(draftIDs[1]))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("read-only");
+    }
+
+    @Test
+    void archivedWorkerAndCompanyReferencesCannotLaunchAndPreserveDrafts() {
+        int[] draftIDs = transactions.execute(status -> {
+            Worker archivedWorker = worker("archived-planned@example.com");
+            archivedWorker.setArchived(true);
+            Company archivedCompany = new Company();
+            archivedCompany.setCompanyName("Archived company");
+            archivedCompany.setArchived(true);
+            entityManager.persist(archivedWorker);
+            entityManager.persist(archivedCompany);
+
+            DraftProject workerDraft = draftWithWorkOrder("Archived worker", 1);
+            PlannedStaffing staffing = new PlannedStaffing();
+            StaffingSlot slot = new StaffingSlot();
+            entityManager.flush();
+            slot.setWorkerID(archivedWorker.getWorkerID());
+            staffing.addStaffingSlot(slot);
+            workerDraft.addPlannedStaffing(staffing);
+
+            DraftProject companyDraft = draftWithWorkOrder("Archived company", 1);
+            companyDraft.getDraftWorkOrders().get(0).setPlannedCompanyID(archivedCompany.getCompanyID());
+            entityManager.persist(workerDraft);
+            entityManager.persist(companyDraft);
+            entityManager.flush();
+            return new int[] {
+                    workerDraft.getDraftProjectId().intValue(),
+                    companyDraft.getDraftProjectId().intValue()
+            };
+        });
+
+        assertThatThrownBy(() -> launchService.launch(draftIDs[0]))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("worker").hasMessageContaining("archived");
+        assertThatThrownBy(() -> launchService.launch(draftIDs[1]))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("company").hasMessageContaining("archived");
+
+        transactions.executeWithoutResult(status -> {
+            assertThat(entityManager.find(DraftProject.class, (long) draftIDs[0])).isNotNull();
+            assertThat(entityManager.find(DraftProject.class, (long) draftIDs[1])).isNotNull();
+        });
     }
 
     private Integer persistDraft(String name, int quantity) {
