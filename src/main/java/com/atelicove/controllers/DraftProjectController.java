@@ -19,6 +19,7 @@ import com.atelicove.services.DraftProjectService;
 
 @RestController
 @RequestMapping("/draft-projects")
+@PreAuthorize("hasRole('ADMIN')")
 public class DraftProjectController {
 
     private final DraftProjectService draftProjectService;
@@ -41,26 +42,22 @@ public class DraftProjectController {
         return draftProjectService.findArchived();
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/launch")
     public Project launch(@PathVariable Integer id) {
         return draftProjectLaunchService.launch(id);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> archive(@PathVariable Long id) {
         draftProjectService.archive(id);
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}/restore")
     public DraftProject restore(@PathVariable Long id) {
         return draftProjectService.restore(id);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}/permanent")
     public ResponseEntity<Void> deletePermanently(@PathVariable Long id) {
         draftProjectService.deletePermanently(id);

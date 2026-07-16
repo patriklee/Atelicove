@@ -59,6 +59,9 @@ class SecurityConfigTest {
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(get("/companies/all").with(user("worker")))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/companies/all").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk());
     }
 

@@ -51,6 +51,8 @@ class WorkOrderControllerTest {
         WorkOrder workOrder = order(1, WorkOrderStatus.OPEN);
         when(workOrderService.findActive()).thenReturn(List.of(workOrder));
         when(workOrderService.findByCompanyID(5)).thenReturn(List.of(workOrder));
+        when(authorizationService.visibleWorkOrders(any(), any()))
+                .thenReturn(List.of(workOrder));
 
         mockMvc.perform(get("/workorders"))
                 .andExpect(status().isOk())
@@ -58,6 +60,9 @@ class WorkOrderControllerTest {
         mockMvc.perform(get("/workorders/company/5"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].status").value("OPEN"));
+
+        verify(authorizationService, org.mockito.Mockito.times(2))
+                .visibleWorkOrders(any(), any());
     }
 
     @Test

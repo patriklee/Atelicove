@@ -156,6 +156,20 @@ class WODocumentServiceTest {
     }
 
     @Test
+    void uploadRejectsArchivedWorkOrder() {
+        WorkOrder workOrder = new WorkOrder();
+        workOrder.setStatus(WorkOrderStatus.OPEN);
+        workOrder.setArchived(true);
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "inspection.pdf", "application/pdf", new byte[] { 1 });
+
+        when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
+
+        assertThrows(IllegalStateException.class,
+                () -> service.upload(1, file, DocumentType.OTHER, authentication));
+    }
+
+    @Test
     void uploadRejectsUnsupportedFileType() {
         WorkOrder workOrder = new WorkOrder();
         workOrder.setStatus(WorkOrderStatus.ACTIVE);

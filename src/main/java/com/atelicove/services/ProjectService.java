@@ -148,6 +148,7 @@ public class ProjectService {
 	@Transactional
 	public Project completeProject(Integer projectID) {
 		Project project = getRequiredProject(projectID);
+		ensureProjectIsNotArchived(project);
 
 		if (project.getProjectStatus() != ProjectStatus.IN_REVIEW) {
 			throw new IllegalStateException("Only projects under review can be completed");
@@ -167,6 +168,7 @@ public class ProjectService {
 	@Transactional
 	public Project rejectProject(Integer projectID) {
 		Project project = getRequiredProject(projectID);
+		ensureProjectIsNotArchived(project);
 
 		if (project.getProjectStatus() != ProjectStatus.IN_REVIEW) {
 			throw new IllegalStateException("Only projects under review can be rejected");
@@ -208,8 +210,8 @@ public class ProjectService {
 	}
 
 	/**
-	 * Permanently deletes an archived or open project. Work orders are detached
-	 * first so their project relationship and previous-project history are updated.
+	 * Permanently deletes only an accidental empty open project. Archived,
+	 * completed, and historically populated projects remain available for review.
 	 *
 	 * @param projectID project to permanently delete
 	 */
@@ -217,15 +219,21 @@ public class ProjectService {
 	public void deletePermanentlyById(Integer projectID) {
 		Project project = getRequiredProject(projectID);
 
-		if (!project.isArchived() && project.getProjectStatus() != ProjectStatus.OPEN) {
-			throw new IllegalStateException("Only archived or open projects can be permanently deleted");
-		}
-
-		for (WorkOrder workOrder : new java.util.ArrayList<>(project.getWorkOrders())) {
-			project.removeWorkOrder(workOrder);
+		if (!canDeleteMistakenProject(project)) {
+			throw new IllegalStateException("Only empty open projects without business history can be permanently deleted");
 		}
 
 		projectRepository.delete(project);
+	}
+
+	private boolean canDeleteMistakenProject(Project project) {
+		return !project.isArchived() &&
+				project.getProjectStatus() == ProjectStatus.OPEN &&
+				project.getWorkOrders().isEmpty() &&
+				project.getComments().isEmpty() &&
+				project.getActionItems().isEmpty() &&
+				project.getSnapshots().isEmpty() &&
+				project.getDocuments().isEmpty();
 	}
 
 	@Transactional
@@ -398,6 +406,7 @@ public class ProjectService {
 	@Transactional
 	public Project removeSnapshot(Integer projectID, Integer snapshotID) {
 		Project project = getRequiredProject(projectID);
+		ensureProjectCanBeEdited(project);
 		ProjectSnapshot snapshot = project.getSnapshots().stream()
 				.filter(item -> item.getProjectSnapshotID() == snapshotID)
 				.findFirst()
@@ -453,6 +462,14 @@ public class ProjectService {
 			Set<WorkOrder> workOrders = new HashSet<>(workOrderRepository.findAllById(projectDTO.getWorkOrderIDs()));
 			if (workOrders.size() != projectDTO.getWorkOrderIDs().size()) {
 				throw new IllegalArgumentException("One or more work orders were not found");
+			}
+			for (WorkOrder workOrder : workOrders) {
+				if (workOrder.isArchived() || workOrder.getStatus() == WorkOrderStatus.COMPLETE) {
+					throw new IllegalStateException("Archived or completed work orders cannot be reassigned");
+				}
+				if (workOrder.getProject() != null && workOrder.getProject() != project) {
+					throw new IllegalStateException("Work order is already associated with another project");
+				}
 			}
 			project.setWorkOrders(List.copyOf(workOrders));
 		}
@@ -529,13 +546,17 @@ public class ProjectService {
 	}
 
 	private void ensureProjectCanBeEdited(Project project) {
-		if (project.isArchived()) {
-			throw new IllegalStateException("Archived projects cannot be edited");
-		}
+		ensureProjectIsNotArchived(project);
 
 		if (project.getProjectStatus() == ProjectStatus.COMPLETE ||
 				project.getProjectStatus() == ProjectStatus.IN_REVIEW) {
 			throw new IllegalStateException("Completed or review projects cannot be edited");
+		}
+	}
+
+	private void ensureProjectIsNotArchived(Project project) {
+		if (project.isArchived()) {
+			throw new IllegalStateException("Archived projects cannot be edited");
 		}
 	}
 
@@ -617,8 +638,12 @@ public class ProjectService {
 	}
 
 	private boolean isAssignedToProject(Project project, int workerID) {
-		return project.getTeams().stream()
+		boolean assignedThroughTeam = project.getTeams().stream()
 				.flatMap((Team team) -> team.getWorkers().stream())
 				.anyMatch(worker -> worker.getWorkerID() == workerID);
+		boolean assignedThroughWorkOrder = project.getWorkOrders().stream()
+				.flatMap(workOrder -> workOrder.getWorkers().stream())
+				.anyMatch(worker -> worker.getWorkerID() == workerID);
+		return assignedThroughTeam || assignedThroughWorkOrder;
 	}
 }

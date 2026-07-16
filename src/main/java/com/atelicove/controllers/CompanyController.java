@@ -3,6 +3,7 @@ package com.atelicove.controllers;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.atelicove.entities.Company;
@@ -10,6 +11,7 @@ import com.atelicove.services.CompanyService;
 
 @RestController
 @RequestMapping("/companies")
+@PreAuthorize("hasRole('ADMIN')")
 public class CompanyController {
 
     private final CompanyService companyService;

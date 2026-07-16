@@ -36,15 +36,17 @@ public class WorkOrderController {
     }
 
     @GetMapping
-    public List<WorkOrder> getAllWorkOrders() {
-        return workOrderService.findActive();
+    public List<WorkOrder> getAllWorkOrders(Authentication authentication) {
+        return authorizationService.visibleWorkOrders(workOrderService.findActive(), authentication);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/drafts")
     public List<DraftWorkOrder> getDraftWorkOrders() {
         return workOrderService.findDrafts();
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/drafts/{id}")
     public ResponseEntity<DraftWorkOrder> getDraftWorkOrderById(@PathVariable Integer id) {
         return workOrderService.findDraftById(id)
@@ -52,23 +54,25 @@ public class WorkOrderController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/drafts/archived")
     public List<DraftWorkOrder> getArchivedDraftWorkOrders() {
         return workOrderService.findArchivedDrafts();
     }
 
     @GetMapping("/all-with-archived")
-    public List<WorkOrder> getAllWorkOrdersIncludingArchived() {
-        return workOrderService.findAll();
+    public List<WorkOrder> getAllWorkOrdersIncludingArchived(Authentication authentication) {
+        return authorizationService.visibleWorkOrders(workOrderService.findAll(), authentication);
     }
 
     @GetMapping("/archived")
-    public List<WorkOrder> getArchivedWorkOrders() {
-        return workOrderService.findArchived();
+    public List<WorkOrder> getArchivedWorkOrders(Authentication authentication) {
+        return authorizationService.visibleWorkOrders(workOrderService.findArchived(), authentication);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<WorkOrder> getWorkOrderById(@PathVariable Integer id) {
+    public ResponseEntity<WorkOrder> getWorkOrderById(@PathVariable Integer id, Authentication authentication) {
+        authorizationService.requireWorkOrderAccess(id, authentication);
     	
     	Optional<WorkOrder> workOrder = workOrderService.findById(id);
     	
@@ -80,8 +84,8 @@ public class WorkOrderController {
     }
 
     @GetMapping("/company/{companyID}")
-    public List<WorkOrder> getWorkOrderByCompany(@PathVariable Integer companyID) {
-        return workOrderService.findByCompanyID(companyID);
+    public List<WorkOrder> getWorkOrderByCompany(@PathVariable Integer companyID, Authentication authentication) {
+        return authorizationService.visibleWorkOrders(workOrderService.findByCompanyID(companyID), authentication);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -196,6 +200,7 @@ public class WorkOrderController {
     	return ResponseEntity.noContent().build();
     }
     
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/count")
     public long getWorkOrderCount() {
         return workOrderService.count();

@@ -218,6 +218,10 @@ public class WODocumentService {
         WorkOrder workOrder = workOrderRepository.findById(workOrderID)
                 .orElseThrow(() -> new IllegalArgumentException("Work order not found"));
 
+        if (workOrder.isArchived()) {
+            throw new IllegalStateException("Archived work orders cannot have documents changed");
+        }
+
         if (workOrder.getStatus() == WorkOrderStatus.COMPLETE) {
             throw new IllegalStateException("Completed work orders are sealed and cannot be edited");
         }

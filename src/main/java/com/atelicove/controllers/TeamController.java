@@ -20,6 +20,7 @@ import com.atelicove.services.TeamService;
 
 @RestController
 @RequestMapping("/teams")
+@PreAuthorize("hasRole('ADMIN')")
 public class TeamController {
 
 	private final TeamService teamService;
@@ -49,19 +50,16 @@ public class TeamController {
 		return ResponseEntity.notFound().build();
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
 	@PostMapping
 	public Team addTeam(@RequestBody TeamDTO teamDTO) {
 		return teamService.createTeam(teamDTO);
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping("/{id}")
 	public Team updateTeam(@PathVariable Integer id, @RequestBody TeamDTO teamDTO) {
 		return teamService.updateTeam(id, teamDTO);
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deleteTeam(@PathVariable Integer id) {
 		teamService.deleteTeam(id);

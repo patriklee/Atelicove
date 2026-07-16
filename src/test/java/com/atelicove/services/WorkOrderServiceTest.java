@@ -213,25 +213,34 @@ public class WorkOrderServiceTest {
     }
 
     @Test
-    void deletePermanentlyByIdRemovesArchivedWorkOrder() {
+    void deletePermanentlyByIdRejectsArchivedHistoricalWorkOrder() {
         WorkOrder workOrder = new WorkOrder();
         workOrder.setArchived(true);
-        Worker worker = new Worker();
-        workOrder.addWorker(worker);
+        when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
+
+        assertThrows(IllegalStateException.class, () -> workOrderService.deletePermanentlyById(1));
+        verify(workOrderRepository, never()).delete(workOrder);
+    }
+
+    @Test
+    void deletePermanentlyByIdRemovesOnlyEmptyOpenWorkOrder() {
+        WorkOrder workOrder = new WorkOrder();
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
 
         workOrderService.deletePermanentlyById(1);
 
-        assertEquals(0, worker.getWorkOrders().size());
         verify(workOrderRepository).delete(workOrder);
     }
 
     @Test
-    void deletePermanentlyByIdRejectsActiveWorkOrder() {
-        WorkOrder workOrder = new WorkOrder();
+    void archivedWorkOrderCannotBeEditedEvenWhenStatusIsOpen() {
+        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.OPEN);
+        workOrder.setArchived(true);
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
 
-        assertThrows(IllegalStateException.class, () -> workOrderService.deletePermanentlyById(1));
+        assertThrows(IllegalStateException.class, () -> workOrderService.updateComment(1, "changed"));
+        assertThrows(IllegalStateException.class, () -> workOrderService.startWorkOrder(1));
+        verify(workOrderRepository, never()).save(workOrder);
     }
 
     @Test

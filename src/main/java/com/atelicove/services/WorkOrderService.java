@@ -50,6 +50,7 @@ public class WorkOrderService{
     @Transactional
     public WorkOrder startWorkOrder(Integer workOrderID) {
     	WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
+		ensureWorkOrderCanBeEdited(workOrder);
     	
     	if(workOrder.getStatus() != WorkOrderStatus.OPEN) {
     		throw new IllegalStateException("Only open work orders can be started");
@@ -430,8 +431,8 @@ public class WorkOrderService{
     }
 
     /**
-     * Permanently removes a work order only when it is already archived or appears
-     * to be an accidental empty open record.
+     * Permanently removes only an accidental empty open work order. Archived and
+     * completed records remain available as business history.
      *
      * @param id work order to permanently delete
      */
@@ -439,8 +440,8 @@ public class WorkOrderService{
     public void deletePermanentlyById(Integer id) {
         WorkOrder workOrder = getRequiredWorkOrder(id);
 
-        if (!workOrder.isArchived() && !canDeleteMistakenWorkOrder(workOrder)) {
-            throw new IllegalStateException("Only archived or empty open work orders can be permanently deleted");
+        if (!canDeleteMistakenWorkOrder(workOrder)) {
+            throw new IllegalStateException("Only empty open work orders without business history can be permanently deleted");
         }
 
         workOrder.setWorkers(new HashSet<>());
@@ -449,10 +450,16 @@ public class WorkOrderService{
 
     private boolean canDeleteMistakenWorkOrder(WorkOrder workOrder) {
         boolean hasItems = workOrder.getItems() != null && !workOrder.getItems().isEmpty();
+        boolean hasWorkers = workOrder.getWorkers() != null && !workOrder.getWorkers().isEmpty();
 
-        return workOrder.getStatus() == WorkOrderStatus.OPEN &&
+        return !workOrder.isArchived() &&
+                workOrder.getStatus() == WorkOrderStatus.OPEN &&
                 workOrder.getEndDateTime() == null &&
-                !hasItems;
+                !hasItems &&
+                !hasWorkers &&
+                workOrder.getCompany() == null &&
+                workOrder.getProject() == null &&
+                (workOrder.getComment() == null || workOrder.getComment().isBlank());
     }
     
     public long count() {
@@ -493,6 +500,7 @@ public class WorkOrderService{
     @Transactional
     public WorkOrder approveWorkOrder(Integer workOrderID) {
     	WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
+		ensureWorkOrderCanBeEdited(workOrder);
     	
     	if(workOrder.getStatus() != WorkOrderStatus.IN_REVIEW) {
     		throw new IllegalStateException("Only work orders under review can be approved");
@@ -507,6 +515,7 @@ public class WorkOrderService{
     @Transactional
     public WorkOrder rejectWorkOrder(Integer workOrderID) {
     	WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
+		ensureWorkOrderCanBeEdited(workOrder);
     	
     	if(workOrder.getStatus() != WorkOrderStatus.IN_REVIEW) {
     		throw new IllegalStateException("Only work orders under review can be rejected");
@@ -535,6 +544,9 @@ public class WorkOrderService{
     }
 
     private void ensureWorkOrderCanBeEdited(WorkOrder workOrder) {
+        if (workOrder.isArchived()) {
+            throw new IllegalStateException("Archived work orders cannot be edited");
+        }
         if (workOrder.getStatus() == WorkOrderStatus.COMPLETE) {
             throw new IllegalStateException("Completed work orders are sealed and cannot be edited");
         }

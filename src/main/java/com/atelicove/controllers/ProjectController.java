@@ -35,22 +35,23 @@ public class ProjectController {
 	}
 
 	@GetMapping
-	public List<Project> getAllProjects() {
-		return projectService.findActive();
+	public List<Project> getAllProjects(Authentication authentication) {
+		return authorizationService.visibleProjects(projectService.findActive(), authentication);
 	}
 
 	@GetMapping("/all-with-archived")
-	public List<Project> getAllProjectsIncludingArchived() {
-		return projectService.findAll();
+	public List<Project> getAllProjectsIncludingArchived(Authentication authentication) {
+		return authorizationService.visibleProjects(projectService.findAll(), authentication);
 	}
 
 	@GetMapping("/archived")
-	public List<Project> getArchivedProjects() {
-		return projectService.findArchived();
+	public List<Project> getArchivedProjects(Authentication authentication) {
+		return authorizationService.visibleProjects(projectService.findArchived(), authentication);
 	}
 
 	@GetMapping("/{id}")
-	public ResponseEntity<Project> getProjectById(@PathVariable Integer id) {
+	public ResponseEntity<Project> getProjectById(@PathVariable Integer id, Authentication authentication) {
+		authorizationService.requireProjectAccess(id, authentication);
 		return projectService.findById(id)
 				.map(ResponseEntity::ok)
 				.orElseGet(() -> ResponseEntity.notFound().build());
@@ -169,6 +170,7 @@ public class ProjectController {
 		return ResponseEntity.noContent().build();
 	}
 
+	@PreAuthorize("hasRole('ADMIN')")
 	@GetMapping("/count")
 	public long getProjectCount() {
 		return projectService.count();

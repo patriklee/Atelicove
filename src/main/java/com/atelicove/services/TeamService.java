@@ -61,6 +61,7 @@ public class TeamService {
 	@Transactional
 	public Team updateTeam(Integer teamID, TeamDTO teamDTO) {
 		Team team = getRequiredTeam(teamID);
+		ensureTeamIsNotUsedByProtectedProject(team);
 		Set<Worker> previousWorkers = new HashSet<>(team.getWorkers());
 		applyDTO(team, teamDTO);
 		syncUpdatedTeamWorkers(team, previousWorkers);
@@ -76,6 +77,7 @@ public class TeamService {
 	@Transactional
 	public void deleteTeam(Integer teamID) {
 		Team team = getRequiredTeam(teamID);
+		ensureTeamIsNotUsedByProtectedProject(team);
 
 		for (Project project : projectRepository.findAll()) {
 			if (project.getTeams().contains(team)) {
@@ -105,8 +107,8 @@ public class TeamService {
 		if (teamDTO.getProjectID() != null) {
 			Project project = projectRepository.findById(teamDTO.getProjectID())
 					.orElseThrow(() -> new IllegalArgumentException("Project not found"));
-			if (project.isArchived()) {
-				throw new IllegalStateException("Teams cannot be changed on archived projects");
+			if (project.isArchived() || project.getProjectStatus() == ProjectStatus.COMPLETE) {
+				throw new IllegalStateException("Teams cannot be changed on archived or completed projects");
 			}
 			project.addTeam(team);
 
@@ -132,6 +134,15 @@ public class TeamService {
 	private Team getRequiredTeam(Integer teamID) {
 		return teamRepository.findById(teamID)
 				.orElseThrow(() -> new IllegalArgumentException("Team not found"));
+	}
+
+	private void ensureTeamIsNotUsedByProtectedProject(Team team) {
+		boolean usedByProtectedProject = projectRepository.findAll().stream()
+				.anyMatch(project -> project.getTeams().contains(team) &&
+						(project.isArchived() || project.getProjectStatus() == ProjectStatus.COMPLETE));
+		if (usedByProtectedProject) {
+			throw new IllegalStateException("Teams used by archived or completed projects cannot be changed");
+		}
 	}
 
 	private void removeTeamWorkersFromActiveProjectWorkOrders(Project project, Team team) {
