@@ -1,5 +1,6 @@
 package com.atelicove.entities;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +27,8 @@ public class DraftProject extends ArchivableEntity {
 
     @Column(length = 2000)
     private String description;
+
+    private BigDecimal budget;
 
     @ManyToOne
     @JoinColumn(name = "source_project_id")
@@ -59,6 +62,14 @@ public class DraftProject extends ArchivableEntity {
 
 	public void setDescription(String description) {
 		this.description = description;
+	}
+
+	public BigDecimal getBudget() {
+		return budget;
+	}
+
+	public void setBudget(BigDecimal budget) {
+		this.budget = budget;
 	}
 
 	public Project getSourceProject() {

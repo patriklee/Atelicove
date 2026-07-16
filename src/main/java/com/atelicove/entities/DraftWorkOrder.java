@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.atelicove.enums.DraftProposalStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.CascadeType;
@@ -30,6 +31,7 @@ public class DraftWorkOrder extends ArchivableEntity {
 	
 	@ManyToOne
 	@JoinColumn(name = "draft_project_id")
+	@JsonIgnore
 	// Admin project drafts may own work orders; worker proposals may remain
 	// independent. Both are draft-only and never modify live entities directly.
 	private DraftProject draftProject;

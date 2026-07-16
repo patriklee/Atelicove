@@ -23,10 +23,11 @@ const archiveConfig = {
     title: 'Projects',
     subtitle: 'Browse archived projects and their draft snapshots.',
     endpoint: '/projects/archived',
-    draftEndpoint: '/projects/drafts/archived',
+    draftEndpoint: '/draft-projects/archived',
     restorePath: item => `/projects/${item.projectID}/restore`,
+    draftRestorePath: item => `/draft-projects/${item.draftProjectID ?? item.draftProjectId}/restore`,
     canDelete: false,
-    key: item => item.projectID,
+    key: item => item.projectID ?? item.draftProjectID ?? item.draftProjectId,
     empty: 'No archived projects found.',
     columns: [
       { label: 'Project', value: item => item.projectName || `Project #${item.projectID}` },
@@ -42,6 +43,14 @@ const archiveConfig = {
           ))}
         </Stack>
       ) : 'None') },
+      { label: 'Created', value: item => formatDateTime(item.createdAt) },
+      { label: 'Archived', value: item => formatDateTime(item.archivedAt) },
+    ],
+    draftColumns: [
+      { label: 'Draft Project', value: item => item.draftName || `Draft #${item.draftProjectID ?? item.draftProjectId}` },
+      { label: 'Budget', value: item => item.budget == null ? 'Not set' : formatMoney(item.budget) },
+      { label: 'Draft Work Orders', value: item => item.draftWorkOrders?.length || 0 },
+      { label: 'Planned Staffing', value: item => item.plannedStaffing?.length || 0 },
       { label: 'Created', value: item => formatDateTime(item.createdAt) },
       { label: 'Archived', value: item => formatDateTime(item.archivedAt) },
     ],

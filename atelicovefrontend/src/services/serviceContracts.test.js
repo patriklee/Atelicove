@@ -33,8 +33,14 @@ test('worker and work-order services use targeted controller routes', async () =
 
 test('draft service uses the dedicated draft-project routes', async () => {
   await draftService.getDrafts();
+  await draftService.create({ draftName: 'Plan' });
+  await draftService.createWorkOrder(7, { comment: 'Inspect' });
+  await draftService.createPlannedStaffing(7, { staffingName: 'Crew' });
   await draftService.archive(7);
 
   expect(apiFetch).toHaveBeenNthCalledWith(1, '/draft-projects');
-  expect(apiFetch).toHaveBeenNthCalledWith(2, '/draft-projects/7', { method: 'DELETE' });
+  expect(apiFetch).toHaveBeenNthCalledWith(2, '/draft-projects', expect.objectContaining({ method: 'POST' }));
+  expect(apiFetch).toHaveBeenNthCalledWith(3, '/draft-projects/7/work-orders', expect.objectContaining({ method: 'POST' }));
+  expect(apiFetch).toHaveBeenNthCalledWith(4, '/draft-projects/7/planned-staffing', expect.objectContaining({ method: 'POST' }));
+  expect(apiFetch).toHaveBeenNthCalledWith(5, '/draft-projects/7', { method: 'DELETE' });
 });

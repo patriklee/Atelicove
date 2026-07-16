@@ -54,6 +54,7 @@ public class DraftProjectLaunchService {
 		Project project = new Project();
 		project.setProjectName(draftProject.getDraftName().trim());
 		project.setDescription(draftProject.getDescription());
+		project.setBudget(draftProject.getBudget());
 		project.setProjectStatus(ProjectStatus.OPEN);
 		project.setActivatedAt(launchedAt);
 		entityManager.persist(project);
@@ -187,14 +188,13 @@ public class DraftProjectLaunchService {
 				Team team = requireExisting(Team.class, staffing.getSourceTeamID(), "team");
 				project.addTeam(team);
 				team.getWorkers().stream().filter(worker -> !worker.isArchived()).forEach(workers::add);
-			} else {
-				for (StaffingSlot slot : staffing.getStaffingSlots()) {
-					if (slot.getWorkerID() == null) {
-						continue;
-					}
-					Worker worker = entityManager.find(Worker.class, slot.getWorkerID());
-					workers.add(worker);
+			}
+			for (StaffingSlot slot : staffing.getStaffingSlots()) {
+				if (slot.getWorkerID() == null) {
+					continue;
 				}
+				Worker worker = entityManager.find(Worker.class, slot.getWorkerID());
+				workers.add(worker);
 			}
 			staffingWorkers.put(staffing.getPlannedStaffingID(), workers);
 		}

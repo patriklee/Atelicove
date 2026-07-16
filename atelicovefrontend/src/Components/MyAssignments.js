@@ -54,11 +54,14 @@ const MyAssignments = () => {
     const projectTeamWorkers = (project.teams || [])
       .flatMap(team => team.workers || [])
       .map(normalizeWorker);
+    const projectWorkOrderWorkers = (project.workOrders || [])
+      .flatMap(workOrder => getWorkOrderWorkers(workOrder));
 
-    return projectTeamWorkers.some(worker => Number(worker.workerID) === currentWorkerID);
+    return [...projectTeamWorkers, ...projectWorkOrderWorkers]
+      .some(worker => Number(worker.workerID) === currentWorkerID);
   };
 
-  const activeProjects = projects.filter(project => project.projectStatus === 'ACTIVE' && workerIsOnProject(project));
+  const activeProjects = projects.filter(project => project.projectStatus === 'OPEN' && workerIsOnProject(project));
 
   const openWorkOrder = (workOrderID) => {
     navigate(user?.isAdmin ? `/admin/my-assignments/${workOrderID}` : `/worker/my-assignments/${workOrderID}`);

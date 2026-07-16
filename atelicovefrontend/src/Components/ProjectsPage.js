@@ -38,6 +38,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { projectService } from '../services/projectService';
+import { draftService } from '../services/draftService';
 import { draftLaunchErrorMessage, isPlaceholderStaffingSlot } from '../features/projectStudio/draftUtils';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../model';
 import { useAuth } from './AuthContext';
@@ -91,14 +92,15 @@ const normalizeProject = (project = {}) => {
 
   return {
     ...project,
-    projectID: project.projectID ?? project.projectId ?? 0,
-    projectName: project.projectName ?? '',
+    projectID: project.projectID ?? project.projectId ?? project.draftProjectID ?? project.draftProjectId ?? 0,
+    projectName: project.projectName ?? project.draftName ?? '',
     description: project.description ?? '',
     budget: project.budget ?? '',
     estimatedCost: project.estimatedCost ?? '',
     actualCost: project.actualCost ?? '',
     budgetDifference: project.budgetDifference ?? '',
     projectStatus: project.projectStatus ?? 'OPEN',
+    isDraftProject: project.isDraftProject ?? Boolean(project.draftProjectID ?? project.draftProjectId),
     comments: Array.isArray(project.comments) ? project.comments : [],
     actionItems: Array.isArray(project.actionItems) ? project.actionItems : [],
     documents: Array.isArray(project.documents) ? project.documents : [],
@@ -156,6 +158,26 @@ const projectPayload = (form) => ({
   associatedActiveProjectID: form.associatedActiveProjectID ? Number(form.associatedActiveProjectID) : null,
 });
 
+const draftProjectPayload = (form) => ({
+  draftName: form.projectName.trim() || null,
+  description: form.description.trim() || null,
+  budget: moneyOrBlank(form.budget),
+  sourceProjectID: form.associatedActiveProjectID ? Number(form.associatedActiveProjectID) : null,
+});
+
+const plannedStaffingPayload = (team) => ({
+  sourceTeamID: team.sourceTeamID || null,
+  staffingName: team.staffingName || team.teamName || 'Planned Staffing',
+  notes: team.notes || null,
+  staffingSlots: (team.staffingSlots || team.workers || []).map(slot => ({
+    staffingSlotID: Number(slot.staffingSlotID) > 0 ? Number(slot.staffingSlotID) : null,
+    workerID: slot.workerID || null,
+    workerName: slot.workerName || slot.workerDisplayName || null,
+    roleName: slot.roleName || slot.roleTitle || null,
+    roleDescription: slot.roleDescription || null,
+  })),
+});
+
 const actionItemPayload = (form) => ({
   itemText: form.itemText.trim(),
   assignedWorker: form.assignedWorkerID ? { workerID: Number(form.assignedWorkerID) } : null,
@@ -191,6 +213,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const [draftTeamName, setDraftTeamName] = useState('');
   const [draftTeamWorkerIDs, setDraftTeamWorkerIDs] = useState([]);
   const [draftTeamSourceTeamIDs, setDraftTeamSourceTeamIDs] = useState([]);
+  const [editingPlannedStaffingID, setEditingPlannedStaffingID] = useState(null);
   const [draftSlotWorkerID, setDraftSlotWorkerID] = useState('');
   const [draftSlotRoleName, setDraftSlotRoleName] = useState('');
   const [draftSlotRoleDescription, setDraftSlotRoleDescription] = useState('');
@@ -222,27 +245,48 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
   const loadData = () => {
     setLoading(true);
+    const draftProjectsRequest = mode === 'studio' ? draftService.getDrafts() : Promise.resolve([]);
+    const archivedDraftsRequest = isWorkerEdit ? Promise.resolve([]) : apiFetch('/workorders/drafts/archived');
+    const teamsRequest = isWorkerEdit ? Promise.resolve([]) : apiFetch('/teams');
+    const workersRequest = isWorkerEdit ? Promise.resolve([]) : apiFetch('/workers');
+    const companiesRequest = isWorkerEdit ? Promise.resolve([]) : apiFetch('/companies');
     Promise.all([
       apiFetch('/projects/all-with-archived'),
       apiFetch('/workorders'),
-      apiFetch('/workorders/drafts/archived'),
-      apiFetch('/teams'),
-      apiFetch('/workers'),
-      apiFetch('/companies'),
+      archivedDraftsRequest,
+      teamsRequest,
+      workersRequest,
+      companiesRequest,
+      draftProjectsRequest,
     ])
-      .then(([projectData, workOrderData, archivedDraftWorkOrderData, teamData, workerData, companyData]) => {
-        setProjects(projectData.map(normalizeProject));
+      .then(([projectData, workOrderData, archivedDraftWorkOrderData, teamData, workerData, companyData, draftProjectData]) => {
+        const normalizedProjects = [
+          ...draftProjectData.map(normalizeProject),
+          ...projectData.map(normalizeProject),
+        ];
+        const workerVisibleTeams = normalizedProjects.flatMap(project => project.teams || []);
+        const workerVisibleWorkers = [
+          ...workerVisibleTeams.flatMap(team => team.workers || []),
+          ...workOrderData.flatMap(workOrder => getWorkOrderWorkers(workOrder)),
+        ];
+        setProjects([
+          ...normalizedProjects,
+        ]);
         setWorkOrders(workOrderData);
         setArchivedDraftWorkOrders(archivedDraftWorkOrderData);
-        setTeams(teamData.map(normalizeTeam));
-        setWorkers(workerData.map(normalizeWorker));
+        setTeams((isWorkerEdit ? workerVisibleTeams : teamData)
+          .map(normalizeTeam)
+          .filter((team, index, all) => all.findIndex(item => item.teamID === team.teamID) === index));
+        setWorkers((isWorkerEdit ? workerVisibleWorkers : workerData)
+          .map(normalizeWorker)
+          .filter((worker, index, all) => all.findIndex(item => item.workerID === worker.workerID) === index));
         setCompanies(companyData.filter(company => !company.archived));
       })
       .catch(error => setMessage({ severity: 'error', text: error.message }))
       .finally(() => setLoading(false));
   };
 
-  useEffect(loadData, []);
+  useEffect(loadData, [mode, isWorkerEdit]);
 
   const visibleProjects = useMemo(() => {
     const activeProjects = projects.filter(project => !project.archived);
@@ -250,7 +294,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       return activeProjects.filter(project => project.projectID === Number(routeProjectID));
     }
     if (mode === 'active') {
-      return activeProjects.filter(project => ['ACTIVE', 'IN_REVIEW'].includes(project.projectStatus));
+      return activeProjects.filter(project => !project.isDraftProject && ['OPEN', 'IN_REVIEW'].includes(project.projectStatus));
     }
     return activeProjects;
   }, [isProjectEdit, mode, projects, routeProjectID]);
@@ -263,12 +307,12 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const projectTeamSelectOptions = teams.filter(team => (
     (team.workers || []).length || selectedProjectTeamIDs.includes(team.teamID)
   ));
-  const activeProjectOptions = projects.filter(project => !project.archived && project.projectStatus === 'ACTIVE');
+  const activeProjectOptions = projects.filter(project => !project.archived && !project.isDraftProject && project.projectStatus === 'OPEN');
   const draftStudioProjectTableProjects = projects.filter(project => (
     !project.archived &&
     (draftStudioProjectTableView === 'active'
-      ? project.projectStatus === 'ACTIVE'
-      : project.projectStatus === 'OPEN')
+      ? !project.isDraftProject
+      : project.isDraftProject)
   ));
   const attachableWorkOrders = workOrders.filter(workOrder =>
     !workOrder.archived &&
@@ -295,7 +339,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     ...(project.draftWorkOrders || []),
   ].filter(workOrder => !workOrder.archived);
   const plannedTeamsForProject = (project = {}) => (
-    project.projectStatus === 'OPEN' ? (project.plannedTeams || []) : (project.teams || [])
+    project.isDraftProject ? (project.plannedTeams || []) : (project.teams || [])
   );
   const plannedTeamCount = (project = {}) => plannedTeamsForProject(project).length;
   const teamsForWorkOrder = (project = {}, workOrder = {}) => {
@@ -337,7 +381,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       .some(workOrder => (workOrder.items || []).some(item => Number(item.price) > 0 && Number(item.quantity || 1) > 0));
   const showProjectCostBox = isEditorView && selectedProject && !isStudioEditView && (
     (selectedProject.projectStatus === 'OPEN' && hasPricedItemsForStatuses(selectedProject, ['DRAFT'])) ||
-    (selectedProject.projectStatus === 'ACTIVE' && hasPricedItemsForStatuses(selectedProject, ['COMPLETE']))
+    (!selectedProject.isDraftProject && selectedProject.projectStatus === 'OPEN' && hasPricedItemsForStatuses(selectedProject, ['COMPLETE']))
   );
 
   const resetProjectForm = () => setProjectForm(emptyProjectForm);
@@ -384,8 +428,10 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       projectName: project.projectName || '',
       description: project.description || '',
       budget: project.budget ?? '',
-      teamIDs: plannedTeamsForProject(project).map(team => team.teamID),
-      associatedActiveProjectID: project.associatedActiveProject?.projectID || '',
+      teamIDs: project.isDraftProject
+        ? plannedTeamsForProject(project).map(team => team.sourceTeamID).filter(Boolean)
+        : plannedTeamsForProject(project).map(team => team.teamID),
+      associatedActiveProjectID: project.sourceProject?.projectID || project.associatedActiveProject?.projectID || '',
     });
     setCommentProjectID(project.projectID);
     setWorkOrderForm(current => ({ ...current, projectID: project.projectID }));
@@ -404,9 +450,13 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     };
   };
 
-  const teamSnapshot = (team) => ({
-    plannedStaffingID: Number(team.plannedStaffingID || team.teamID) > 0 ? Number(team.plannedStaffingID || team.teamID) : 0,
-    sourceTeamID: team.sourceTeamID || (Number(team.teamID) > 0 && teams.some(item => Number(item.teamID) === Number(team.teamID)) ? Number(team.teamID) : null),
+  const teamSnapshot = (team) => {
+    const plannedStaffingID = Number(team.plannedStaffingID) > 0 ? Number(team.plannedStaffingID) : 0;
+    const sourceTeamID = team.sourceTeamID || (!team.plannedStaffingID && Number(team.teamID) > 0 && teams.some(item => Number(item.teamID) === Number(team.teamID)) ? Number(team.teamID) : null);
+    return ({
+    plannedStaffingID,
+    teamID: plannedStaffingID || -(Number(sourceTeamID) || Date.now()),
+    sourceTeamID,
     staffingName: team.staffingName || team.teamName || 'Planned Staffing',
     teamName: team.staffingName || team.teamName || 'Planned Staffing',
     staffingSlots: (team.staffingSlots || team.workers || []).map(staffingSlotSnapshot),
@@ -420,7 +470,8 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
         roleDescription: normalized.roleDescription || '',
       };
     }),
-  });
+    });
+  };
 
   const plannedTeamSnapshots = (teamIDs) => (
     teamIDs
@@ -435,15 +486,26 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setSaving(true);
     setMessage(null);
     try {
-      const teamIDs = plannedTeams.map(team => Number(team.teamID));
-      const updated = await apiFetch(`/projects/${selectedProject.projectID}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          ...projectPayload(projectForm),
-          teamIDs,
-          plannedTeams: plannedTeams.map(teamSnapshot),
-        }),
-      });
+      const currentPlans = plannedTeamsForProject(selectedProject);
+      const desiredPlans = plannedTeams.map(teamSnapshot);
+      const desiredIDs = new Set(desiredPlans
+        .map(team => Number(team.plannedStaffingID))
+        .filter(id => id > 0));
+      let updated = selectedProject;
+
+      for (const currentPlan of currentPlans) {
+        const currentID = Number(currentPlan.plannedStaffingID || currentPlan.teamID);
+        if (currentID > 0 && !desiredIDs.has(currentID)) {
+          updated = await draftService.deletePlannedStaffing(selectedProject.projectID, currentID);
+        }
+      }
+
+      for (const plannedTeam of desiredPlans) {
+        const plannedStaffingID = Number(plannedTeam.plannedStaffingID);
+        updated = plannedStaffingID > 0
+          ? await draftService.updatePlannedStaffing(selectedProject.projectID, plannedStaffingID, plannedStaffingPayload(plannedTeam))
+          : await draftService.createPlannedStaffing(selectedProject.projectID, plannedStaffingPayload(plannedTeam));
+      }
       const normalized = normalizeProject(updated);
       setProjects(current => current.map(project => project.projectID === normalized.projectID ? normalized : project));
       loadProjectIntoForm(normalized);
@@ -498,6 +560,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setDraftSlotWorkerID('');
     setDraftSlotRoleName('');
     setDraftSlotRoleDescription('');
+    setEditingPlannedStaffingID(null);
   };
 
   const editDraftStaffing = (team) => {
@@ -505,6 +568,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       .find(item => Number(item.teamID) === Number(team.sourceTeamID))
       ?.workers?.map(worker => Number(worker.workerID)) || []);
     setDraftTeamName(team.staffingName || team.teamName || '');
+    setEditingPlannedStaffingID(Number(team.plannedStaffingID || team.teamID));
     setDraftTeamSourceTeamIDs(team.sourceTeamID ? [Number(team.sourceTeamID)] : []);
     setDraftTeamWorkerIDs((team.staffingSlots || team.workers || [])
       .filter(slot => !sourceWorkerIDs.has(Number(slot.workerID)))
@@ -524,13 +588,19 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       staffingSlots: draftTeamWorkerIDs,
       workers: draftTeamWorkerIDs,
     };
-    await savePlannedTeamSnapshots([...plannedTeamsForProject(selectedProject), plannedTeam]);
+    const currentPlans = plannedTeamsForProject(selectedProject);
+    const nextPlans = editingPlannedStaffingID
+      ? currentPlans.map(team => Number(team.plannedStaffingID || team.teamID) === Number(editingPlannedStaffingID)
+          ? { ...plannedTeam, plannedStaffingID: editingPlannedStaffingID, teamID: editingPlannedStaffingID }
+          : team)
+      : [...currentPlans, plannedTeam];
+    await savePlannedTeamSnapshots(nextPlans);
     resetDraftStaffingBuilder();
     setDraftTeamView('planned');
   };
 
   const removePlannedTeam = async (teamID) => {
-    if (isStudioEditView && selectedProject?.projectStatus === 'OPEN') {
+    if (isStudioEditView && selectedProject?.isDraftProject) {
       await savePlannedTeamSnapshots(
         plannedTeamsForProject(selectedProject).filter(team => Number(team.teamID) !== Number(teamID))
       );
@@ -565,7 +635,8 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     if (
       mode === 'active' &&
       canManageProject &&
-      project.projectStatus === 'ACTIVE' &&
+      !project.isDraftProject &&
+      project.projectStatus === 'OPEN' &&
       !project.archived
     ) {
       setProjectStudioPreloadSuppressed(false);
@@ -580,13 +651,13 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
   const openDraftStudioProjectForEdit = (project) => {
     if (!project) return;
 
-    if (project.projectStatus === 'OPEN') {
+    if (project.isDraftProject) {
       loadProjectIntoForm(project);
       setStudioView('edit');
       return;
     }
 
-    if (project.projectStatus === 'ACTIVE') {
+    if (!project.isDraftProject && project.projectStatus === 'OPEN') {
       requestProjectEditLeave(() => navigate('/admin/projects/active', {
         state: { projectStudioEditProjectID: project.projectID },
       }));
@@ -634,7 +705,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       return;
     }
 
-    const project = projects.find(item => item.projectID === projectID && ['ACTIVE', 'IN_REVIEW'].includes(item.projectStatus) && !item.archived);
+    const project = projects.find(item => item.projectID === projectID && !item.isDraftProject && ['OPEN', 'IN_REVIEW'].includes(item.projectStatus) && !item.archived);
     if (project) {
       consumedProjectStudioPreloadKeyRef.current = preloadKey;
       loadProjectIntoForm(project);
@@ -672,10 +743,24 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setSaving(true);
     setMessage(null);
     try {
-      const payload = buildProjectPayload(projectForm);
-      const saved = projectForm.projectID
-        ? await apiFetch(`/projects/${projectForm.projectID}`, { method: 'PUT', body: JSON.stringify(payload) })
-        : await apiFetch('/projects', { method: 'POST', body: JSON.stringify(payload) });
+      const isDraftStudioProject = mode === 'studio';
+      const payload = isDraftStudioProject ? draftProjectPayload(projectForm) : buildProjectPayload(projectForm);
+      let saved = isDraftStudioProject
+        ? projectForm.projectID
+          ? await draftService.update(projectForm.projectID, payload)
+          : await draftService.create(payload)
+        : projectForm.projectID
+          ? await apiFetch(`/projects/${projectForm.projectID}`, { method: 'PUT', body: JSON.stringify(payload) })
+          : await apiFetch('/projects', { method: 'POST', body: JSON.stringify(payload) });
+
+      if (isDraftStudioProject && !projectForm.projectID) {
+        for (const plannedTeam of plannedTeamSnapshots(projectForm.teamIDs)) {
+          saved = await draftService.createPlannedStaffing(
+            saved.draftProjectID || saved.draftProjectId,
+            plannedStaffingPayload(plannedTeam)
+          );
+        }
+      }
       const normalized = normalizeProject(saved);
       setMessage({ severity: 'success', text: `Project ${saved.projectName || `#${saved.projectID}`} saved.` });
       setProjects(current => [
@@ -734,7 +819,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
       setMessage({ severity: 'warning', text: 'Associated team is empty.' });
       return;
     }
-    if (isStudioEditView && selectedProject.projectStatus === 'OPEN') {
+    if (isStudioEditView && selectedProject.isDraftProject) {
       await savePlannedTeamSnapshots([
         ...plannedTeamsForProject(selectedProject),
         teamSnapshot(team),
@@ -755,22 +840,35 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     event.preventDefault();
     if (!selectedWorkOrderProject) return;
 
-    const team = teams.find(item => item.teamID === Number(workOrderForm.teamID));
+    const team = selectedWorkOrderProject?.isDraftProject
+      ? plannedTeamsForProject(selectedWorkOrderProject).find(item => Number(item.teamID) === Number(workOrderForm.teamID))
+      : teams.find(item => item.teamID === Number(workOrderForm.teamID));
     const company = companies.find(item => item.companyID === Number(workOrderForm.companyID));
     setSaving(true);
     setMessage(null);
     try {
-      const isDraftProject = selectedWorkOrderProject.projectStatus === 'OPEN';
+      const isDraftProject = selectedWorkOrderProject.isDraftProject;
       const attachesExisting = Boolean(workOrderForm.existingWorkOrderID);
-      const updated = await apiFetch(`/projects/${selectedWorkOrderProject.projectID}/${isDraftProject ? 'draft-workorders' : 'workorders'}`, {
-        method: isDraftProject || !attachesExisting ? 'POST' : 'PUT',
-        body: JSON.stringify({
-          workOrderID: attachesExisting ? Number(workOrderForm.existingWorkOrderID) : null,
-          teamID: team?.teamID || null,
-          companyID: company?.companyID || null,
-          comment: workOrderForm.comment.trim(),
-        }),
-      });
+      const updated = isDraftProject
+        ? await draftService.createWorkOrder(selectedWorkOrderProject.projectID, {
+            sourceWorkOrderID: attachesExisting ? Number(workOrderForm.existingWorkOrderID) : null,
+            plannedStaffingID: team?.plannedStaffingID || team?.teamID || null,
+            plannedCompanyID: company?.companyID || null,
+            sourceProjectID: attachesExisting ? workOrders.find(order => Number(order.workOrderID) === Number(workOrderForm.existingWorkOrderID))?.project?.projectID || null : null,
+            workOrderName: workOrderForm.comment.trim() || null,
+            proposalStatus: 'PRIVATE',
+            comment: workOrderForm.comment.trim(),
+            items: null,
+          })
+        : await apiFetch(`/projects/${selectedWorkOrderProject.projectID}/workorders`, {
+            method: attachesExisting ? 'PUT' : 'POST',
+            body: JSON.stringify({
+              workOrderID: attachesExisting ? Number(workOrderForm.existingWorkOrderID) : null,
+              teamID: team?.teamID || null,
+              companyID: company?.companyID || null,
+              comment: workOrderForm.comment.trim(),
+            }),
+          });
       const normalized = normalizeProject(updated);
 
       setMessage({
@@ -798,11 +896,11 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setSaving(true);
     setMessage(null);
     try {
-      await apiFetch(isDraftWorkOrder
-        ? `/workorders/drafts/${workOrder.workOrderID}`
-        : `/projects/${project.projectID}/workorders/${workOrder.workOrderID}`, {
-        method: 'DELETE',
-      });
+      if (isDraftWorkOrder) {
+        await draftService.deleteWorkOrder(project.projectID, workOrder.workOrderID);
+      } else {
+        await apiFetch(`/projects/${project.projectID}/workorders/${workOrder.workOrderID}`, { method: 'DELETE' });
+      }
       setMessage({ severity: 'success', text: `${isDraftWorkOrder ? 'Draft work order archived' : 'Work order removed from project'}.` });
       loadData();
     } catch (error) {
@@ -919,8 +1017,12 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setSaving(true);
     setMessage(null);
     try {
-      await apiFetch(`/projects/${project.projectID}`, { method: 'DELETE' });
-      setMessage({ severity: 'success', text: 'Project archived.' });
+      if (project.isDraftProject) {
+        await draftService.archive(project.projectID);
+      } else {
+        await apiFetch(`/projects/${project.projectID}`, { method: 'DELETE' });
+      }
+      setMessage({ severity: 'success', text: `${project.isDraftProject ? 'Draft project' : 'Project'} archived.` });
       if (Number(projectForm.projectID) === project.projectID) resetProjectForm();
       loadData();
     } catch (error) {
@@ -932,10 +1034,6 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
 
   const requestLaunchProject = (project) => {
     if (!project) return;
-    if (project.associatedActiveProject || (project.projectID === Number(projectForm.projectID) && projectForm.associatedActiveProjectID)) {
-      setMessage({ severity: 'warning', text: 'Drafts associated with an active project remain references and cannot be launched.' });
-      return;
-    }
 
     setLaunchSignatureProject(project);
   };
@@ -972,7 +1070,8 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
     setSaving(true);
     setMessage(null);
     try {
-      await apiFetch(`/projects/${project.projectID}/permanent`, { method: 'DELETE' });
+      await draftService.archive(project.projectID);
+      await draftService.deletePermanently(project.projectID);
       setMessage({ severity: 'success', text: 'Draft project deleted.' });
       resetProjectForm();
       resetActionItemForm();
@@ -1427,7 +1526,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                         <MenuItem value="">{isProjectStudioEditView ? 'Select active project' : 'Select draft project'}</MenuItem>
                         {projects.filter(project => !project.archived && (
                           isProjectStudioEditView
-                            ? ['ACTIVE', 'IN_REVIEW'].includes(project.projectStatus)
+                            ? !project.isDraftProject && ['OPEN', 'IN_REVIEW'].includes(project.projectStatus)
                             : project.projectStatus === 'OPEN'
                         )).map(project => (
                           <MenuItem key={project.projectID} value={project.projectID}>
@@ -1455,11 +1554,11 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 {!showCreationStudio && (
                 <Grid item xs={12} md={6}>
                   <TextField
-                    label={selectedProject?.projectStatus === 'ACTIVE' ? 'Actual Cost' : 'Estimated Cost'}
+                    label={selectedProject?.isDraftProject ? 'Estimated Cost' : 'Actual Cost'}
                     fullWidth
-                    value={selectedProject?.projectStatus === 'ACTIVE'
-                      ? formatMoney(selectedProject.actualCost)
-                      : formatMoney(selectedProject?.estimatedCost ?? 0)}
+                    value={selectedProject?.isDraftProject
+                      ? formatMoney(selectedProject?.estimatedCost ?? projectDraftEstimatedCost(selectedProject))
+                      : formatMoney(selectedProject?.actualCost ?? 0)}
                     InputProps={{ readOnly: true }}
                   />
                 </Grid>
@@ -1514,17 +1613,17 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     Save
                   </Button>
                 )}
-                {isStudioEditView && selectedProject?.projectStatus === 'OPEN' && (
+                {isStudioEditView && selectedProject?.isDraftProject && (
                   <Button
                     variant="contained"
                     startIcon={<RocketLaunchIcon />}
-                    disabled={saving || Boolean(selectedProject.associatedActiveProject || projectForm.associatedActiveProjectID)}
+                    disabled={saving}
                     onClick={() => requestLaunchProject(selectedProject)}
                   >
                     Launch as new project
                   </Button>
                 )}
-                {isStudioEditView && selectedProject?.projectStatus === 'OPEN' && (
+                {isStudioEditView && selectedProject?.isDraftProject && (
                   <Button
                     variant="outlined"
                     color="warning"
@@ -1534,7 +1633,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     Archive Draft
                   </Button>
                 )}
-                {isStudioEditView && selectedProject?.projectStatus === 'OPEN' && (
+                {isStudioEditView && selectedProject?.isDraftProject && (
                   <Button
                     variant="outlined"
                     color="error"
@@ -1545,7 +1644,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                     Delete Permanently
                   </Button>
                 )}
-                {isActiveProjectEditor && selectedProject?.projectStatus === 'ACTIVE' && (
+                {isActiveProjectEditor && !selectedProject?.isDraftProject && selectedProject?.projectStatus === 'OPEN' && (
                   <Button
                     variant="contained"
                     color="success"
@@ -1556,19 +1655,19 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   </Button>
                 )}
               </Stack>
-              {isActiveProjectEditor && selectedProject?.projectStatus === 'ACTIVE' && !projectWorkOrdersAreComplete(selectedProject) && (
+              {isActiveProjectEditor && !selectedProject?.isDraftProject && selectedProject?.projectStatus === 'OPEN' && !projectWorkOrdersAreComplete(selectedProject) && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                   All work orders must be complete before this project can be submitted for review.
                 </Typography>
               )}
-              {isActiveProjectEditor && selectedProject?.projectStatus === 'ACTIVE' && projectHasEmptyAssociatedTeam(selectedProject) && (
+              {isActiveProjectEditor && !selectedProject?.isDraftProject && selectedProject?.projectStatus === 'OPEN' && projectHasEmptyAssociatedTeam(selectedProject) && (
                 <Alert severity="warning" sx={{ mt: 2 }}>
                   Associated team is empty: {emptyProjectTeamNames(selectedProject).join(', ')}.
                 </Alert>
               )}
-              {isStudioEditView && selectedProject?.projectStatus === 'OPEN' && selectedProject.associatedActiveProject && (
+              {isStudioEditView && selectedProject?.isDraftProject && projectForm.associatedActiveProjectID && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Drafts associated with an active project remain references and cannot be launched.
+                  The source project is a planning reference and remains unchanged when this draft launches.
                 </Typography>
               )}
             </Paper>
@@ -1889,15 +1988,15 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
           <Grid item xs={12} lg={7} sx={{ mt: (isProjectStudioEditView || isStudioEditView) ? 4 : 0 }}>
             <Paper component="form" onSubmit={createAndAttachWorkOrder} sx={{ p: 3, height: '100%' }}>
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
-                {selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'Work Orders For Project' : 'Draft Work Orders For Project'}
+                {selectedWorkOrderProject?.isDraftProject ? 'Draft Work Orders For Project' : 'Work Orders For Project'}
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth>
-                    <InputLabel>{selectedWorkOrderProject?.projectStatus === 'OPEN' ? 'Copy active work order as template' : 'Attach existing work order'}</InputLabel>
+                    <InputLabel>{selectedWorkOrderProject?.isDraftProject ? 'Copy active work order as template' : 'Attach existing work order'}</InputLabel>
                     <Select
                       value={workOrderForm.existingWorkOrderID}
-                      label={selectedWorkOrderProject?.projectStatus === 'OPEN' ? 'Copy active work order as template' : 'Attach existing work order'}
+                      label={selectedWorkOrderProject?.isDraftProject ? 'Copy active work order as template' : 'Attach existing work order'}
                       onChange={event => setWorkOrderForm(current => ({
                         ...current,
                         existingWorkOrderID: event.target.value,
@@ -1912,7 +2011,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                         </MenuItem>
                       ))}
                     </Select>
-                    {selectedWorkOrderProject?.projectStatus === 'OPEN' && workOrderForm.existingWorkOrderID && (
+                    {selectedWorkOrderProject?.isDraftProject && workOrderForm.existingWorkOrderID && (
                       <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
                         The source work order will remain unchanged when this draft launches.
                       </Typography>
@@ -1928,8 +2027,8 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                       disabled={Boolean(workOrderForm.existingWorkOrderID)}
                       onChange={event => setWorkOrderForm(current => ({ ...current, teamID: event.target.value }))}
                     >
-                      <MenuItem value="">{selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'No team selected (open)' : 'No team selected'}</MenuItem>
-                      {assignableTeams.map(team => (
+                      <MenuItem value="">{selectedWorkOrderProject?.isDraftProject ? 'No planned staffing selected' : 'No team selected (open)'}</MenuItem>
+                      {(selectedWorkOrderProject?.isDraftProject ? plannedTeamsForProject(selectedWorkOrderProject) : assignableTeams).map(team => (
                         <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>
                       ))}
                     </Select>
@@ -1952,7 +2051,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                   </FormControl>
                 </Grid>
                 <Grid item xs={12}>
-                  <TextField label={selectedWorkOrderProject?.projectStatus === 'OPEN' ? 'Draft work order note' : 'Work order note'} fullWidth multiline minRows={2} value={workOrderForm.comment} onChange={event => setWorkOrderForm(current => ({ ...current, comment: event.target.value }))} />
+                  <TextField label={selectedWorkOrderProject?.isDraftProject ? 'Draft work order note' : 'Work order note'} fullWidth multiline minRows={2} value={workOrderForm.comment} onChange={event => setWorkOrderForm(current => ({ ...current, comment: event.target.value }))} />
                 </Grid>
               </Grid>
               <Button
@@ -1963,12 +2062,12 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
                 disabled={
                   saving ||
                   !workOrderForm.projectID ||
-                  !['OPEN', 'ACTIVE'].includes(selectedWorkOrderProject?.projectStatus)
+                  (!selectedWorkOrderProject?.isDraftProject && selectedWorkOrderProject?.projectStatus !== 'OPEN')
                 }
               >
                 {workOrderForm.existingWorkOrderID
-                  ? (selectedWorkOrderProject?.projectStatus === 'OPEN' ? 'Create Draft Copy' : 'Attach Work Order')
-                  : (selectedWorkOrderProject?.projectStatus === 'ACTIVE' ? 'Create Work Order' : 'Create Draft')}
+                  ? (selectedWorkOrderProject?.isDraftProject ? 'Create Draft Copy' : 'Attach Work Order')
+                  : (selectedWorkOrderProject?.isDraftProject ? 'Create Draft' : 'Create Work Order')}
               </Button>
               {selectedWorkOrderProject && (
                 <Box sx={{ mt: 2 }}>
@@ -2070,7 +2169,7 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
           </Grid>
           )}
 
-          {isEditorView && selectedProject && ['OPEN', 'ACTIVE'].includes(selectedProject.projectStatus) && (
+          {isEditorView && selectedProject && !selectedProject.isDraftProject && selectedProject.projectStatus === 'OPEN' && (
             <Grid item xs={12}>
               <WorkOrderDocuments
                 basePath={`/projects/${selectedProject.projectID}/documents`}
@@ -2435,9 +2534,9 @@ const ProjectsPage = ({ mode = 'studio', title = 'Draft Studio', subtitle = '' }
               <Chip
                 size="small"
                 label={
-                  draftStudioProjectDetailsDialog?.projectStatus === 'ACTIVE'
-                    ? `Actual ${formatMoney(draftStudioProjectDetailsDialog?.actualCost)}`
-                    : `Estimated ${formatMoney(projectDraftEstimatedCost(draftStudioProjectDetailsDialog || {}))}`
+                  draftStudioProjectDetailsDialog?.isDraftProject
+                    ? `Estimated ${formatMoney(projectDraftEstimatedCost(draftStudioProjectDetailsDialog || {}))}`
+                    : `Actual ${formatMoney(draftStudioProjectDetailsDialog?.actualCost)}`
                 }
               />
             </Stack>

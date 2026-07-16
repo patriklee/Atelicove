@@ -31,6 +31,27 @@ import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorke
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import TableTitleRow from './TableTitleRow';
+import { draftService } from '../services/draftService';
+
+const normalizeDraftProject = (draft = {}) => ({
+  ...draft,
+  projectID: draft.draftProjectID ?? draft.draftProjectId,
+  projectName: draft.draftName,
+  draftWorkOrders: draft.draftWorkOrders || [],
+  plannedStaffing: draft.plannedStaffing || [],
+});
+
+const draftWorkOrderPayload = (workOrder, overrides = {}) => ({
+  sourceWorkOrderID: workOrder.sourceWorkOrderID ?? null,
+  plannedStaffingID: workOrder.plannedTeamID ?? null,
+  plannedCompanyID: workOrder.plannedCompanyID ?? workOrder.company?.companyID ?? null,
+  sourceProjectID: workOrder.sourceProjectID ?? null,
+  workOrderName: workOrder.workOrderName ?? null,
+  proposalStatus: workOrder.proposalStatus || 'PRIVATE',
+  comment: workOrder.comment ?? null,
+  items: null,
+  ...overrides,
+});
 
 const ManageWorkOrders = () => {
   const navigate = useNavigate();
@@ -64,14 +85,14 @@ const ManageWorkOrders = () => {
 
   const loadData = () => {
     setLoading(true);
-    Promise.all([apiFetch('/workers'), apiFetch('/companies/all'), apiFetch('/teams'), apiFetch('/workorders'), apiFetch('/workorders/drafts'), apiFetch('/projects/drafts')])
+    Promise.all([apiFetch('/workers'), apiFetch('/companies/all'), apiFetch('/teams'), apiFetch('/workorders'), apiFetch('/workorders/drafts'), draftService.getDrafts()])
       .then(([workerData, companyData, teamData, workOrderData, draftWorkOrderData, projectData]) => {
         setWorkers(workerData.map(normalizeWorker));
         setCompanies(companyData);
         setTeams(teamData);
         setWorkOrders(workOrderData);
         setProjects([
-          ...projectData,
+          ...projectData.map(normalizeDraftProject),
           {
             projectID: '__direct_drafts__',
             projectName: '',
@@ -108,7 +129,12 @@ const ManageWorkOrders = () => {
 
   const activeWorkOrders = workOrders.filter(order => !order.archived);
   const draftProjects = projects.filter(project => !project.archived && project.projectID !== '__direct_drafts__');
-  const selectedCreateTeam = teams.find(team => team.teamID === Number(teamID));
+  const selectedCreateDraftProject = draftProjects.find(project => project.projectID === Number(draftProjectID));
+  const selectedCreateStaffing = (selectedCreateDraftProject?.plannedStaffing || [])
+    .find(staffing => staffing.plannedStaffingID === Number(teamID));
+  const selectedCreateTeam = createWorkOrderMode === 'draft'
+    ? selectedCreateStaffing
+    : teams.find(team => team.teamID === Number(teamID));
   const selectedCreateTeamWorkers = (selectedCreateTeam?.workers || []).map(normalizeWorker);
   const canCreateWorkOrder = createWorkOrderMode === 'active' || (draftProjectID && teamID);
   const draftWorkOrdersByKey = new Map();
@@ -153,7 +179,9 @@ const ManageWorkOrders = () => {
     return { type: '', projectID: null, workOrderID: null };
   };
   const modifiableActiveWorkOrders = activeWorkOrders.filter(order => !['COMPLETE', 'IN_REVIEW'].includes(order.status));
-  const modifiableWorkOrders = editWorkOrderMode === 'draft' ? draftWorkOrders : modifiableActiveWorkOrders;
+  const modifiableWorkOrders = editWorkOrderMode === 'draft'
+    ? draftWorkOrders.filter(order => order.projectID !== '__direct_drafts__')
+    : modifiableActiveWorkOrders;
   const reviewWorkOrders = activeWorkOrders.filter(order => order.status === 'IN_REVIEW');
   const selectedModifyWorkOrder = useMemo(
     () => {
@@ -171,12 +199,19 @@ const ManageWorkOrders = () => {
   const selectedModifyIsDraft = Boolean(selectedModifyWorkOrder?.isDraftWorkOrder);
   const canEditSelectedWorkOrder = Boolean(selectedModifyWorkOrder);
   const selectedModifyWorkers = selectedModifyWorkOrder ? getWorkOrderWorkers(selectedModifyWorkOrder) : [];
+  const selectedModifyDraftProject = selectedModifyIsDraft
+    ? draftProjects.find(project => project.projectID === Number(selectedModifyWorkOrder?.projectID))
+    : null;
   const selectedDraftTeam = selectedModifyIsDraft
-    ? teams.find(team => team.teamID === Number(selectedModifyWorkOrder?.plannedTeamID))
+    ? (selectedModifyDraftProject?.plannedStaffing || [])
+        .find(staffing => staffing.plannedStaffingID === Number(selectedModifyWorkOrder?.plannedTeamID))
     : null;
   const selectedDraftTeamWorkers = (selectedDraftTeam?.workers || []).map(normalizeWorker);
   const displayedModifyWorkers = selectedModifyIsDraft ? selectedDraftTeamWorkers : selectedModifyWorkers;
-  const selectedModifyTeam = teams.find(team => team.teamID === Number(removeTeamID));
+  const selectedModifyTeam = selectedModifyIsDraft
+    ? (selectedModifyDraftProject?.plannedStaffing || [])
+        .find(staffing => staffing.plannedStaffingID === Number(removeTeamID))
+    : teams.find(team => team.teamID === Number(removeTeamID));
   const selectedModifyTeamWorkers = (selectedModifyTeam?.workers || []).map(normalizeWorker);
   const selectedModifyWorker = workers.find(worker => worker.workerID === Number(removeWorkerID));
   const selectedModifyCompany = companies.find(company => company.companyID === Number(removeCompanyID));
@@ -199,7 +234,7 @@ const ManageWorkOrders = () => {
     !selectedModifyWorkers.some(worker => worker.workerID === teamWorker.workerID)
   ));
   const canRemoveSelection = selectedModifyIsDraft
-    ? Boolean(selectedDraftTeam)
+    ? Boolean(selectedDraftTeam || isSelectedCompanyAssigned)
     : (isSelectedWorkerAssigned || isSelectedCompanyAssigned);
   const canUpdateSelection = Boolean(
     canEditSelectedWorkOrder && (
@@ -254,13 +289,15 @@ const ManageWorkOrders = () => {
     setMessage(null);
     try {
       if (createWorkOrderMode === 'draft') {
-        const savedProject = await apiFetch(`/projects/${draftProjectID}/draft-workorders`, {
-          method: 'POST',
-          body: JSON.stringify({
-            teamID: Number(teamID),
-            companyID: company?.companyID || null,
-            comment: comment.trim(),
-          }),
+        const savedProject = await draftService.createWorkOrder(draftProjectID, {
+          sourceWorkOrderID: null,
+          plannedStaffingID: Number(teamID),
+          plannedCompanyID: company?.companyID || null,
+          sourceProjectID: null,
+          workOrderName: comment.trim() || null,
+          proposalStatus: 'PRIVATE',
+          comment: comment.trim(),
+          items: null,
         });
         const savedDrafts = savedProject.draftWorkOrders || [];
         const savedDraft = savedDrafts[savedDrafts.length - 1];
@@ -389,14 +426,15 @@ const ManageWorkOrders = () => {
       let updated = selectedModifyWorkOrder;
 
       if (selectedModifyIsDraft) {
-        const project = await apiFetch(`/projects/${selectedModifyWorkOrder.projectID}/draft-workorders/${selectedModifyWorkOrder.workOrderID}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            teamID: null,
-            companyID: selectedModifyWorkOrder.company?.companyID || null,
+        const project = await draftService.updateWorkOrder(
+          selectedModifyWorkOrder.projectID,
+          selectedModifyWorkOrder.workOrderID,
+          draftWorkOrderPayload(selectedModifyWorkOrder, {
+            plannedStaffingID: null,
+            plannedCompanyID: null,
             comment: modifyDraftComment,
-          }),
-        });
+          })
+        );
         updated = (project.draftWorkOrders || []).find(order => order.workOrderID === selectedModifyWorkOrder.workOrderID) || selectedModifyWorkOrder;
       } else if (isSelectedWorkerAssigned) {
         updated = await apiFetch(`/workorders/${selectedModifyWorkOrder.workOrderID}/workers/${removeWorkerID}`, {
@@ -404,7 +442,7 @@ const ManageWorkOrders = () => {
         });
       }
 
-      if (isSelectedCompanyAssigned) {
+      if (!selectedModifyIsDraft && isSelectedCompanyAssigned) {
         updated = await apiFetch(`/workorders/${selectedModifyWorkOrder.workOrderID}/company`, {
           method: 'DELETE',
         });
@@ -438,14 +476,15 @@ const ManageWorkOrders = () => {
       let updated = selectedModifyWorkOrder;
 
       if (selectedModifyIsDraft) {
-        const project = await apiFetch(`/projects/${selectedModifyWorkOrder.projectID}/draft-workorders/${selectedModifyWorkOrder.workOrderID}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            teamID: removeTeamID ? Number(removeTeamID) : null,
-            companyID: selectedModifyCompany?.companyID || null,
+        const project = await draftService.updateWorkOrder(
+          selectedModifyWorkOrder.projectID,
+          selectedModifyWorkOrder.workOrderID,
+          draftWorkOrderPayload(selectedModifyWorkOrder, {
+            plannedStaffingID: removeTeamID ? Number(removeTeamID) : null,
+            plannedCompanyID: selectedModifyCompany?.companyID || null,
             comment: modifyDraftComment,
-          }),
-        });
+          })
+        );
         updated = (project.draftWorkOrders || []).find(order => order.workOrderID === selectedModifyWorkOrder.workOrderID) || selectedModifyWorkOrder;
 
       } else if (selectedModifyWorker && !isSelectedWorkerAssigned) {
@@ -495,7 +534,7 @@ const ManageWorkOrders = () => {
     setSaving(true);
     setMessage(null);
     try {
-      await apiFetch(`/projects/${workOrder.projectID}/draft-workorders/${workOrder.workOrderID}`, { method: 'DELETE' });
+      await draftService.deleteWorkOrder(workOrder.projectID, workOrder.workOrderID);
       if (modifyWorkOrderID === workOrderSelectValue(workOrder)) {
         setModifyWorkOrderID('');
         setRemoveTeamID('');
@@ -586,9 +625,9 @@ const ManageWorkOrders = () => {
               <InputLabel>Team</InputLabel>
               <Select value={teamID} label="Team" onChange={event => setTeamID(event.target.value)}>
                 <MenuItem value="">No team selected</MenuItem>
-                {teams.map(team => (
-                  <MenuItem key={team.teamID} value={team.teamID}>
-                    {team.teamName || `Team #${team.teamID}`}
+                {(createWorkOrderMode === 'draft' ? selectedCreateDraftProject?.plannedStaffing || [] : teams).map(team => (
+                  <MenuItem key={team.plannedStaffingID || team.teamID} value={team.plannedStaffingID || team.teamID}>
+                    {team.staffingName || team.teamName || `Team #${team.plannedStaffingID || team.teamID}`}
                   </MenuItem>
                 ))}
               </Select>
@@ -701,9 +740,9 @@ const ManageWorkOrders = () => {
                 }}
               >
                 <MenuItem value="">No Team</MenuItem>
-                {teams.map(team => (
-                  <MenuItem key={team.teamID} value={team.teamID}>
-                    {team.teamName || `Team #${team.teamID}`}
+                {(selectedModifyIsDraft ? selectedModifyDraftProject?.plannedStaffing || [] : teams).map(team => (
+                  <MenuItem key={team.plannedStaffingID || team.teamID} value={team.plannedStaffingID || team.teamID}>
+                    {team.staffingName || team.teamName || `Team #${team.plannedStaffingID || team.teamID}`}
                   </MenuItem>
                 ))}
               </Select>
