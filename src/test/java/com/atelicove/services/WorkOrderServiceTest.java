@@ -1,5 +1,14 @@
 package com.atelicove.services;
 
+import static com.atelicove.support.TestFixtures.COMPANY_ID;
+import static com.atelicove.support.TestFixtures.ITEM_ID;
+import static com.atelicove.support.TestFixtures.WORK_ORDER_ID;
+import static com.atelicove.support.TestFixtures.aCompany;
+import static com.atelicove.support.TestFixtures.aWorkOrder;
+import static com.atelicove.support.TestFixtures.aWorkOrderItem;
+import static com.atelicove.support.TestFixtures.aWorker;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -12,18 +21,23 @@ import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.atelicove.entities.Company;
+import com.atelicove.entities.DraftProject;
+import com.atelicove.entities.DraftWorkOrder;
+import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.ItemType;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.CompanyRepository;
+import com.atelicove.repositories.DraftWorkOrderRepository;
 import com.atelicove.repositories.WorkOrderRepository;
 import com.atelicove.repositories.WorkerRepository;
 import com.atelicove.services.WorkOrderService;
@@ -31,8 +45,13 @@ import com.atelicove.services.WorkOrderService;
 @ExtendWith(MockitoExtension.class)
 public class WorkOrderServiceTest {
 
+    private static final int DRAFT_ID = 91;
+
     @Mock
     private WorkOrderRepository workOrderRepository;
+
+    @Mock
+    private DraftWorkOrderRepository draftWorkOrderRepository;
 
     @Mock
     private WorkerRepository workerRepository;
@@ -42,6 +61,9 @@ public class WorkOrderServiceTest {
 
     @InjectMocks
     private WorkOrderService workOrderService;
+
+    @Nested
+    class WorkOrderLifecycle {
 
     @Test
     void createWorkOrderResetsIdAndSetsOpenWhenUnassignedBeforeSaving() {
@@ -305,6 +327,219 @@ public class WorkOrderServiceTest {
         assertEquals(null, workOrder.getCompany());
     }
 
+    }
+
+    @Nested
+    class Queries {
+        @Test
+        void queryMethods_ShouldExposeActiveArchivedAndDraftViews() {
+            // Given
+            WorkOrder order = aWorkOrder().build();
+            DraftWorkOrder draft = draftWorkOrder();
+            when(workOrderRepository.findByArchivedFalse()).thenReturn(List.of(order));
+            when(workOrderRepository.findByArchivedTrue()).thenReturn(List.of(order));
+            when(draftWorkOrderRepository.findByArchivedFalse()).thenReturn(List.of(draft));
+            when(draftWorkOrderRepository.findByArchivedTrue()).thenReturn(List.of(draft));
+            when(draftWorkOrderRepository.findById(DRAFT_ID)).thenReturn(Optional.of(draft));
+
+            // When / Then
+            assertThat(workOrderService.findActive()).containsExactly(order);
+            assertThat(workOrderService.findArchived()).containsExactly(order);
+            assertThat(workOrderService.findDrafts()).containsExactly(draft);
+            assertThat(workOrderService.findArchivedDrafts()).containsExactly(draft);
+            assertThat(workOrderService.findDraftById(DRAFT_ID)).contains(draft);
+        }
+
+        @Test
+        void draftQueries_ShouldHideArchivedDraftsAndDraftsOwnedByArchivedProjects() {
+            // Given
+            DraftWorkOrder archived = draftWorkOrder();
+            archived.setArchived(true);
+            DraftProject archivedProject = new DraftProject();
+            archivedProject.setArchived(true);
+            DraftWorkOrder hiddenByProject = draftWorkOrder();
+            hiddenByProject.setDraftProject(archivedProject);
+            when(draftWorkOrderRepository.findByArchivedFalse()).thenReturn(List.of(hiddenByProject));
+            when(draftWorkOrderRepository.findById(DRAFT_ID)).thenReturn(Optional.of(archived));
+
+            // When / Then
+            assertThat(workOrderService.findDrafts()).isEmpty();
+            assertThat(workOrderService.findDraftById(DRAFT_ID)).isEmpty();
+        }
+    }
+
+    @Nested
+    class AssignmentsAndItems {
+        @Test
+        void assignCompany_ShouldResolveActiveCompanyAndPersist() {
+            // Given
+            WorkOrder order = aWorkOrder().build();
+            Company company = aCompany().build();
+            when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
+            when(companyRepository.findById(COMPANY_ID)).thenReturn(Optional.of(company));
+            when(workOrderRepository.save(order)).thenReturn(order);
+
+            // When
+            WorkOrder result = workOrderService.assignCompanyToWorkOrder(WORK_ORDER_ID, COMPANY_ID);
+
+            // Then
+            assertThat(result.getCompany()).isSameAs(company);
+            verify(workOrderRepository).save(order);
+        }
+
+        @Test
+        void assignCompany_ShouldRejectUnknownAndArchivedCompanies() {
+            // Given
+            WorkOrder order = aWorkOrder().build();
+            when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
+            when(companyRepository.findById(COMPANY_ID)).thenReturn(Optional.empty());
+
+            // When / Then
+            assertThatThrownBy(() -> workOrderService.assignCompanyToWorkOrder(WORK_ORDER_ID, COMPANY_ID))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Company not found");
+
+            // Given
+            when(companyRepository.findById(COMPANY_ID)).thenReturn(Optional.of(aCompany().archived().build()));
+
+            // When / Then
+            assertThatThrownBy(() -> workOrderService.assignCompanyToWorkOrder(WORK_ORDER_ID, COMPANY_ID))
+                    .isInstanceOf(IllegalStateException.class).hasMessage("Archived companies cannot be assigned");
+            verify(workOrderRepository, never()).save(order);
+        }
+
+        @Test
+        void updateAndDeleteItem_ShouldMutateOnlyTheRequestedItem() {
+            // Given
+            WorkOrder order = aWorkOrder().build();
+            WorkOrderItem existing = aWorkOrderItem().withId(ITEM_ID).forWorkOrder(order).build();
+            order.addItem(existing);
+            WorkOrderItem update = aWorkOrderItem().named("Updated labor").withQuantity(3).pricedAt("25.00").build();
+            when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
+            when(workOrderRepository.save(order)).thenReturn(order);
+
+            // When
+            workOrderService.updateItem(WORK_ORDER_ID, ITEM_ID, update);
+
+            // Then
+            assertThat(existing.getItemName()).isEqualTo("Updated labor");
+            assertThat(existing.getQuantity()).isEqualTo(3);
+
+            // When
+            workOrderService.deleteItem(WORK_ORDER_ID, ITEM_ID);
+
+            // Then
+            assertThat(order.getItems()).isEmpty();
+            verify(workOrderRepository, org.mockito.Mockito.times(2)).save(order);
+        }
+
+        @Test
+        void itemMutations_ShouldValidateContentAndExplainMissingItems() {
+            // Given
+            WorkOrder order = aWorkOrder().build();
+            WorkOrderItem invalid = aWorkOrderItem().named(" ").build();
+            when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
+
+            // When / Then
+            assertThatThrownBy(() -> workOrderService.addItem(WORK_ORDER_ID, invalid))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Item name is required");
+            assertThatThrownBy(() -> workOrderService.updateItem(
+                    WORK_ORDER_ID, ITEM_ID, aWorkOrderItem().build()))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Work order item not found");
+            assertThatThrownBy(() -> workOrderService.deleteItem(WORK_ORDER_ID, ITEM_ID))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Work order item not found");
+        }
+    }
+
+    @Nested
+    class DraftItemsAndLifecycle {
+        @Test
+        void draftItemOperations_ShouldAddUpdateAndDeleteItems() {
+            // Given
+            DraftWorkOrder draft = draftWorkOrder();
+            DraftWorkOrderItem item = draftItem(0, "Planning", 1);
+            when(draftWorkOrderRepository.findById(DRAFT_ID)).thenReturn(Optional.of(draft));
+            when(draftWorkOrderRepository.save(draft)).thenReturn(draft);
+
+            // When
+            workOrderService.addDraftItem(DRAFT_ID, item);
+            item.setDraftWorkOrderItemID(ITEM_ID);
+            workOrderService.updateDraftItem(DRAFT_ID, ITEM_ID, draftItem(0, "Updated planning", 2));
+
+            // Then
+            assertThat(item.getItemName()).isEqualTo("Updated planning");
+            assertThat(item.getQuantity()).isEqualTo(2);
+
+            // When
+            workOrderService.deleteDraftItem(DRAFT_ID, ITEM_ID);
+
+            // Then
+            assertThat(draft.getItems()).isEmpty();
+            verify(draftWorkOrderRepository, org.mockito.Mockito.times(3)).save(draft);
+        }
+
+        @Test
+        void draftItemOperations_ShouldRejectInvalidAndMissingItems() {
+            // Given
+            DraftWorkOrder draft = draftWorkOrder();
+            when(draftWorkOrderRepository.findById(DRAFT_ID)).thenReturn(Optional.of(draft));
+
+            // When / Then
+            assertThatThrownBy(() -> workOrderService.addDraftItem(DRAFT_ID, draftItem(0, "", 1)))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Item name is required");
+            assertThatThrownBy(() -> workOrderService.updateDraftItem(
+                    DRAFT_ID, ITEM_ID, draftItem(0, "Valid", 1)))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Draft work order item not found");
+            assertThatThrownBy(() -> workOrderService.deleteDraftItem(DRAFT_ID, ITEM_ID))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Draft work order item not found");
+        }
+
+        @Test
+        void archiveRestoreAndPermanentDelete_ShouldPreserveDraftLifecycleRules() {
+            // Given
+            DraftWorkOrder draft = draftWorkOrder();
+            when(draftWorkOrderRepository.findById(DRAFT_ID)).thenReturn(Optional.of(draft));
+            when(draftWorkOrderRepository.save(draft)).thenReturn(draft);
+
+            // When
+            workOrderService.archiveDraftById(DRAFT_ID);
+
+            // Then
+            assertThat(draft.isArchived()).isTrue();
+            assertThat(draft.getArchivedAt()).isNotNull();
+
+            // When
+            workOrderService.restoreDraftById(DRAFT_ID);
+
+            // Then
+            assertThat(draft.isArchived()).isFalse();
+            assertThat(draft.getArchivedAt()).isNull();
+
+            // When / Then
+            assertThatThrownBy(() -> workOrderService.deleteDraftPermanentlyById(DRAFT_ID))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Only archived draft work orders can be permanently deleted");
+
+            // Given / When
+            draft.setArchived(true);
+            workOrderService.deleteDraftPermanentlyById(DRAFT_ID);
+
+            // Then
+            verify(draftWorkOrderRepository).delete(draft);
+        }
+
+        @Test
+        void draftMutations_ShouldExplainMissingDraft() {
+            // Given
+            when(draftWorkOrderRepository.findById(DRAFT_ID)).thenReturn(Optional.empty());
+
+            // When / Then
+            assertThatThrownBy(() -> workOrderService.addDraftItem(DRAFT_ID, draftItem(0, "Valid", 1)))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Draft work order not found");
+            assertThatThrownBy(() -> workOrderService.archiveDraftById(DRAFT_ID))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Draft work order not found");
+        }
+    }
+
     private WorkOrder orderWithStatus(WorkOrderStatus status) {
         WorkOrder workOrder = new WorkOrder();
         workOrder.setStatus(status);
@@ -323,5 +558,22 @@ public class WorkOrderServiceTest {
         workOrder.setEndDateTime(LocalDateTime.now());
         workOrder.addItem(new WorkOrderItem());
         return workOrder;
+    }
+
+    private DraftWorkOrder draftWorkOrder() {
+        DraftWorkOrder draft = new DraftWorkOrder();
+        draft.setDraftWorkOrderID(DRAFT_ID);
+        draft.setWorkOrderName("Draft scope");
+        return draft;
+    }
+
+    private DraftWorkOrderItem draftItem(int id, String name, int quantity) {
+        DraftWorkOrderItem item = new DraftWorkOrderItem();
+        item.setDraftWorkOrderItemID(id);
+        item.setItemName(name);
+        item.setQuantity(quantity);
+        item.setPrice(new java.math.BigDecimal("10.00"));
+        item.setItemType(ItemType.LABOR);
+        return item;
     }
 }

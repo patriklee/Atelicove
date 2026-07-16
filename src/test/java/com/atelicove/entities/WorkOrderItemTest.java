@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import java.math.BigDecimal;
+
 import org.junit.jupiter.api.Test;
 
 import com.atelicove.entities.WorkOrder;
@@ -15,12 +17,12 @@ class WorkOrderItemTest {
     @Test
     void constructorSetsItemDetails() {
         WorkOrder workOrder = new WorkOrder();
-        WorkOrderItem item = new WorkOrderItem("Replacement valve", 3, new java.math.BigDecimal("24.99"), ItemType.MATERIAL, workOrder);
+        WorkOrderItem item = new WorkOrderItem("Replacement valve", 3, new BigDecimal("24.99"), ItemType.MATERIAL, workOrder);
 
         assertAll(
                 () -> assertEquals("Replacement valve", item.getItemName()),
                 () -> assertEquals(3, item.getQuantity()),
-                () -> assertEquals(24.99, item.getPrice()),
+                () -> assertEquals(new BigDecimal("24.99"), item.getPrice()),
                 () -> assertEquals(ItemType.MATERIAL, item.getItemType()),
                 () -> assertSame(workOrder, item.getWorkOrder()));
     }
@@ -33,7 +35,7 @@ class WorkOrderItemTest {
         item.setWorkOrderItemID(15);
         item.setItemName("Labor");
         item.setQuantity(2);
-        item.setPrice(new java.math.BigDecimal("85.50"));
+        item.setPrice(new BigDecimal("85.50"));
         item.setItemType(ItemType.LABOR);
         item.setWorkOrder(workOrder);
 
@@ -41,7 +43,7 @@ class WorkOrderItemTest {
                 () -> assertEquals(15, item.getWorkOrderItemID()),
                 () -> assertEquals("Labor", item.getItemName()),
                 () -> assertEquals(2, item.getQuantity()),
-                () -> assertEquals(85.50, item.getPrice()),
+                () -> assertEquals(new BigDecimal("85.50"), item.getPrice()),
                 () -> assertEquals(ItemType.LABOR, item.getItemType()),
                 () -> assertSame(workOrder, item.getWorkOrder()));
     }

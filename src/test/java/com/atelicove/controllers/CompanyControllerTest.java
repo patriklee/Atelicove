@@ -1,5 +1,6 @@
 package com.atelicove.controllers;
 
+import static com.atelicove.support.ControllerTestSupport.mockMvcFor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,7 +20,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.atelicove.controllers.CompanyController;
 import com.atelicove.entities.Company;
@@ -35,9 +35,7 @@ class CompanyControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(new CompanyController(companyService))
-                .build();
+        mockMvc = mockMvcFor(new CompanyController(companyService));
     }
 
     @Test
@@ -94,5 +92,23 @@ class CompanyControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(companyService).archiveById(4);
+    }
+
+    @Test
+    void remainingCompanyEndpoints_ShouldReturnCollectionsRestoreAndDeletePermanently() throws Exception {
+        Company active = new Company("Active", null, null, null);
+        Company archived = new Company("Archived", null, null, null);
+        archived.setArchived(true);
+        when(companyService.findActive()).thenReturn(List.of(active));
+        when(companyService.findAll()).thenReturn(List.of(active, archived));
+        when(companyService.findArchived()).thenReturn(List.of(archived));
+        when(companyService.restoreById(2)).thenReturn(active);
+
+        mockMvc.perform(get("/companies")).andExpect(status().isOk()).andExpect(jsonPath("$[0].companyName").value("Active"));
+        mockMvc.perform(get("/companies/all-with-archived")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+        mockMvc.perform(get("/companies/archived")).andExpect(status().isOk()).andExpect(jsonPath("$[0].archived").value(true));
+        mockMvc.perform(put("/companies/2/restore")).andExpect(status().isOk()).andExpect(jsonPath("$.companyName").value("Active"));
+        mockMvc.perform(delete("/companies/2/permanent")).andExpect(status().isNoContent());
+        verify(companyService).deletePermanentlyById(2);
     }
 }

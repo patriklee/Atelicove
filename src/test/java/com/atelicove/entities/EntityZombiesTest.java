@@ -106,7 +106,7 @@ class EntityZombiesTest {
             WorkOrderItem item = new WorkOrderItem("Free sample", 0, java.math.BigDecimal.ZERO, new WorkOrder());
 
             assertEquals(0, item.getQuantity());
-            assertEquals(0.0, item.getPrice());
+            assertEquals(java.math.BigDecimal.ZERO, item.getPrice());
         }
 
         @Test

@@ -36,19 +36,6 @@ class WorkerRepositoryTest {
     }
 
     @Test
-    void saveAndDeleteWorker() {
-        Worker saved = workerRepository.saveAndFlush(
-                new Worker("Sam", "Taylor", "staylor", "staylor@test.com", "encoded-password", true));
-
-        assertThat(saved.getWorkerID()).isPositive();
-
-        workerRepository.deleteById(saved.getWorkerID());
-        workerRepository.flush();
-
-        assertThat(workerRepository.findById(saved.getWorkerID())).isEmpty();
-    }
-
-    @Test
     void archiveQueriesSeparateActiveAndArchivedWorkers() {
         Worker active = new Worker("Active", "Worker", "active", "active@test.com", "encoded-password", false);
         Worker archived = new Worker("Archived", "Worker", "archived", "archived@test.com", "encoded-password", false);

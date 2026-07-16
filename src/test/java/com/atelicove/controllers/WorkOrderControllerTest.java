@@ -1,5 +1,7 @@
 package com.atelicove.controllers;
 
+import static com.atelicove.support.ControllerTestSupport.mockMvcFor;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -12,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,12 +23,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.atelicove.controllers.WorkOrderController;
 import com.atelicove.entities.WorkOrder;
+import com.atelicove.entities.WorkOrderItem;
+import com.atelicove.entities.DraftWorkOrder;
+import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.enums.WorkOrderStatus;
-import com.atelicove.exceptions.GlobalExceptionHandler;
 import com.atelicove.services.WorkOrderService;
 import com.atelicove.services.AuthorizationService;
 
@@ -40,10 +44,7 @@ class WorkOrderControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(new WorkOrderController(workOrderService, authorizationService))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+        mockMvc = mockMvcFor(new WorkOrderController(workOrderService, authorizationService));
     }
 
     @Test
@@ -144,6 +145,63 @@ class WorkOrderControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message")
                         .value("Only open work orders can be started"));
+    }
+
+    @Test
+    void remainingWorkOrderEndpoints_ShouldDelegateAndReturnExpectedBodies() throws Exception {
+        WorkOrder order = order(1, WorkOrderStatus.ACTIVE);
+        WorkOrderItem item = new WorkOrderItem();
+        DraftWorkOrder draft = new DraftWorkOrder();
+        draft.setDraftWorkOrderID(5);
+        DraftWorkOrderItem draftItem = new DraftWorkOrderItem();
+        when(workOrderService.findDrafts()).thenReturn(List.of(draft));
+        when(workOrderService.findDraftById(5)).thenReturn(Optional.of(draft));
+        when(workOrderService.findDraftById(99)).thenReturn(Optional.empty());
+        when(workOrderService.findArchivedDrafts()).thenReturn(List.of(draft));
+        when(workOrderService.findAll()).thenReturn(List.of(order));
+        when(workOrderService.findArchived()).thenReturn(List.of(order));
+        when(authorizationService.visibleWorkOrders(any(), any())).thenReturn(List.of(order));
+        when(workOrderService.removeWorkerFromWorkOrder(1, 3)).thenReturn(order);
+        when(workOrderService.removeCompanyFromWorkOrder(1)).thenReturn(order);
+        when(workOrderService.assignCompanyToWorkOrder(1, 4)).thenReturn(order);
+        when(workOrderService.updateComment(1, "done")).thenReturn(order);
+        when(workOrderService.addItem(1, item)).thenReturn(order);
+        when(workOrderService.updateItem(1, 2, item)).thenReturn(order);
+        when(workOrderService.deleteItem(1, 2)).thenReturn(order);
+        when(workOrderService.addDraftItem(5, draftItem)).thenReturn(draft);
+        when(workOrderService.updateDraftItem(5, 6, draftItem)).thenReturn(draft);
+        when(workOrderService.deleteDraftItem(5, 6)).thenReturn(draft);
+        when(workOrderService.restoreDraftById(5)).thenReturn(draft);
+        when(workOrderService.restoreById(1)).thenReturn(order);
+
+        mockMvc.perform(get("/workorders/drafts")).andExpect(status().isOk()).andExpect(jsonPath("$[0].draftWorkOrderID").value(5));
+        mockMvc.perform(get("/workorders/drafts/5")).andExpect(status().isOk());
+        mockMvc.perform(get("/workorders/drafts/99")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/workorders/drafts/archived")).andExpect(status().isOk());
+        mockMvc.perform(get("/workorders/all-with-archived")).andExpect(status().isOk());
+        mockMvc.perform(get("/workorders/archived")).andExpect(status().isOk());
+        mockMvc.perform(delete("/workorders/1/workers/3")).andExpect(status().isOk());
+        mockMvc.perform(delete("/workorders/1/company")).andExpect(status().isOk());
+        mockMvc.perform(put("/workorders/1/company").contentType(MediaType.APPLICATION_JSON).content("{\"companyID\":4}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/workorders/1/comment").contentType(MediaType.APPLICATION_JSON).content("{\"comment\":\"done\"}"))
+                .andExpect(status().isOk());
+
+        WorkOrderController controller = new WorkOrderController(workOrderService, authorizationService);
+        assertThat(controller.addItem(1, item, null)).isSameAs(order);
+        assertThat(controller.updateItem(1, 2, item, null)).isSameAs(order);
+        assertThat(controller.deleteItem(1, 2, null)).isSameAs(order);
+        assertThat(controller.addDraftItem(5, draftItem)).isSameAs(draft);
+        assertThat(controller.updateDraftItem(5, 6, draftItem)).isSameAs(draft);
+        assertThat(controller.deleteDraftItem(5, 6)).isSameAs(draft);
+        assertThat(controller.archiveDraftWorkOrder(5).getStatusCode().value()).isEqualTo(204);
+        assertThat(controller.restoreDraftWorkOrder(5)).isSameAs(draft);
+        assertThat(controller.deleteDraftWorkOrderPermanently(5).getStatusCode().value()).isEqualTo(204);
+        assertThat(controller.restoreWorkOrder(1)).isSameAs(order);
+        assertThat(controller.deleteWorkOrderPermanently(1).getStatusCode().value()).isEqualTo(204);
+        verify(workOrderService).archiveDraftById(5);
+        verify(workOrderService).deleteDraftPermanentlyById(5);
+        verify(workOrderService).deletePermanentlyById(1);
     }
 
     private WorkOrder order(int id, WorkOrderStatus status) {

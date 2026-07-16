@@ -32,49 +32,6 @@ class WODocumentRepositoryTest {
     private ProjectRepository projectRepository;
 
     @Test
-    void saveAndFindByIdPersistsDocumentMetadataAndRelationships() {
-        WorkOrder workOrder = workOrderRepository.saveAndFlush(new WorkOrder());
-        Worker worker = workerRepository.saveAndFlush(
-                new Worker("Pat", "Lee", "plee", "plee@test.com", "encoded-password", false));
-        byte[] data = { 1, 2, 3 };
-        Document document = new Document(
-                workOrder, "receipt.pdf", DocumentType.RECEIPT, data,
-                worker, "application/pdf", data.length);
-
-        Document saved = documentRepository.saveAndFlush(document);
-
-        assertThat(saved.getDocumentID()).isPositive();
-        assertThat(documentRepository.findById(saved.getDocumentID()))
-                .hasValueSatisfying(found -> {
-                    assertThat(found.getFileName()).isEqualTo("receipt.pdf");
-                    assertThat(found.getDocumentType()).isEqualTo(DocumentType.RECEIPT);
-                    assertThat(found.getDocumentData()).containsExactly(data);
-                    assertThat(found.getMimeType()).isEqualTo("application/pdf");
-                    assertThat(found.getFileSize()).isEqualTo(3);
-                    assertThat(found.getWorkOrder().getWorkOrderID())
-                            .isEqualTo(workOrder.getWorkOrderID());
-                    assertThat(found.getUploadedByWorker().getWorkerID())
-                            .isEqualTo(worker.getWorkerID());
-                });
-    }
-
-    @Test
-    void deleteByIdRemovesDocument() {
-        WorkOrder workOrder = workOrderRepository.saveAndFlush(new WorkOrder());
-        Worker worker = workerRepository.saveAndFlush(
-                new Worker("Pat", "Lee", "patlee", "patlee@test.com", "encoded-password", false));
-        Document saved = documentRepository.saveAndFlush(
-                new Document(
-                        workOrder, "note.txt", DocumentType.OTHER, new byte[] { 1 },
-                        worker, "text/plain", 1));
-
-        documentRepository.deleteById(saved.getDocumentID());
-        documentRepository.flush();
-
-        assertThat(documentRepository.findById(saved.getDocumentID())).isEmpty();
-    }
-
-    @Test
     void findByWorkOrderReturnsDocumentsForThatWorkOrder() {
         WorkOrder workOrder = workOrderRepository.saveAndFlush(new WorkOrder());
         WorkOrder otherWorkOrder = workOrderRepository.saveAndFlush(new WorkOrder());

@@ -1,20 +1,30 @@
 package com.atelicove.services;
 
+import static com.atelicove.support.TestFixtures.PROJECT_ID;
+import static com.atelicove.support.TestFixtures.USERNAME;
+import static com.atelicove.support.TestFixtures.WORKER_ID;
+import static com.atelicove.support.TestFixtures.WORK_ORDER_ID;
+import static com.atelicove.support.TestFixtures.aProject;
+import static com.atelicove.support.TestFixtures.aTeam;
+import static com.atelicove.support.TestFixtures.aWorkOrder;
+import static com.atelicove.support.TestFixtures.aWorker;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Optional;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
 
 import com.atelicove.entities.Project;
@@ -28,90 +38,219 @@ import com.atelicove.repositories.WorkerRepository;
 @ExtendWith(MockitoExtension.class)
 class AuthorizationServiceTest {
 
+    private static final int OTHER_WORKER_ID = 999;
+
     @Mock private WorkerRepository workerRepository;
     @Mock private WorkOrderRepository workOrderRepository;
     @Mock private ProjectRepository projectRepository;
-    @InjectMocks private AuthorizationService authorizationService;
+    @InjectMocks private AuthorizationService service;
 
-    private final Authentication authentication =
-            UsernamePasswordAuthenticationToken.authenticated("worker", "n/a", java.util.List.of());
+    private final Authentication authentication = new TestingAuthenticationToken(USERNAME, "n/a", "ROLE_WORKER");
 
-    @Test
-    void unrelatedWorkerIsDeniedButAssignedWorkerIsAllowed() {
-        Worker worker = worker(1, false);
-        WorkOrder workOrder = new WorkOrder();
-        when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse("worker")).thenReturn(Optional.of(worker));
-        when(workOrderRepository.findById(9)).thenReturn(Optional.of(workOrder));
+    @Nested
+    class CurrentWorker {
 
-        assertThatThrownBy(() -> authorizationService.requireWorkOrderAccess(9, authentication))
-                .isInstanceOf(AccessDeniedException.class);
+        @Test
+        void currentWorker_ShouldReturnActiveWorker_WhenAuthenticationIsValid() {
+            // Given
+            Worker worker = aWorker().build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(worker));
 
-        workOrder.addWorker(worker);
-        assertThat(authorizationService.requireWorkOrderAccess(9, authentication)).isSameAs(worker);
+            // When
+            Worker result = service.currentWorker(authentication);
+
+            // Then
+            assertThat(result).isSameAs(worker);
+        }
+
+        @Test
+        void currentWorker_ShouldRejectMissingOrUnauthenticatedPrincipal() {
+            // Given
+            Authentication unauthenticated = new TestingAuthenticationToken(USERNAME, "n/a");
+            unauthenticated.setAuthenticated(false);
+
+            // When / Then
+            assertThatThrownBy(() -> service.currentWorker(null))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Authentication is required");
+            assertThatThrownBy(() -> service.currentWorker(unauthenticated))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Authentication is required");
+            verify(workerRepository, never()).findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME);
+        }
+
+        @Test
+        void currentWorker_ShouldRejectAuthentication_WhenActiveWorkerCannotBeFound() {
+            // Given
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.empty());
+
+            // When / Then
+            assertThatThrownBy(() -> service.currentWorker(authentication))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Authenticated worker was not found");
+        }
     }
 
-    @Test
-    void projectAssignmentFlowsThroughWorkOrderAndAdminBypassesAssignment() {
-        Worker worker = worker(1, false);
-        WorkOrder workOrder = new WorkOrder();
-        workOrder.addWorker(worker);
-        Project project = new Project();
-        project.addWorkOrder(workOrder);
-        when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse("worker")).thenReturn(Optional.of(worker));
-        when(projectRepository.findById(3)).thenReturn(Optional.of(project));
+    @Nested
+    class OwnWorkerAccess {
 
-        assertThat(authorizationService.requireProjectAccess(3, authentication)).isSameAs(worker);
+        @Test
+        void requireOwnWorkerOrAdmin_ShouldAllowOwnerAndAdministrator() {
+            // Given
+            Worker owner = aWorker().build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(owner));
 
-        Worker admin = worker(2, true);
-        when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse("worker")).thenReturn(Optional.of(admin));
-        assertThat(authorizationService.requireProjectAccess(99, authentication)).isSameAs(admin);
+            // When / Then
+            assertThat(service.requireOwnWorkerOrAdmin(WORKER_ID, authentication)).isSameAs(owner);
+
+            // Given
+            Worker admin = aWorker().asAdmin().build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(admin));
+
+            // When / Then
+            assertThat(service.requireOwnWorkerOrAdmin(OTHER_WORKER_ID, authentication)).isSameAs(admin);
+        }
+
+        @Test
+        void requireOwnWorkerOrAdmin_ShouldRejectUnrelatedWorker() {
+            // Given
+            Worker worker = aWorker().build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(worker));
+
+            // When / Then
+            assertThatThrownBy(() -> service.requireOwnWorkerOrAdmin(OTHER_WORKER_ID, authentication))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Only your own worker account can be accessed");
+        }
     }
 
-    @Test
-    void visibilityKeepsOnlyAssignedWorkOrdersAndProjectsForWorkers() {
-        Worker worker = worker(1, false);
-        Worker other = worker(2, false);
-        WorkOrder assignedOrder = new WorkOrder();
-        assignedOrder.addWorker(worker);
-        WorkOrder unrelatedOrder = new WorkOrder();
-        unrelatedOrder.addWorker(other);
+    @Nested
+    class WorkOrderAccess {
 
-        Team assignedTeam = new Team();
-        assignedTeam.setWorkers(Set.of(worker));
-        Project teamProject = new Project();
-        teamProject.setProjectID(3);
-        teamProject.addTeam(assignedTeam);
-        Project unrelatedProject = new Project();
+        @Test
+        void requireWorkOrderAccess_ShouldAllowAssignedWorkerAndAdmin() {
+            // Given
+            Worker assigned = aWorker().build();
+            WorkOrder order = aWorkOrder().assignedTo(assigned).build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(assigned));
+            when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
 
-        when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse("worker"))
-                .thenReturn(Optional.of(worker));
-        when(projectRepository.findById(3)).thenReturn(Optional.of(teamProject));
+            // When / Then
+            assertThat(service.requireWorkOrderAccess(WORK_ORDER_ID, authentication)).isSameAs(assigned);
 
-        assertThat(authorizationService.visibleWorkOrders(
-                List.of(assignedOrder, unrelatedOrder), authentication))
-                .containsExactly(assignedOrder);
-        assertThat(authorizationService.visibleProjects(
-                List.of(teamProject, unrelatedProject), authentication))
-                .containsExactly(teamProject);
-        assertThat(authorizationService.requireProjectAccess(3, authentication)).isSameAs(worker);
+            // Given
+            Worker admin = aWorker().asAdmin().build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(admin));
+
+            // When / Then
+            assertThat(service.requireWorkOrderAccess(999, authentication)).isSameAs(admin);
+            verify(workOrderRepository, never()).findById(999);
+        }
+
+        @Test
+        void requireWorkOrderAccess_ShouldDistinguishMissingOrderFromUnassignedWorker() {
+            // Given
+            Worker worker = aWorker().build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(worker));
+            when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.empty());
+
+            // When / Then
+            assertThatThrownBy(() -> service.requireWorkOrderAccess(WORK_ORDER_ID, authentication))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Work order not found");
+
+            // Given
+            when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(aWorkOrder().build()));
+
+            // When / Then
+            assertThatThrownBy(() -> service.requireWorkOrderAccess(WORK_ORDER_ID, authentication))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Worker is not assigned to this work order");
+        }
     }
 
-    @Test
-    void adminSeesAllRecords() {
-        Worker admin = worker(1, true);
-        List<WorkOrder> workOrders = List.of(new WorkOrder());
-        List<Project> projects = List.of(new Project());
-        when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse("worker"))
-                .thenReturn(Optional.of(admin));
+    @Nested
+    class ProjectAccess {
 
-        assertThat(authorizationService.visibleWorkOrders(workOrders, authentication)).isSameAs(workOrders);
-        assertThat(authorizationService.visibleProjects(projects, authentication)).isSameAs(projects);
+        @Test
+        void requireProjectAccess_ShouldAllowAssignmentThroughWorkOrderOrTeam() {
+            // Given
+            Worker worker = aWorker().build();
+            Project throughOrder = aProject().build();
+            throughOrder.addWorkOrder(aWorkOrder().assignedTo(worker).build());
+            Team team = aTeam().withWorker(worker).build();
+            Project throughTeam = aProject().withId(PROJECT_ID + 1).build();
+            throughTeam.addTeam(team);
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(worker));
+            when(projectRepository.findById(PROJECT_ID)).thenReturn(Optional.of(throughOrder));
+            when(projectRepository.findById(PROJECT_ID + 1)).thenReturn(Optional.of(throughTeam));
+
+            // When / Then
+            assertThat(service.requireProjectAccess(PROJECT_ID, authentication)).isSameAs(worker);
+            assertThat(service.requireProjectAccess(PROJECT_ID + 1, authentication)).isSameAs(worker);
+        }
+
+        @Test
+        void requireProjectAccess_ShouldDistinguishMissingProjectFromUnassignedWorker() {
+            // Given
+            Worker worker = aWorker().build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(worker));
+            when(projectRepository.findById(PROJECT_ID)).thenReturn(Optional.empty());
+
+            // When / Then
+            assertThatThrownBy(() -> service.requireProjectAccess(PROJECT_ID, authentication))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Project not found");
+
+            // Given
+            when(projectRepository.findById(PROJECT_ID)).thenReturn(Optional.of(aProject().build()));
+
+            // When / Then
+            assertThatThrownBy(() -> service.requireProjectAccess(PROJECT_ID, authentication))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Worker is not assigned to this project");
+        }
     }
 
-    private Worker worker(int id, boolean admin) {
-        Worker worker = new Worker();
-        worker.setWorkerID(id);
-        worker.setAdmin(admin);
-        return worker;
+    @Nested
+    class Visibility {
+
+        @Test
+        void visibility_ShouldFilterRecordsForWorker_ButReturnOriginalListsForAdmin() {
+            // Given
+            Worker worker = aWorker().build();
+            WorkOrder assignedOrder = aWorkOrder().assignedTo(worker).build();
+            WorkOrder unrelatedOrder = aWorkOrder().withId(999).build();
+            Project assignedProject = aProject().build();
+            assignedProject.addWorkOrder(assignedOrder);
+            Project unrelatedProject = aProject().withId(999).build();
+            List<WorkOrder> orders = List.of(assignedOrder, unrelatedOrder);
+            List<Project> projects = List.of(assignedProject, unrelatedProject);
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(worker));
+
+            // When / Then
+            assertThat(service.visibleWorkOrders(orders, authentication)).containsExactly(assignedOrder);
+            assertThat(service.visibleProjects(projects, authentication)).containsExactly(assignedProject);
+
+            // Given
+            Worker admin = aWorker().asAdmin().build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(admin));
+
+            // When / Then
+            assertThat(service.visibleWorkOrders(orders, authentication)).isSameAs(orders);
+            assertThat(service.visibleProjects(projects, authentication)).isSameAs(projects);
+        }
     }
 }

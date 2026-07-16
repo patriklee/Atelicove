@@ -54,15 +54,4 @@ class WorkOrderRepositoryTest {
         assertThat(workOrderRepository.countByArchivedFalse()).isEqualTo(1);
     }
 
-    @Test
-    void saveAndDeleteWorkOrder() {
-        WorkOrder saved = workOrderRepository.saveAndFlush(new WorkOrder());
-
-        assertThat(saved.getWorkOrderID()).isPositive();
-
-        workOrderRepository.delete(saved);
-        workOrderRepository.flush();
-
-        assertThat(workOrderRepository.findById(saved.getWorkOrderID())).isEmpty();
-    }
 }

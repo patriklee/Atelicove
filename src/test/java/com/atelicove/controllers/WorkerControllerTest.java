@@ -1,5 +1,6 @@
 package com.atelicove.controllers;
 
+import static com.atelicove.support.ControllerTestSupport.mockMvcFor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,11 +21,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.atelicove.controllers.WorkerController;
 import com.atelicove.entities.Worker;
-import com.atelicove.exceptions.GlobalExceptionHandler;
 import com.atelicove.services.WorkerService;
 import com.atelicove.services.AuthorizationService;
 
@@ -39,10 +38,7 @@ class WorkerControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(new WorkerController(workerService, authorizationService))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+        mockMvc = mockMvcFor(new WorkerController(workerService, authorizationService));
     }
 
     @Test
@@ -129,5 +125,27 @@ class WorkerControllerTest {
                         .content("{\"workerUser\":\"plee\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Password is required"));
+    }
+
+    @Test
+    void remainingWorkerEndpoints_ShouldReturnArchivedUpdateProfileRestoreAndPermanentDelete() throws Exception {
+        Worker worker = new Worker("Pat", "Lee", "plee", "plee@test.com", "hidden", false);
+        worker.setWorkerID(3);
+        when(workerService.findAll()).thenReturn(List.of(worker));
+        when(workerService.findArchived()).thenReturn(List.of(worker));
+        when(workerService.updateWorker(any(Integer.class), any(Worker.class))).thenReturn(worker);
+        when(workerService.updateProfile(any(Integer.class), any(Worker.class))).thenReturn(worker);
+        when(workerService.restoreById(3)).thenReturn(worker);
+
+        mockMvc.perform(get("/workers/all-with-archived")).andExpect(status().isOk()).andExpect(jsonPath("$[0].workerID").value(3));
+        mockMvc.perform(get("/workers/archived")).andExpect(status().isOk());
+        mockMvc.perform(put("/workers/3").contentType(MediaType.APPLICATION_JSON).content("{\"workerFName\":\"Pat\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.workerID").value(3));
+        mockMvc.perform(put("/workers/3/profile").contentType(MediaType.APPLICATION_JSON).content("{\"workerFName\":\"Pat\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/workers/3/restore")).andExpect(status().isOk());
+        mockMvc.perform(delete("/workers/3/permanent")).andExpect(status().isNoContent());
+        verify(authorizationService).requireOwnWorkerOrAdmin(org.mockito.ArgumentMatchers.eq(3), any());
+        verify(workerService).deletePermanentlyById(3);
     }
 }

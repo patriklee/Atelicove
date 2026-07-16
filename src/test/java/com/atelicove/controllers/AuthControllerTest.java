@@ -1,5 +1,6 @@
 package com.atelicove.controllers;
 
+import static com.atelicove.support.ControllerTestSupport.mockMvcFor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,7 +25,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.atelicove.controllers.AuthController;
 import com.atelicove.entities.Worker;
@@ -46,9 +46,7 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(new AuthController(workerService, authenticationManager))
-                .build();
+        mockMvc = mockMvcFor(new AuthController(workerService, authenticationManager));
     }
 
     @AfterEach
