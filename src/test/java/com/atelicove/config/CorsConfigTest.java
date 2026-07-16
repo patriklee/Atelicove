@@ -21,7 +21,8 @@ import com.atelicove.AtelicoveApplication;
                 "spring.datasource.driver-class-name=org.h2.Driver",
                 "spring.datasource.username=sa",
                 "spring.datasource.password=",
-                "spring.jpa.hibernate.ddl-auto=create-drop"
+                "spring.jpa.hibernate.ddl-auto=create-drop",
+                "atelicove.cors.allowed-origins=http://localhost:3000,http://127.0.0.1:3000"
         })
 @AutoConfigureMockMvc(addFilters = false)
 class CorsConfigTest {
@@ -50,6 +51,17 @@ class CorsConfigTest {
                 .andExpect(status().isForbidden())
                 .andExpect(header().doesNotExist(
                         HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+    }
+
+    @Test
+    void configuredAdditionalOriginReceivesCorsHeaders() throws Exception {
+        mockMvc.perform(options("/companies/all")
+                        .header(HttpHeaders.ORIGIN, "http://127.0.0.1:3000")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN,
+                        "http://127.0.0.1:3000"));
     }
 
 }

@@ -33,6 +33,24 @@ public class AuthController {
     }
 
     /**
+     * Returns the active worker represented by the current server session.
+     *
+     * @param authentication current authenticated session
+     * @return the same profile shape returned by login
+     */
+    @GetMapping("/me")
+    public ResponseEntity<LoginResponse> me(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        return workerService.findByUsername(authentication.getName())
+                .map(this::toLoginResponse)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
+    }
+
+    /**
      * Authenticates a worker, stores the Spring Security context in the HTTP
      * session, records the login time, and returns the worker profile used by the
      * frontend.
@@ -76,20 +94,22 @@ public class AuthController {
 
             Worker worker = workerService.recordLogin(authentication.getName());
 
-            LoginResponse response = new LoginResponse(
-            		worker.getWorkerID(),
-            		worker.getWorkerUser(),
-            		worker.getWorkerFName(),
-            		worker.getWorkerLName(),
-            		worker.getWorkerDisplayName(),
-            		worker.getWorkerEmail(),
-            		worker.getLastLoginAt(),
-            		worker.isAdmin());
-
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(toLoginResponse(worker));
 
         } catch (AuthenticationException exception) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message","Invalid username or password"));
         }
+    }
+
+    private LoginResponse toLoginResponse(Worker worker) {
+        return new LoginResponse(
+                worker.getWorkerID(),
+                worker.getWorkerUser(),
+                worker.getWorkerFName(),
+                worker.getWorkerLName(),
+                worker.getWorkerDisplayName(),
+                worker.getWorkerEmail(),
+                worker.getLastLoginAt(),
+                worker.isAdmin());
     }
 }

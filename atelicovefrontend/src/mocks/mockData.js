@@ -114,6 +114,42 @@ export const mockWorkers = [
     archived: false,
     archivedAt: null,
   },
+  {
+    workerID: 6, id: 6,
+    firstName: 'Elena', lastName: 'Brooks', username: 'ebrooks', email: 'ebrooks@example.test', password: 'Worker@123', isAdmin: false,
+    workerFName: 'Elena', workerLName: 'Brooks', workerUser: 'ebrooks', workerEmail: 'ebrooks@example.test', workerPW: 'Worker@123', admin: false,
+    role: 'Worker', lastLoginAt: '2026-07-09T10:10:00', archived: false, archivedAt: null,
+  },
+  {
+    workerID: 7, id: 7,
+    firstName: 'Marcus', lastName: 'Hill', username: 'mhill', email: 'mhill@example.test', password: 'Worker@123', isAdmin: false,
+    workerFName: 'Marcus', workerLName: 'Hill', workerUser: 'mhill', workerEmail: 'mhill@example.test', workerPW: 'Worker@123', admin: false,
+    role: 'Worker', lastLoginAt: '2026-07-08T15:40:00', archived: false, archivedAt: null,
+  },
+  {
+    workerID: 8, id: 8,
+    firstName: 'Priya', lastName: 'Shah', username: 'pshah', email: 'pshah@example.test', password: 'Worker@123', isAdmin: false,
+    workerFName: 'Priya', workerLName: 'Shah', workerUser: 'pshah', workerEmail: 'pshah@example.test', workerPW: 'Worker@123', admin: false,
+    role: 'Worker', lastLoginAt: '2026-07-10T07:55:00', archived: false, archivedAt: null,
+  },
+  {
+    workerID: 9, id: 9,
+    firstName: 'Noah', lastName: 'Williams', username: 'nwilliams', email: 'nwilliams@example.test', password: 'Worker@123', isAdmin: false,
+    workerFName: 'Noah', workerLName: 'Williams', workerUser: 'nwilliams', workerEmail: 'nwilliams@example.test', workerPW: 'Worker@123', admin: false,
+    role: 'Worker', lastLoginAt: '2026-07-03T13:25:00', archived: false, archivedAt: null,
+  },
+  {
+    workerID: 10, id: 10,
+    firstName: 'Olivia', lastName: 'Chen', username: 'ochen', email: 'ochen@example.test', password: 'Worker@123', isAdmin: false,
+    workerFName: 'Olivia', workerLName: 'Chen', workerUser: 'ochen', workerEmail: 'ochen@example.test', workerPW: 'Worker@123', admin: false,
+    role: 'Worker', lastLoginAt: '2026-05-18T09:20:00', archived: true, archivedAt: '2026-06-01T17:00:00',
+  },
+  {
+    workerID: 11, id: 11,
+    firstName: 'Darius', lastName: 'Cole', username: 'dcole', email: 'dcole@example.test', password: 'Worker@123', isAdmin: false,
+    workerFName: 'Darius', workerLName: 'Cole', workerUser: 'dcole', workerEmail: 'dcole@example.test', workerPW: 'Worker@123', admin: false,
+    role: 'Worker', lastLoginAt: '2026-04-22T16:05:00', archived: true, archivedAt: '2026-05-12T12:30:00',
+  },
 ];
 
 export const mockCompanies = [
@@ -159,6 +195,31 @@ export const mockCompanies = [
     archived: false,
     archivedAt: null,
   },
+  {
+    companyID: 104, id: 104, name: 'Northstar Property Management', companyName: 'Northstar Property Management',
+    address: '901 Elm Street, Dallas, TX 75202', companyAddress: '901 Elm Street, Dallas, TX 75202',
+    phone: '214-555-0186', companyPhone: '214-555-0186', email: 'facilities@northstar.example', companyEmail: 'facilities@northstar.example', archived: false, archivedAt: null,
+  },
+  {
+    companyID: 105, id: 105, name: 'Cedar Grove Hospitality', companyName: 'Cedar Grove Hospitality',
+    address: '250 River Walk, San Antonio, TX 78205', companyAddress: '250 River Walk, San Antonio, TX 78205',
+    phone: '210-555-0172', companyPhone: '210-555-0172', email: 'maintenance@cedargrove.example', companyEmail: 'maintenance@cedargrove.example', archived: false, archivedAt: null,
+  },
+  {
+    companyID: 106, id: 106, name: 'Lone Star Medical Offices', companyName: 'Lone Star Medical Offices',
+    address: '3300 Kirby Drive, Houston, TX 77098', companyAddress: '3300 Kirby Drive, Houston, TX 77098',
+    phone: '713-555-0119', companyPhone: '713-555-0119', email: 'operations@lonestarmedical.example', companyEmail: 'operations@lonestarmedical.example', archived: false, archivedAt: null,
+  },
+  {
+    companyID: 107, id: 107, name: 'Red River Storage', companyName: 'Red River Storage',
+    address: '88 Industrial Loop, Fort Worth, TX 76106', companyAddress: '88 Industrial Loop, Fort Worth, TX 76106',
+    phone: '817-555-0144', companyPhone: '817-555-0144', email: 'closed@redriverstorage.example', companyEmail: 'closed@redriverstorage.example', archived: true, archivedAt: '2026-04-15T16:00:00',
+  },
+  {
+    companyID: 108, id: 108, name: 'Willow Creek Fitness', companyName: 'Willow Creek Fitness',
+    address: '612 Lakeview Road, Plano, TX 75074', companyAddress: '612 Lakeview Road, Plano, TX 75074',
+    phone: '972-555-0108', companyPhone: '972-555-0108', email: 'former@willowcreek.example', companyEmail: 'former@willowcreek.example', archived: true, archivedAt: '2026-03-02T11:30:00',
+  },
 ];
 
 export const mockTeams = [
@@ -178,6 +239,9 @@ export const mockTeams = [
     projectStartedAt: null,
     workers: [mockWorkers[3], mockWorkers[4]],
   },
+  { teamID: 203, id: 203, teamName: 'Facilities Response', name: 'Facilities Response', projectStartedAt: '2026-07-01T07:30:00', workers: [mockWorkers[5], mockWorkers[6]] },
+  { teamID: 204, id: 204, teamName: 'Electrical & Safety', name: 'Electrical & Safety', projectStartedAt: '2026-06-12T08:00:00', workers: [mockWorkers[7], mockWorkers[8]] },
+  { teamID: 205, id: 205, teamName: 'Hotel Turnover Crew', name: 'Hotel Turnover Crew', projectStartedAt: null, workers: [mockWorkers[2], mockWorkers[5], mockWorkers[7]] },
 ];
 
 export const mockWorkOrders = [
@@ -219,6 +283,50 @@ export const mockWorkOrders = [
     items: [
       { workOrderItemID: 5003, id: 5003, itemType: 'LABOR', itemName: 'Follow-up inspection', name: 'Follow-up inspection', quantity: 1, price: 90 },
     ],
+  },
+  {
+    workOrderID: 1003, id: 1003, title: 'Emergency HVAC diagnostic', workOrderName: 'Emergency HVAC diagnostic',
+    comment: 'Third-floor tenant area is not cooling.', description: 'Diagnose the rooftop unit and restore cooling to the third floor.',
+    workers: [mockWorkers[5], mockWorkers[6]], assignedWorkers: [mockWorkers[5], mockWorkers[6]], company: mockCompanies[3], status: 'ACTIVE',
+    startDateTime: '2026-07-01T07:30:00', endDateTime: null, archived: false, archivedAt: null,
+    items: [
+      { workOrderItemID: 5004, id: 5004, itemType: 'LABOR', itemName: 'HVAC diagnostic', name: 'HVAC diagnostic', quantity: 3, price: 95 },
+      { workOrderItemID: 5005, id: 5005, itemType: 'MATERIAL', itemName: 'Run capacitor', name: 'Run capacitor', quantity: 1, price: 68 },
+    ],
+  },
+  {
+    workOrderID: 1004, id: 1004, title: 'Exterior lighting replacement', workOrderName: 'Exterior lighting replacement',
+    comment: 'Replace failed parking-lot fixtures before the quarterly inspection.', description: 'Replace six LED fixtures and verify photocell timing.',
+    workers: [mockWorkers[7], mockWorkers[8]], assignedWorkers: [mockWorkers[7], mockWorkers[8]], company: mockCompanies[5], status: 'OPEN',
+    startDateTime: '2026-07-15T08:00:00', endDateTime: null, archived: false, archivedAt: null,
+    items: [
+      { workOrderItemID: 5006, id: 5006, itemType: 'MATERIAL', itemName: 'LED wall-pack fixture', name: 'LED wall-pack fixture', quantity: 6, price: 142 },
+      { workOrderItemID: 5007, id: 5007, itemType: 'LABOR', itemName: 'Fixture installation', name: 'Fixture installation', quantity: 8, price: 82 },
+    ],
+  },
+  {
+    workOrderID: 1005, id: 1005, title: 'Guest room plumbing repairs', workOrderName: 'Guest room plumbing repairs',
+    comment: 'Repair fixtures in rooms 214, 216, and 309.', description: 'Complete the hotel punch-list plumbing repairs.',
+    workers: [mockWorkers[2], mockWorkers[5]], assignedWorkers: [mockWorkers[2], mockWorkers[5]], company: mockCompanies[4], status: 'COMPLETE',
+    startDateTime: '2026-06-12T08:00:00', endDateTime: '2026-06-13T15:45:00', archived: false, archivedAt: null,
+    items: [
+      { workOrderItemID: 5008, id: 5008, itemType: 'LABOR', itemName: 'Plumbing repair labor', name: 'Plumbing repair labor', quantity: 10, price: 88 },
+      { workOrderItemID: 5009, id: 5009, itemType: 'MATERIAL', itemName: 'Valves and supply lines', name: 'Valves and supply lines', quantity: 3, price: 54 },
+    ],
+  },
+  {
+    workOrderID: 1006, id: 1006, title: 'Warehouse fire-door inspection', workOrderName: 'Warehouse fire-door inspection',
+    comment: 'Annual inspection completed before the facility closed.', description: 'Inspect, tag, and document twelve fire doors.',
+    workers: [mockWorkers[3]], assignedWorkers: [mockWorkers[3]], company: mockCompanies[6], status: 'COMPLETE',
+    startDateTime: '2026-03-10T09:00:00', endDateTime: '2026-03-10T14:30:00', archived: true, archivedAt: '2026-04-10T10:00:00',
+    items: [{ workOrderItemID: 5010, id: 5010, itemType: 'LABOR', itemName: 'Fire-door inspection', name: 'Fire-door inspection', quantity: 12, price: 42 }],
+  },
+  {
+    workOrderID: 1007, id: 1007, title: 'Fitness studio flooring repair', workOrderName: 'Fitness studio flooring repair',
+    comment: 'Completed repair retained for historical reporting.', description: 'Replace damaged rubber flooring near the free-weight area.',
+    workers: [mockWorkers[4]], assignedWorkers: [mockWorkers[4]], company: mockCompanies[7], status: 'COMPLETE',
+    startDateTime: '2026-02-11T08:30:00', endDateTime: '2026-02-12T12:00:00', archived: true, archivedAt: '2026-03-01T09:15:00',
+    items: [{ workOrderItemID: 5011, id: 5011, itemType: 'MATERIAL', itemName: 'Rubber floor tile', name: 'Rubber floor tile', quantity: 24, price: 18.5 }],
   },
 ];
 
@@ -266,12 +374,79 @@ export const mockProjects = [
     plannedTeamsJson: JSON.stringify([mockTeams[1]]),
     teams: [],
     workOrders: [],
-    draftWorkOrders: [],
+    draftWorkOrders: [
+      {
+        draftWorkOrderID: 601, id: 601, workOrderID: null, title: 'Draft inspection plan', workOrderName: 'Draft inspection plan', status: 'DRAFT',
+        comment: 'Draft inspection plan for Sunset Dental Partners.', description: 'Draft inspection plan for Sunset Dental Partners.',
+        workers: [mockWorkers[3]], assignedWorkers: [mockWorkers[3]], company: mockCompanies[2], startDateTime: '2026-07-18T09:00:00', endDateTime: null,
+        archived: false, archivedAt: null,
+        items: [{ draftWorkOrderItemID: 701, id: 701, itemType: 'LABOR', itemName: 'Draft compliance walkthrough', name: 'Draft compliance walkthrough', quantity: 1, price: 160 }],
+      },
+    ],
     comments: [],
     actionItems: [],
     documents: [],
     snapshots: [],
     associatedActiveProject: null,
+  },
+  {
+    projectID: 303, id: 303, projectName: 'Northstar HVAC Stabilization', name: 'Northstar HVAC Stabilization',
+    description: 'Active response project covering HVAC diagnostics and preventive maintenance.', budget: 8600, estimatedCost: 4100, actualCost: 1328,
+    projectStatus: 'ACTIVE', status: 'ACTIVE', activatedAt: '2026-07-01T07:00:00', completedAt: null, archived: false, archivedAt: null,
+    plannedTeamsJson: null, teams: [mockTeams[2]], workOrders: [mockWorkOrders[2]], draftWorkOrders: [],
+    comments: [{ commentID: 801, id: 801, commentText: 'Replacement fan motor is on hold pending supplier confirmation.', createdAt: '2026-07-08T14:20:00' }],
+    actionItems: [{ actionItemID: 901, id: 901, title: 'Confirm fan motor lead time', completed: false, dueDate: '2026-07-14' }], documents: [], snapshots: [], associatedActiveProject: null,
+  },
+  {
+    projectID: 304, id: 304, projectName: 'Lone Star Exterior Safety', name: 'Lone Star Exterior Safety',
+    description: 'Exterior lighting and safety improvements across the medical-office campus.', budget: 12400, estimatedCost: 7200, actualCost: 0,
+    projectStatus: 'ACTIVE', status: 'ACTIVE', activatedAt: '2026-06-25T08:00:00', completedAt: null, archived: false, archivedAt: null,
+    plannedTeamsJson: null, teams: [mockTeams[3]], workOrders: [mockWorkOrders[3]], draftWorkOrders: [], comments: [],
+    actionItems: [{ actionItemID: 902, id: 902, title: 'Coordinate lift access with security', completed: true, dueDate: '2026-07-10' }], documents: [], snapshots: [], associatedActiveProject: null,
+  },
+  {
+    projectID: 305, id: 305, projectName: 'Cedar Grove Summer Refresh', name: 'Cedar Grove Summer Refresh',
+    description: 'Completed guest-room repair package awaiting final closeout review.', budget: 6800, estimatedCost: 5200, actualCost: 4582,
+    projectStatus: 'COMPLETE', status: 'COMPLETE', activatedAt: '2026-06-10T08:00:00', completedAt: '2026-06-20T16:30:00', archived: false, archivedAt: null,
+    plannedTeamsJson: null, teams: [mockTeams[4]], workOrders: [mockWorkOrders[4]], draftWorkOrders: [], comments: [], actionItems: [], documents: [], snapshots: [], associatedActiveProject: null,
+  },
+  {
+    projectID: 306, id: 306, projectName: 'Red River Compliance Closeout', name: 'Red River Compliance Closeout',
+    description: 'Archived compliance project retained with its completed inspection history.', budget: 4200, estimatedCost: 3900, actualCost: 3764,
+    projectStatus: 'COMPLETE', status: 'COMPLETE', activatedAt: '2026-02-15T09:00:00', completedAt: '2026-03-12T16:00:00', archived: true, archivedAt: '2026-04-10T10:00:00',
+    plannedTeamsJson: null, teams: [mockTeams[1]], workOrders: [mockWorkOrders[5]], draftWorkOrders: [], comments: [], actionItems: [], documents: [], snapshots: [], associatedActiveProject: null,
+  },
+  {
+    projectID: 307, id: 307, projectName: 'Willow Creek Studio Renovation', name: 'Willow Creek Studio Renovation',
+    description: 'Archived renovation project for a former fitness client.', budget: 9500, estimatedCost: 9100, actualCost: 8875,
+    projectStatus: 'COMPLETE', status: 'COMPLETE', activatedAt: '2026-01-20T08:00:00', completedAt: '2026-02-18T15:30:00', archived: true, archivedAt: '2026-03-01T09:15:00',
+    plannedTeamsJson: null, teams: [mockTeams[1]], workOrders: [mockWorkOrders[6]], draftWorkOrders: [], comments: [], actionItems: [], documents: [], snapshots: [], associatedActiveProject: null,
+  },
+  {
+    projectID: 308, id: 308, projectName: 'Cedar Grove Lobby Concept', name: 'Cedar Grove Lobby Concept',
+    description: 'Early planning draft for a lobby lighting and finish refresh.', budget: 15000, estimatedCost: 0, actualCost: 0,
+    projectStatus: 'OPEN', status: 'OPEN', activatedAt: null, completedAt: null, archived: false, archivedAt: null,
+    plannedTeamsJson: JSON.stringify([mockTeams[4]]), teams: [], workOrders: [],
+    draftWorkOrders: [
+      {
+        draftWorkOrderID: 602, id: 602, workOrderID: null, title: 'Lobby lighting mockup', workOrderName: 'Lobby lighting mockup', status: 'DRAFT',
+        comment: 'Build one sample bay for client approval.', description: 'Install temporary fixtures and dimming controls in one lobby bay.',
+        workers: [mockWorkers[7]], assignedWorkers: [mockWorkers[7]], company: mockCompanies[4], startDateTime: '2026-07-22T10:00:00', endDateTime: null,
+        archived: false, archivedAt: null,
+        items: [
+          { draftWorkOrderItemID: 702, id: 702, itemType: 'LABOR', itemName: 'Lighting mockup labor', name: 'Lighting mockup labor', quantity: 6, price: 82 },
+          { draftWorkOrderItemID: 703, id: 703, itemType: 'MATERIAL', itemName: 'Sample pendant fixture', name: 'Sample pendant fixture', quantity: 2, price: 210 },
+        ],
+      },
+      {
+        draftWorkOrderID: 603, id: 603, workOrderID: null, title: 'Finish sample installation', workOrderName: 'Finish sample installation', status: 'DRAFT',
+        comment: 'Prepare finish boards and install a temporary wall section.', description: 'Present three finish combinations for stakeholder review.',
+        workers: [mockWorkers[5]], assignedWorkers: [mockWorkers[5]], company: mockCompanies[4], startDateTime: '2026-07-24T08:30:00', endDateTime: null,
+        archived: false, archivedAt: null,
+        items: [{ draftWorkOrderItemID: 704, id: 704, itemType: 'MATERIAL', itemName: 'Finish sample kit', name: 'Finish sample kit', quantity: 3, price: 145 }],
+      },
+    ],
+    comments: [], actionItems: [], documents: [], snapshots: [], associatedActiveProject: null,
   },
 ];
 
@@ -303,5 +478,12 @@ export const mockDraftWorkOrders = [
         price: 160,
       },
     ],
+  },
+  {
+    draftWorkOrderID: 602, id: 602, workOrderID: null, title: 'Lobby lighting mockup', workOrderName: 'Lobby lighting mockup', status: 'DRAFT',
+    comment: 'Build one sample bay for client approval.', description: 'Install temporary fixtures and dimming controls in one lobby bay.',
+    workers: [mockWorkers[7]], assignedWorkers: [mockWorkers[7]], company: mockCompanies[4], startDateTime: '2026-07-22T10:00:00', endDateTime: null,
+    archived: false, archivedAt: null,
+    items: [{ draftWorkOrderItemID: 702, id: 702, itemType: 'LABOR', itemName: 'Lighting mockup labor', name: 'Lighting mockup labor', quantity: 6, price: 82 }],
   },
 ];

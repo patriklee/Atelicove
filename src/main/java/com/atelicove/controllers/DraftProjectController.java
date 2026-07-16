@@ -7,11 +7,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.atelicove.entities.DraftProject;
+import com.atelicove.entities.Project;
+import com.atelicove.services.DraftProjectLaunchService;
 import com.atelicove.services.DraftProjectService;
 
 @RestController
@@ -19,9 +22,13 @@ import com.atelicove.services.DraftProjectService;
 public class DraftProjectController {
 
     private final DraftProjectService draftProjectService;
+    private final DraftProjectLaunchService draftProjectLaunchService;
 
-    public DraftProjectController(DraftProjectService draftProjectService) {
+    public DraftProjectController(
+            DraftProjectService draftProjectService,
+            DraftProjectLaunchService draftProjectLaunchService) {
         this.draftProjectService = draftProjectService;
+        this.draftProjectLaunchService = draftProjectLaunchService;
     }
 
     @GetMapping
@@ -32,6 +39,12 @@ public class DraftProjectController {
     @GetMapping("/archived")
     public List<DraftProject> getArchivedDraftProjects() {
         return draftProjectService.findArchived();
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{id}/launch")
+    public Project launch(@PathVariable Integer id) {
+        return draftProjectLaunchService.launch(id);
     }
 
     @PreAuthorize("hasRole('ADMIN')")

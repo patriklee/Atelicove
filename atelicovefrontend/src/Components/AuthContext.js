@@ -1,37 +1,79 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
+import { AUTH_UNAUTHORIZED_EVENT } from '../shared/api/client';
 
 const AuthContext = createContext(null);
+
+const clearStoredAuth = () => {
+  localStorage.removeItem('user');
+  localStorage.removeItem('username');
+  localStorage.removeItem('loggedInUser');
+};
+
+const toFrontendUser = (profile) => ({
+  username: profile.workerUser,
+  firstName: profile.workerFName,
+  lastName: profile.workerLName,
+  displayName: profile.workerDisplayName,
+  email: profile.workerEmail,
+  lastLoginAt: profile.lastLoginAt,
+  isAdmin: profile.admin,
+  workerID: profile.workerID,
+});
+
+const storeUser = (userData) => {
+  localStorage.setItem('user', JSON.stringify(userData));
+  localStorage.setItem('username', userData.username);
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // On mount, check if user is stored in localStorage
+  // The server session is authoritative. Local storage only caches display data.
   useEffect(() => {
-    const checkAuth = () => {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        try {
-          const userData = JSON.parse(storedUser);
-          setUser(userData);
-        } catch (error) {
-          console.error('Error parsing stored user data', error);
-          localStorage.removeItem('user');
-        }
-      }
-      setLoading(false);
+    let active = true;
+
+    const clearAuth = () => {
+      clearStoredAuth();
+      if (active) setUser(null);
     };
 
-    checkAuth();
-  }, []);
+    const handleUnauthorized = () => {
+      clearAuth();
+      if (active) navigate('/login', { replace: true });
+    };
+
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+
+    apiFetch('/auth/me')
+      .then(profile => {
+        if (!active) return;
+        const authenticatedUser = toFrontendUser(profile);
+        setUser(authenticatedUser);
+        storeUser(authenticatedUser);
+      })
+      .catch(error => {
+        clearAuth();
+        if (error.status !== 401) {
+          console.warn('Unable to validate the server session.', error);
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+      window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    };
+  }, [navigate]);
 
   const login = (userData) => {
     setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
-    localStorage.setItem('username', userData.username);
+    storeUser(userData);
     
     // Redirect based on user role
     if (userData.isAdmin) {
@@ -44,8 +86,7 @@ export const AuthProvider = ({ children }) => {
   const updateUser = (userData) => {
     const updatedUser = { ...user, ...userData };
     setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    localStorage.setItem('username', updatedUser.username);
+    storeUser(updatedUser);
   };
 
   const logout = async () => {
@@ -55,9 +96,7 @@ export const AuthProvider = ({ children }) => {
       console.warn('Server logout failed; clearing the local session.', error);
     }
     setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('username');
-    localStorage.removeItem('loggedInUser');
+    clearStoredAuth();
     navigate('/login', { replace: true });
   };
 

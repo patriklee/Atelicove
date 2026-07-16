@@ -54,9 +54,9 @@ class SecurityConfigTest {
     }
 
     @Test
-    void protectedEndpointRequiresAuthentication() throws Exception {
+    void protectedEndpointReturnsUnauthorizedWithoutASession() throws Exception {
         mockMvc.perform(get("/companies/all"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
 
         mockMvc.perform(get("/companies/all").with(user("worker")))
                 .andExpect(status().isOk());
@@ -67,7 +67,7 @@ class SecurityConfigTest {
         mockMvc.perform(post("/workorders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

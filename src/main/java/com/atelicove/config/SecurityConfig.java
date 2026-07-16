@@ -1,5 +1,7 @@
 package com.atelicove.config;
 
+import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -44,6 +46,10 @@ public class SecurityConfig {
 	    	.permitAll()
 	    	.anyRequest()
 	    	.authenticated();
+
+        http.exceptionHandling(exceptionHandling -> exceptionHandling
+                .authenticationEntryPoint((request, response, exception) ->
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED)));
     	
     	http.logout()
 	    	.logoutUrl("/auth/logout")

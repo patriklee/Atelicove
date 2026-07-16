@@ -1,6 +1,9 @@
 import { mockCompanies, mockWorkers, mockWorkOrders, mockTeams, mockProjects } from './mockData';
 
-const STORAGE_KEY = 'atelicoveMockApiStateV2';
+// Bump this whenever the bundled fixtures materially change so existing mock-mode
+// sessions receive the new records instead of retaining an older localStorage copy.
+const STORAGE_KEY = 'atelicoveMockApiStateV3';
+const AUTHENTICATED_WORKER_KEY = 'atelicoveMockAuthenticatedWorkerID';
 
 class MockApiError extends Error {
   constructor(message, status = 400, data = null) {
@@ -398,11 +401,28 @@ const handleAuth = (segments, method, options) => {
     worker.lastLoginAt = now();
     touch(worker);
     saveState();
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(AUTHENTICATED_WORKER_KEY, String(worker.workerID));
+    }
 
     return createLoginResponse(worker);
   }
 
+  if (segments[1] === 'me' && method === 'GET') {
+    const workerID = typeof localStorage === 'undefined'
+      ? null
+      : Number(localStorage.getItem(AUTHENTICATED_WORKER_KEY));
+    const worker = workerID ? findWorker(workerID) : null;
+    if (!worker || worker.archived) {
+      throw new MockApiError('Authentication is required', 401);
+    }
+    return createLoginResponse(worker);
+  }
+
   if (segments[1] === 'logout' && method === 'POST') {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(AUTHENTICATED_WORKER_KEY);
+    }
     return null;
   }
 

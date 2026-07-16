@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -72,6 +73,7 @@ class AuthControllerTest {
         when(authenticationManager.authenticate(any())).thenReturn(authentication);
         when(authentication.getName()).thenReturn("plee");
         when(workerService.findByUsername("plee")).thenReturn(Optional.of(worker));
+        when(workerService.recordLogin("plee")).thenReturn(worker);
 
         mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -85,6 +87,32 @@ class AuthControllerTest {
                         org.hamcrest.Matchers.notNullValue()));
 
         verify(workerService).findByUsername("plee");
+        verify(workerService).recordLogin("plee");
+    }
+
+    @Test
+    void meReturnsTheAuthenticatedWorkerProfile() throws Exception {
+        Worker worker = new Worker("Pat", "Lee", "plee", "plee@test.com", "hidden", false);
+        worker.setWorkerID(7);
+        when(authentication.isAuthenticated()).thenReturn(true);
+        when(authentication.getName()).thenReturn("plee");
+        when(workerService.findByUsername("plee")).thenReturn(Optional.of(worker));
+
+        mockMvc.perform(get("/auth/me").principal(authentication))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.workerID").value(7))
+                .andExpect(jsonPath("$.workerUser").value("plee"))
+                .andExpect(jsonPath("$.admin").value(false));
+    }
+
+    @Test
+    void meReturnsUnauthorizedWhenTheSessionWorkerNoLongerExists() throws Exception {
+        when(authentication.isAuthenticated()).thenReturn(true);
+        when(authentication.getName()).thenReturn("plee");
+        when(workerService.findByUsername("plee")).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/auth/me").principal(authentication))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

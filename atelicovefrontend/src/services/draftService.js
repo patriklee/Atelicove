@@ -2,11 +2,9 @@ import { projectService } from './projectService';
 import { apiFetch } from '../shared/api';
 
 export const draftService = {
-  getDrafts: () => apiFetch('/projects/drafts'),
-  getDraft: (projectID) => projectService.getById(projectID),
-  createDraft: (payload) => projectService.create({ ...payload, projectStatus: payload?.projectStatus || 'OPEN' }),
-  updateDraft: projectService.update,
+  getDrafts: () => apiFetch('/draft-projects'),
+  getArchived: () => apiFetch('/draft-projects/archived'),
   launchDraft: projectService.launchDraft,
-  addPlannedTeam: projectService.addPlannedTeam,
-  removePlannedTeam: projectService.removePlannedTeam,
+  archive: (draftProjectID) => apiFetch(`/draft-projects/${draftProjectID}`, { method: 'DELETE' }),
+  restore: (draftProjectID) => apiFetch(`/draft-projects/${draftProjectID}/restore`, { method: 'PUT' }),
 };
