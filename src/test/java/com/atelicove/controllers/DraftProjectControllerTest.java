@@ -1,6 +1,5 @@
 package com.atelicove.controllers;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,9 +30,15 @@ class DraftProjectControllerTest {
     @Test
     void launchDelegatesToTheDedicatedLaunchService() {
         Project launched = new Project();
+        launched.setProjectID(12);
+        launched.setProjectName("Launched plan");
         when(draftProjectLaunchService.launch(7)).thenReturn(launched);
 
-        assertSame(launched, controller.launch(7));
+        assertThat(controller.launch(7)).satisfies(response -> {
+            assertThat(response.projectID()).isEqualTo(12);
+            assertThat(response.projectName()).isEqualTo("Launched plan");
+            assertThat(response.projectStatus()).isEqualTo(launched.getProjectStatus());
+        });
         verify(draftProjectLaunchService).launch(7);
     }
 

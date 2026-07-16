@@ -82,6 +82,9 @@ public class DraftProjectLaunchService {
 		if (draftProject.getDraftName() == null || draftProject.getDraftName().isBlank()) {
 			throw new IllegalStateException("Draft project name is required");
 		}
+		if (draftProject.getDraftWorkOrders().stream().noneMatch(workOrder -> !workOrder.isArchived())) {
+			throw new IllegalStateException("Draft project must contain at least one work order before launch");
+		}
 
 		for (PlannedStaffing staffing : draftProject.getPlannedStaffing()) {
 			if (staffing.getSourceTeamID() != null) {

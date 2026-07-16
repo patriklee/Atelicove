@@ -75,6 +75,26 @@ class DraftProjectLaunchTransactionTest {
     }
 
     @Test
+    void emptyDraftReturnsClearValidationErrorAndCreatesNoOperationalProject() {
+        Integer draftID = transactions.execute(status -> {
+            DraftProject draft = new DraftProject();
+            draft.setDraftName("Not ready");
+            entityManager.persist(draft);
+            entityManager.flush();
+            return draft.getDraftProjectId().intValue();
+        });
+
+        assertThatThrownBy(() -> launchService.launch(draftID))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Draft project must contain at least one work order before launch");
+
+        transactions.executeWithoutResult(status -> {
+            assertThat(entityManager.find(DraftProject.class, draftID.longValue())).isNotNull();
+            assertThat(count("Project")).isZero();
+        });
+    }
+
+    @Test
     void sourceBackedDraftCreatesNewWorkOrderAndLeavesSourceGraphUnchanged() {
         int[] ids = transactions.execute(status -> {
             WorkOrder source = new WorkOrder();

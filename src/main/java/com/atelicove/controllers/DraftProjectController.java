@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.atelicove.dto.DraftProjectDTO;
 import com.atelicove.dto.DraftProjectDTO.DraftWorkOrderDTO;
 import com.atelicove.dto.DraftProjectDTO.PlannedStaffingDTO;
+import com.atelicove.dto.DraftProjectLaunchResponse;
 import com.atelicove.dto.DraftProjectRequest;
 import com.atelicove.dto.DraftWorkOrderRequest;
 import com.atelicove.dto.PlannedStaffingRequest;
-import com.atelicove.entities.Project;
 import com.atelicove.services.DraftProjectLaunchService;
 import com.atelicove.services.DraftProjectService;
 import com.atelicove.services.DraftWorkOrderService;
@@ -161,8 +161,8 @@ public class DraftProjectController {
     }
 
     @PostMapping("/{id}/launch")
-    public Project launch(@PathVariable Integer id) {
-        return draftProjectLaunchService.launch(id);
+    public DraftProjectLaunchResponse launch(@PathVariable Integer id) {
+        return DraftProjectLaunchResponse.from(draftProjectLaunchService.launch(id));
     }
 
     @DeleteMapping("/{id}")
