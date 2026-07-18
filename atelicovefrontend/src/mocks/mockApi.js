@@ -2,7 +2,7 @@ import { mockCompanies, mockWorkers, mockWorkOrders, mockTeams, mockProjects } f
 
 // Bump this whenever the bundled fixtures materially change so existing mock-mode
 // sessions receive the new records instead of retaining an older localStorage copy.
-const STORAGE_KEY = 'atelicoveMockApiStateV3';
+const STORAGE_KEY = 'atelicoveMockApiStateV4';
 const AUTHENTICATED_WORKER_KEY = 'atelicoveMockAuthenticatedWorkerID';
 
 class MockApiError extends Error {
@@ -16,6 +16,15 @@ class MockApiError extends Error {
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const now = () => new Date().toISOString();
+const toMockResponse = (value) => {
+  if (Array.isArray(value)) return value.map(toMockResponse);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== 'workerPW')
+      .map(([key, item]) => [key, toMockResponse(item)]),
+  );
+};
 
 const withAuditDefaults = (item) => ({
   createdAt: item.createdAt || now(),
@@ -44,7 +53,7 @@ const hydrateState = (rawState) => ({
     return {
       ...withAuditDefaults(cleanProject),
       teams: cleanProject.teams || [],
-      workOrders: (cleanProject.workOrders || []).filter(order => ['OPEN', 'IN_PROCESS', 'ACTIVE', 'IN_REVIEW', 'COMPLETE'].includes(order.status)),
+      workOrders: (cleanProject.workOrders || []).filter(order => ['OPEN', 'IN_PROCESS', 'IN_REVIEW', 'COMPLETE'].includes(order.status)),
       comments: cleanProject.comments || [],
       actionItems: cleanProject.actionItems || [],
       documents: (cleanProject.documents || []).map(withAuditDefaults),
@@ -52,7 +61,7 @@ const hydrateState = (rawState) => ({
     };
   }),
   workOrders: (rawState.workOrders || [])
-    .filter(order => ['OPEN', 'IN_PROCESS', 'ACTIVE', 'IN_REVIEW', 'COMPLETE'].includes(order.status))
+    .filter(order => ['OPEN', 'IN_PROCESS', 'IN_REVIEW', 'COMPLETE'].includes(order.status))
     .map(order => ({
       ...withAuditDefaults(order),
       workers: (order.workers || []).map(withWorkerDefaults),
@@ -150,7 +159,15 @@ const normalizeMockPath = (path = '') => {
   return segments;
 };
 
-const allowedDocumentExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'docx', 'xlsx', 'txt'];
+const allowedDocumentExtensionsByMimeType = {
+  'application/pdf': ['pdf'],
+  'image/jpeg': ['jpg', 'jpeg'],
+  'image/png': ['png'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
+  'text/plain': ['txt'],
+};
+const allowedDocumentTypes = ['GENERAL', 'CONTRACT', 'RECEIPT', 'INVOICE', 'REPORT', 'PHOTO', 'FORM', 'OTHER'];
 const maxDocumentSize = 10 * 1024 * 1024;
 
 const getDocumentExtension = (fileName = '') => fileName.split('.').pop()?.toLowerCase() || '';
@@ -164,8 +181,19 @@ const ensureDocumentFileIsAllowed = (file) => {
     throw new MockApiError('Documents must be 10 MB or smaller', 400);
   }
 
-  if (!allowedDocumentExtensions.includes(getDocumentExtension(file.name))) {
+  const expectedExtensions = allowedDocumentExtensionsByMimeType[file.type];
+  if (!expectedExtensions) {
     throw new MockApiError('Only PDF, JPEG, PNG, DOCX, XLSX, and TXT files are allowed', 400);
+  }
+  if (!expectedExtensions.includes(getDocumentExtension(file.name))) {
+    throw new MockApiError('File extension does not match the selected file type', 400);
+  }
+};
+
+const ensureDocumentTypeIsAllowed = (documentType) => {
+  if (!documentType) throw new MockApiError('Document type is required', 400);
+  if (!allowedDocumentTypes.includes(documentType)) {
+    throw new MockApiError('Invalid document type', 400);
   }
 };
 
@@ -174,6 +202,62 @@ const findCompany = (companyID) => state.companies.find(company => company.compa
 const findWorkOrder = (workOrderID) => state.workOrders.find(order => order.workOrderID === Number(workOrderID));
 const findTeam = (teamID) => state.teams.find(team => team.teamID === Number(teamID));
 const findProject = (projectID) => state.projects.find(project => project.projectID === Number(projectID));
+const authenticatedWorker = () => {
+  const workerID = typeof localStorage === 'undefined'
+    ? null
+    : Number(localStorage.getItem(AUTHENTICATED_WORKER_KEY));
+  const worker = workerID ? findWorker(workerID) : null;
+  return worker && !worker.archived ? worker : null;
+};
+const requireAuthenticatedWorker = () => {
+  const worker = authenticatedWorker();
+  if (!worker) throw new MockApiError('Authentication is required', 401);
+  return worker;
+};
+const requireAdmin = (worker) => {
+  if (!worker.admin) throw new MockApiError('Administrator access is required', 403);
+};
+const enforceRoleContract = (segments, method, worker) => {
+  const [resource, id, action] = segments;
+  if (['companies', 'teams', 'documents'].includes(resource)) requireAdmin(worker);
+  if (resource === 'workers') {
+    const ownProfile = (id === 'me' && method === 'GET') || (Number(id) === worker.workerID && (
+      (method === 'GET' && segments.length === 2) ||
+      (method === 'PUT' && action === 'profile')
+    ));
+    if (!ownProfile) requireAdmin(worker);
+  }
+  if (resource === 'workorders') {
+    const adminAction = (segments.length === 1 && method === 'POST') ||
+      ['start', 'assign', 'company', 'restore', 'permanent', 'approve', 'reject'].includes(action) ||
+      (action === 'workers' && method === 'DELETE') ||
+      (segments.length === 2 && method === 'DELETE') ||
+      (id === 'count');
+    if (adminAction) requireAdmin(worker);
+  }
+  if (resource === 'projects') {
+    const sharedAction = ['submit', 'comments', 'action-items', 'documents'].includes(action);
+    const readOnly = method === 'GET';
+    if (!readOnly && !sharedAction) requireAdmin(worker);
+    if (id === 'count') requireAdmin(worker);
+  }
+};
+const workerCanAccessWorkOrder = (worker, order) => (
+  worker.admin || (order.workers || []).some(item => item.workerID === worker.workerID)
+);
+const workerCanAccessProject = (worker, project) => (
+  worker.admin ||
+  (project.teams || []).some(team => (team.workers || []).some(item => item.workerID === worker.workerID)) ||
+  (project.workOrders || []).some(order => workerCanAccessWorkOrder(worker, order))
+);
+const visibleWorkOrders = items => {
+  const worker = requireAuthenticatedWorker();
+  return items.filter(order => workerCanAccessWorkOrder(worker, order));
+};
+const visibleProjects = items => {
+  const worker = requireAuthenticatedWorker();
+  return items.filter(project => workerCanAccessProject(worker, project));
+};
 const projectReferenceForWorkOrder = (workOrderID) => {
   const project = state.projects.find(item =>
     (item.workOrders || []).some(order => order.workOrderID === Number(workOrderID))
@@ -310,6 +394,9 @@ const actionItemAssignee = (payload) => {
 const handleAuth = (segments, method, options) => {
   if (segments[1] === 'login' && method === 'POST') {
     const { username = '', password = '' } = bodyAsJson(options);
+    if (!username.trim() || !password) {
+      throw new MockApiError('Username and password are required', 400);
+    }
     const worker = state.workers.find(item => item.workerUser === username.trim() && !item.archived);
 
     if (!worker || worker.workerPW !== password) {
@@ -327,11 +414,8 @@ const handleAuth = (segments, method, options) => {
   }
 
   if (segments[1] === 'me' && method === 'GET') {
-    const workerID = typeof localStorage === 'undefined'
-      ? null
-      : Number(localStorage.getItem(AUTHENTICATED_WORKER_KEY));
-    const worker = workerID ? findWorker(workerID) : null;
-    if (!worker || worker.archived) {
+    const worker = authenticatedWorker();
+    if (!worker) {
       throw new MockApiError('Authentication is required', 401);
     }
     return createLoginResponse(worker);
@@ -362,6 +446,10 @@ const handleWorkers = (segments, method, options) => {
 
   if (segments[1] === 'archived' && method === 'GET') {
     return archivedOnly(state.workers).map(withoutPassword);
+  }
+
+  if (segments[1] === 'me' && method === 'GET') {
+    return withoutPassword(requireAuthenticatedWorker());
   }
 
   if (segments.length === 1 && method === 'POST') {
@@ -614,9 +702,7 @@ const handleWorkOrderDocuments = (workOrder, segments, method, options) => {
     const file = options.body instanceof FormData ? options.body.get('file') : null;
     const documentType = options.body instanceof FormData ? options.body.get('documentType') : null;
     ensureDocumentFileIsAllowed(file);
-    if (!documentType) {
-      throw new MockApiError('Document type is required', 400);
-    }
+    ensureDocumentTypeIsAllowed(documentType);
 
     const uploader = workOrder.workers?.[0] || state.workers.find(worker => worker.admin) || state.workers[0];
     const uploadedBy = uploader
@@ -660,7 +746,7 @@ const handleWorkOrderDocuments = (workOrder, segments, method, options) => {
 };
 
 const handleProjectDocuments = (project, segments, method, options) => {
-  if (method !== 'GET' && (project.archived || !['OPEN', 'ACTIVE'].includes(project.projectStatus))) {
+  if (method !== 'GET' && (project.archived || project.projectStatus !== 'OPEN')) {
     throw new MockApiError('Project documents can only be changed while the project is open', 409);
   }
 
@@ -681,9 +767,7 @@ const handleProjectDocuments = (project, segments, method, options) => {
     const file = options.body instanceof FormData ? options.body.get('file') : null;
     const documentType = options.body instanceof FormData ? options.body.get('documentType') : null;
     ensureDocumentFileIsAllowed(file);
-    if (!documentType) {
-      throw new MockApiError('Document type is required', 400);
-    }
+    ensureDocumentTypeIsAllowed(documentType);
 
     const uploader = project.teams?.flatMap(team => team.workers || [])?.[0]
       || state.workers.find(worker => worker.admin)
@@ -728,7 +812,7 @@ const handleProjectDocuments = (project, segments, method, options) => {
 
 const handleWorkOrders = (segments, method, options) => {
   if (segments.length === 1 && method === 'GET') {
-    return activeOnly(state.workOrders)
+    return visibleWorkOrders(activeOnly(state.workOrders))
       .map(order => ({
         ...order,
         project: order.project || projectReferenceForWorkOrder(order.workOrderID),
@@ -737,7 +821,7 @@ const handleWorkOrders = (segments, method, options) => {
   }
 
   if (segments[1] === 'all-with-archived' && method === 'GET') {
-    return state.workOrders.map(order => ({
+    return visibleWorkOrders(state.workOrders).map(order => ({
       ...order,
       project: order.project || projectReferenceForWorkOrder(order.workOrderID),
       fileNo: order.documents?.length || 0,
@@ -745,7 +829,7 @@ const handleWorkOrders = (segments, method, options) => {
   }
 
   if (segments[1] === 'archived' && method === 'GET') {
-    return archivedOnly(state.workOrders).map(order => ({
+    return visibleWorkOrders(archivedOnly(state.workOrders)).map(order => ({
       ...order,
       project: order.project || projectReferenceForWorkOrder(order.workOrderID),
       fileNo: order.documents?.length || 0,
@@ -758,22 +842,22 @@ const handleWorkOrders = (segments, method, options) => {
 
   if (segments.length === 1 && method === 'POST') {
     const payload = bodyAsJson(options);
-    const workerRefs = Array.isArray(payload.workers) ? payload.workers : [];
-    const company = payload.company?.companyID ? findCompany(payload.company.companyID) : payload.company;
+    const workerRefs = Array.isArray(payload.workerIDs) ? payload.workerIDs : [];
+    const company = payload.companyID ? findCompany(payload.companyID) : null;
     if (company?.archived) {
       throw new MockApiError('Archived companies cannot be assigned', 409);
     }
     const assignedWorkers = workerRefs
-      .map(worker => findWorker(worker.workerID))
+      .map(findWorker)
       .filter(worker => worker && !worker.archived)
       .map(withoutPassword);
     const workOrder = {
       workOrderID: nextId(state.workOrders, 'workOrderID'),
       workers: assignedWorkers,
       company: company ? clone(company) : null,
-      status: assignedWorkers.length ? 'ACTIVE' : 'OPEN',
-      startDateTime: new Date().toISOString(),
-      endDateTime: null,
+      status: assignedWorkers.length ? 'IN_PROCESS' : 'OPEN',
+      startDateTime: payload.startDateTime || new Date().toISOString(),
+      endDateTime: payload.endDateTime || null,
       comment: payload.comment || '',
       items: [],
       documents: [],
@@ -801,6 +885,9 @@ const handleWorkOrders = (segments, method, options) => {
   const workOrderID = segments[1];
   const workOrder = findWorkOrder(workOrderID);
   if (!workOrder) throw new MockApiError('Work order not found', 404);
+  if (!workerCanAccessWorkOrder(requireAuthenticatedWorker(), workOrder)) {
+    throw new MockApiError('Worker is not assigned to this work order', 403);
+  }
 
   if (segments.length === 2 && method === 'GET') {
     return {
@@ -834,8 +921,8 @@ const handleWorkOrders = (segments, method, options) => {
     const hasItems = Boolean(workOrder.items?.length);
     const canDeleteMistakenWorkOrder = workOrder.status === 'OPEN' && !workOrder.endDateTime && !hasItems;
 
-    if (!workOrder.archived && !canDeleteMistakenWorkOrder) {
-      throw new MockApiError('Only archived or empty open work orders can be permanently deleted', 409);
+    if (workOrder.archived || !canDeleteMistakenWorkOrder || workOrder.documents?.length || workOrder.workers?.length || workOrder.company || workOrder.project || workOrder.comment) {
+      throw new MockApiError('Only empty open work orders without business history can be permanently deleted', 409);
     }
 
     state.workOrders = state.workOrders.filter(item => item.workOrderID !== workOrder.workOrderID);
@@ -949,9 +1036,12 @@ const handleWorkOrders = (segments, method, options) => {
 
   if (segments[2] === 'start' && method === 'PUT') {
     ensureWorkOrderCanBeEdited(workOrder);
+    if (workOrder.status !== 'OPEN') {
+      throw new MockApiError('Only open work orders can be started', 409);
+    }
 
     workOrder.startDateTime = new Date().toISOString();
-    return setWorkOrderStatus(workOrder, 'ACTIVE');
+    return setWorkOrderStatus(workOrder, 'IN_PROCESS');
   }
 
   if (segments[2] === 'assign' && method === 'PUT') {
@@ -969,7 +1059,7 @@ const handleWorkOrders = (segments, method, options) => {
     if (!workOrder.workers.some(item => item.workerID === worker.workerID)) {
       workOrder.workers = [...workOrder.workers, withoutPassword(worker)];
     }
-    workOrder.status = 'ACTIVE';
+    workOrder.status = 'IN_PROCESS';
     workOrder.endDateTime = null;
     touch(workOrder);
     saveState();
@@ -983,11 +1073,22 @@ const handleWorkOrders = (segments, method, options) => {
   }
 
   if (segments[2] === 'approve' && method === 'PUT') {
+    if (workOrder.status !== 'IN_REVIEW') {
+      throw new MockApiError('Only work orders under review can be approved', 409);
+    }
+    if (!workOrder.workers?.length) throw new MockApiError('At least one worker must be assigned', 409);
+    if (!workOrder.company?.companyID) throw new MockApiError('A valid company must be assigned', 409);
+    if (!workOrder.startDateTime) throw new MockApiError('Start date and time are required', 409);
+    if (!workOrder.endDateTime) throw new MockApiError('End date and time are required', 409);
+    if (!workOrder.items?.length) throw new MockApiError('At least one item is required', 409);
     return setWorkOrderStatus(workOrder, 'COMPLETE');
   }
 
   if (segments[2] === 'reject' && method === 'PUT') {
-    return setWorkOrderStatus(workOrder, 'ACTIVE');
+    if (workOrder.status !== 'IN_REVIEW') {
+      throw new MockApiError('Only work orders under review can be rejected', 409);
+    }
+    return setWorkOrderStatus(workOrder, 'IN_PROCESS');
   }
 
   throw new MockApiError('Mock work order route not found', 404);
@@ -1089,7 +1190,7 @@ const teamWorkers = (teams) => {
 };
 
 const syncActiveProjectTeamWorkers = (project, previousTeams, currentTeams) => {
-  if (project.projectStatus !== 'ACTIVE') return project;
+  if (project.projectStatus !== 'OPEN') return project;
 
   const previousWorkers = teamWorkers(previousTeams);
   const currentWorkers = teamWorkers(currentTeams);
@@ -1099,7 +1200,7 @@ const syncActiveProjectTeamWorkers = (project, previousTeams, currentTeams) => {
   return {
     ...project,
     workOrders: (project.workOrders || []).map(order => {
-      if (!['OPEN', 'ACTIVE'].includes(order.status)) return order;
+      if (!['OPEN', 'IN_PROCESS'].includes(order.status)) return order;
 
       const existingWorkers = new Map((order.workers || [])
         .filter(worker => !removedWorkerIDs.includes(worker.workerID))
@@ -1110,7 +1211,7 @@ const syncActiveProjectTeamWorkers = (project, previousTeams, currentTeams) => {
       return {
         ...order,
         workers,
-        status: workers.length ? 'ACTIVE' : 'OPEN',
+        status: workers.length ? 'IN_PROCESS' : 'OPEN',
       };
     }),
   };
@@ -1133,15 +1234,15 @@ const ensureProjectTeamsAreNotEmpty = (teams = []) => {
 
 const handleProjects = (segments, method, options) => {
   if (segments.length === 1 && method === 'GET') {
-    return activeOnly(state.projects).map(projectResponse);
+    return visibleProjects(activeOnly(state.projects)).map(projectResponse);
   }
 
   if (segments[1] === 'all-with-archived' && method === 'GET') {
-    return state.projects.map(projectResponse);
+    return visibleProjects(state.projects).map(projectResponse);
   }
 
   if (segments[1] === 'archived' && method === 'GET') {
-    return archivedOnly(state.projects).map(projectResponse);
+    return visibleProjects(archivedOnly(state.projects)).map(projectResponse);
   }
 
   if (segments[1] === 'count' && method === 'GET') {
@@ -1177,6 +1278,9 @@ const handleProjects = (segments, method, options) => {
 
   const project = findProject(segments[1]);
   if (!project) throw new MockApiError('Project not found', 404);
+  if (!workerCanAccessProject(requireAuthenticatedWorker(), project)) {
+    throw new MockApiError('Worker is not assigned to this project', 403);
+  }
 
   if (segments.length === 2 && method === 'GET') {
     return projectResponse(project);
@@ -1186,9 +1290,17 @@ const handleProjects = (segments, method, options) => {
     return handleProjectDocuments(project, segments, method, options);
   }
 
+  if (segments[2] === 'restore' && method === 'PUT') {
+    restoreEntity(project);
+    saveState();
+    return projectResponse(project);
+  }
+
   if (segments[2] === 'permanent' && method === 'DELETE') {
-    if (!project.archived && project.projectStatus !== 'OPEN') {
-      throw new MockApiError('Only archived or empty open projects can be permanently deleted', 409);
+    const hasHistory = ['workOrders', 'comments', 'actionItems', 'snapshots', 'documents']
+      .some(key => (project[key] || []).length);
+    if (project.archived || project.projectStatus !== 'OPEN' || hasHistory) {
+      throw new MockApiError('Only empty open projects without business history can be permanently deleted', 409);
     }
     state.projects = state.projects.filter(item => item.projectID !== project.projectID);
     saveState();
@@ -1218,14 +1330,13 @@ const handleProjects = (segments, method, options) => {
   }
 
   if (segments.length === 2 && method === 'DELETE') {
-    if (project.projectStatus !== 'COMPLETE') {
-      throw new MockApiError('Only completed projects can be archived', 409);
+    if (project.projectStatus !== 'OPEN') {
+      const hasOpenWorkOrder = (project.workOrders || []).some(order => order.status !== 'COMPLETE');
+      if (hasOpenWorkOrder) {
+        throw new MockApiError('Projects can only be archived when all work orders are complete', 409);
+      }
+      ensureProjectTeamsAreNotEmpty(project.teams || []);
     }
-    const hasOpenWorkOrder = (project.workOrders || []).some(order => order.status !== 'COMPLETE');
-    if (hasOpenWorkOrder) {
-      throw new MockApiError('Projects can only be archived when all work orders are complete', 409);
-    }
-    ensureProjectTeamsAreNotEmpty(project.teams || []);
     archiveEntity(project);
     saveState();
     return null;
@@ -1264,7 +1375,7 @@ const handleProjects = (segments, method, options) => {
     if (project.projectStatus !== 'IN_REVIEW') {
       throw new MockApiError('Only projects under review can be rejected', 409);
     }
-    project.projectStatus = 'ACTIVE';
+    project.projectStatus = 'OPEN';
     touch(project);
     saveState();
     return projectResponse(project);
@@ -1274,11 +1385,11 @@ const handleProjects = (segments, method, options) => {
     const { workOrderID } = bodyAsJson(options);
     const workOrder = findWorkOrder(workOrderID);
     if (!workOrder) throw new MockApiError('Work order not found', 404);
-    if (project.projectStatus !== 'ACTIVE') throw new MockApiError('Existing work orders can only be attached to active projects', 409);
+    if (project.projectStatus !== 'OPEN') throw new MockApiError('Existing work orders can only be attached to active projects', 409);
     if (workOrder.project && workOrder.project.projectID !== project.projectID) {
       throw new MockApiError('Work order is already associated with another project', 409);
     }
-    if (!['OPEN', 'ACTIVE'].includes(workOrder.status)) {
+    if (!['OPEN', 'IN_PROCESS'].includes(workOrder.status)) {
       throw new MockApiError('Only open or active work orders can be attached to active projects', 409);
     }
     workOrder.project = {
@@ -1295,7 +1406,7 @@ const handleProjects = (segments, method, options) => {
   }
 
   if (segments[2] === 'workorders' && method === 'POST') {
-    if (project.archived || project.projectStatus !== 'ACTIVE') {
+    if (project.archived || project.projectStatus !== 'OPEN') {
       throw new MockApiError('Active project work orders can only be created for active projects', 409);
     }
 
@@ -1324,7 +1435,7 @@ const handleProjects = (segments, method, options) => {
         projectName: project.projectName,
         projectStatus: project.projectStatus,
       },
-      status: workers.length ? 'ACTIVE' : 'OPEN',
+      status: workers.length ? 'IN_PROCESS' : 'OPEN',
       startDateTime: now(),
       endDateTime: null,
       comment: payload.comment || '',
@@ -1472,18 +1583,20 @@ export const mockApiFetch = async (path, options = {}) => {
 
   try {
     if (segments[0] === 'workers' && segments[1] === 'login') {
-      return clone(handleAuth(['auth', 'login'], method, options));
+      return toMockResponse(handleAuth(['auth', 'login'], method, options));
     }
     if (segments[0] === 'workers' && segments[1] === 'logout') {
-      return clone(handleAuth(['auth', 'logout'], method, options));
+      return toMockResponse(handleAuth(['auth', 'logout'], method, options));
     }
-    if (segments[0] === 'auth') return clone(handleAuth(segments, method, options));
-    if (segments[0] === 'workers') return clone(handleWorkers(segments, method, options));
-    if (segments[0] === 'companies') return clone(handleCompanies(segments, method, options));
-    if (segments[0] === 'documents' && method === 'GET') return clone(allDocuments());
-    if (segments[0] === 'teams') return clone(handleTeams(segments, method, options));
-    if (segments[0] === 'projects') return clone(handleProjects(segments, method, options));
-    if (segments[0] === 'workorders') return clone(handleWorkOrders(segments, method, options));
+    if (segments[0] === 'auth') return toMockResponse(handleAuth(segments, method, options));
+    const worker = requireAuthenticatedWorker();
+    enforceRoleContract(segments, method, worker);
+    if (segments[0] === 'workers') return toMockResponse(handleWorkers(segments, method, options));
+    if (segments[0] === 'companies') return toMockResponse(handleCompanies(segments, method, options));
+    if (segments[0] === 'documents' && method === 'GET') return toMockResponse(allDocuments());
+    if (segments[0] === 'teams') return toMockResponse(handleTeams(segments, method, options));
+    if (segments[0] === 'projects') return toMockResponse(handleProjects(segments, method, options));
+    if (segments[0] === 'workorders') return toMockResponse(handleWorkOrders(segments, method, options));
   } catch (error) {
     throw error;
   }

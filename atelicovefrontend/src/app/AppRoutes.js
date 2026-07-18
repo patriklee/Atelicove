@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '../Components/AuthContext';
-import { AdminRoute, ProtectedRoute, PublicRoute } from '../Components/ProtectedRoute';
+import { AdminRoute, PublicRoute, WorkerRoute } from '../Components/ProtectedRoute';
 
 // Public pages
 import LoginPage from '../Components/LoginPage';
@@ -52,7 +52,7 @@ function AppRoutes() {
           {/* Admin Routes */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminHomePage />}>
-              <Route index element={<div>Project Studio</div>} />
+              <Route index element={<Navigate to="projects/active" replace />} />
               <Route path="manage-workorders" element={<ManageWorkOrders />} />
               <Route path="companies" element={<ActiveCompanies />} />
               <Route path="manage-companies" element={<ManageCompanies />} />
@@ -79,9 +79,9 @@ function AppRoutes() {
           </Route>
 
           {/* Worker Routes */}
-          <Route element={<ProtectedRoute />}>
+          <Route element={<WorkerRoute />}>
             <Route path="/worker" element={<HomePage />}>
-              <Route index element={<div>Project Studio</div>} />
+              <Route index element={<Navigate to="my-assignments" replace />} />
               <Route path="assigned" element={<InspectorAssignedWork />} />
               <Route path="my-assignments" element={<MyAssignments />} />
               <Route path="my-assignments/:workOrderID" element={<MyWorkOrderDetail />} />

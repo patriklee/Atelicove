@@ -3,28 +3,20 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
   Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
-import { formatDateTime, formatMoney, getWorkOrderActualPrice } from '../model';
 import WorkOrderDocuments from './WorkOrderDocuments';
 import { useAuth } from './AuthContext';
+import { projectPathFor, workOrderPathFor } from '../shared/routing/rolePaths';
+import ProjectList from './projects/ProjectList';
+import ProjectForm from './projects/ProjectForm';
+import ProjectWorkOrders from './projects/ProjectWorkOrders';
+import ProjectComments from './projects/ProjectComments';
+import ProjectActionItems from './projects/ProjectActionItems';
 
 const emptyProjectForm = {
   projectID: '',
@@ -75,7 +67,7 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
     setMessage(null);
     try {
       const [projectData, workOrderData, teamData, companyData] = await Promise.all([
-        apiFetch('/projects/all-with-archived'),
+        apiFetch('/projects'),
         apiFetch('/workorders'),
         canManage ? apiFetch('/teams') : Promise.resolve([]),
         canManage ? apiFetch('/companies') : Promise.resolve([]),
@@ -97,10 +89,9 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
 
   const visibleProjects = useMemo(() => projects.filter(project => !project.archived), [projects]);
   const selectedProject = projects.find(project => project.projectID === Number(projectForm.projectID));
-  const selectedTeamIDs = projectForm.teamIDs.map(Number);
   const attachableWorkOrders = workOrders.filter(order => (
     !order.archived &&
-    ['OPEN', 'IN_PROCESS', 'ACTIVE'].includes(order.status) &&
+    ['OPEN', 'IN_PROCESS'].includes(order.status) &&
     (!order.project || order.project.projectID === selectedProject?.projectID)
   ));
 
@@ -225,100 +216,17 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
       <Typography color="text.secondary" sx={{ mb: 3 }}>{subtitle}</Typography>
       {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
 
-      {!routeProjectID && (
-        <TableContainer component={Paper} sx={{ mb: 4 }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Project</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Budget</TableCell>
-                <TableCell>Teams</TableCell>
-                <TableCell>Work Orders</TableCell>
-                <TableCell>Updated</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {visibleProjects.map(project => (
-                <TableRow key={project.projectID}>
-                  <TableCell>{project.projectName || `Project #${project.projectID}`}</TableCell>
-                  <TableCell><Chip size="small" label={(project.projectStatus || 'OPEN').replaceAll('_', ' ')} /></TableCell>
-                  <TableCell>{formatMoney(project.budget)}</TableCell>
-                  <TableCell>{(project.teams || []).length}</TableCell>
-                  <TableCell>{(project.workOrders || []).length}</TableCell>
-                  <TableCell>{formatDateTime(project.lastModifiedAt)}</TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Button size="small" onClick={() => navigate(`/admin/projects/${project.projectID}`)}>View</Button>
-                      {canManage && <Button size="small" onClick={() => loadProjectIntoForm(project)}>Edit</Button>}
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!visibleProjects.length && (
-                <TableRow><TableCell colSpan={7}>No active projects found.</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      {!routeProjectID && <ProjectList projects={visibleProjects} canManage={canManage} onEdit={loadProjectIntoForm} onOpen={project => navigate(projectPathFor(user, project.projectID))} />}
 
-      {canManage && (
-        <Paper component="form" onSubmit={saveProject} sx={{ p: 3, mb: 4 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-            <Typography variant="h5">{projectForm.projectID ? 'Edit Project' : 'Create Project'}</Typography>
-            {projectForm.projectID && <Button onClick={() => setProjectForm(emptyProjectForm)}>Create New</Button>}
-          </Stack>
-          <Stack spacing={2}>
-            <TextField label="Project Name" value={projectForm.projectName} onChange={event => setProjectForm(current => ({ ...current, projectName: event.target.value }))} required />
-            <TextField label="Description" value={projectForm.description} onChange={event => setProjectForm(current => ({ ...current, description: event.target.value }))} multiline minRows={2} />
-            <TextField label="Budget" value={projectForm.budget} onChange={event => setProjectForm(current => ({ ...current, budget: event.target.value }))} type="number" inputProps={{ min: 0, step: '0.01' }} />
-            <FormControl>
-              <InputLabel>Teams</InputLabel>
-              <Select multiple value={selectedTeamIDs} label="Teams" onChange={event => setProjectForm(current => ({ ...current, teamIDs: event.target.value.map(Number) }))}>
-                {teams.map(team => <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <Button type="submit" variant="contained" disabled={saving}>Save Project</Button>
-          </Stack>
-        </Paper>
-      )}
+      {canManage && <ProjectForm form={projectForm} teams={teams} saving={saving} onChange={changes => setProjectForm(current => ({ ...current, ...changes }))} onReset={() => setProjectForm(emptyProjectForm)} onSubmit={saveProject} />}
 
       {selectedProject && (
         <Stack spacing={4}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h5" sx={{ mb: 2 }}>Project Work Orders</Typography>
-            {(selectedProject.workOrders || []).map(order => (
-              <Stack key={order.workOrderID} direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 1 }}>
-                <Typography>#{order.workOrderID} · {(order.status || 'OPEN').replaceAll('_', ' ')} · {formatMoney(getWorkOrderActualPrice(order))}</Typography>
-                <Stack direction="row" spacing={1}>
-                  <Button size="small" onClick={() => navigate(`/admin/workorders/${order.workOrderID}`)}>Open</Button>
-                  {canManage && <Button size="small" color="error" onClick={() => removeWorkOrder(order.workOrderID)}>Remove</Button>}
-                </Stack>
-              </Stack>
-            ))}
-            {!(selectedProject.workOrders || []).length && <Typography color="text.secondary">No work orders are associated with this project.</Typography>}
-            {canManage && (
-              <Stack component="form" onSubmit={attachOrCreateWorkOrder} spacing={2} sx={{ mt: 3 }}>
-                <FormControl><InputLabel>Existing Work Order</InputLabel><Select value={workOrderForm.existingWorkOrderID} label="Existing Work Order" onChange={event => setWorkOrderForm(current => ({ ...current, existingWorkOrderID: event.target.value }))}><MenuItem value="">Create new</MenuItem>{attachableWorkOrders.map(order => <MenuItem key={order.workOrderID} value={order.workOrderID}>#{order.workOrderID}</MenuItem>)}</Select></FormControl>
-                {!workOrderForm.existingWorkOrderID && <><FormControl><InputLabel>Team</InputLabel><Select value={workOrderForm.teamID} label="Team" onChange={event => setWorkOrderForm(current => ({ ...current, teamID: event.target.value }))}><MenuItem value="">No team</MenuItem>{teams.map(team => <MenuItem key={team.teamID} value={team.teamID}>{team.teamName}</MenuItem>)}</Select></FormControl><FormControl><InputLabel>Company</InputLabel><Select value={workOrderForm.companyID} label="Company" onChange={event => setWorkOrderForm(current => ({ ...current, companyID: event.target.value }))}><MenuItem value="">No company</MenuItem>{companies.map(company => <MenuItem key={company.companyID} value={company.companyID}>{company.companyName}</MenuItem>)}</Select></FormControl><TextField label="Work order note" value={workOrderForm.comment} onChange={event => setWorkOrderForm(current => ({ ...current, comment: event.target.value }))} multiline minRows={2} /></>}
-                <Button type="submit" variant="contained" disabled={saving}>{workOrderForm.existingWorkOrderID ? 'Attach Work Order' : 'Create Work Order'}</Button>
-              </Stack>
-            )}
-          </Paper>
+          <ProjectWorkOrders project={selectedProject} canManage={canManage} form={workOrderForm} workOrders={attachableWorkOrders} teams={teams} companies={companies} saving={saving} onFormChange={changes => setWorkOrderForm(current => ({ ...current, ...changes }))} onOpen={order => navigate(workOrderPathFor(user, order.workOrderID))} onRemove={removeWorkOrder} onSubmit={attachOrCreateWorkOrder} />
 
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h5" sx={{ mb: 2 }}>Comments</Typography>
-            {(selectedProject.comments || []).map(comment => <Box key={comment.projectCommentID} sx={{ mb: 1 }}><Typography variant="body2">{comment.commentText}</Typography><Typography variant="caption" color="text.secondary">{comment.commentType || 'GENERAL'} · {formatDateTime(comment.createdAt)}</Typography></Box>)}
-            <Stack component="form" onSubmit={addComment} direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ mt: 2 }}><FormControl sx={{ minWidth: 150 }}><InputLabel>Type</InputLabel><Select value={commentType} label="Type" onChange={event => setCommentType(event.target.value)}>{COMMENT_TYPES.map(type => <MenuItem key={type} value={type}>{type}</MenuItem>)}</Select></FormControl><TextField label="Comment" value={commentText} onChange={event => setCommentText(event.target.value)} fullWidth /><Button type="submit" variant="contained" disabled={saving}>Add</Button></Stack>
-          </Paper>
+          <ProjectComments comments={selectedProject.comments || []} commentText={commentText} commentType={commentType} commentTypes={COMMENT_TYPES} saving={saving} canEdit={!selectedProject.archived && selectedProject.projectStatus !== 'COMPLETE'} onTextChange={setCommentText} onTypeChange={setCommentType} onSubmit={addComment} />
 
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h5" sx={{ mb: 2 }}>Action Items</Typography>
-            {(selectedProject.actionItems || []).map(item => <Stack key={item.actionItemID} direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 1 }}><Typography sx={{ textDecoration: item.completed ? 'line-through' : 'none' }}>{item.itemText}</Typography><Button size="small" onClick={() => setActionItemCompleted(item, !item.completed)}>{item.completed ? 'Reopen' : 'Complete'}</Button></Stack>)}
-            <Stack component="form" onSubmit={addActionItem} direction="row" spacing={1} sx={{ mt: 2 }}><TextField label="New action item" value={actionItemText} onChange={event => setActionItemText(event.target.value)} fullWidth /><Button type="submit" variant="contained" disabled={saving}>Add</Button></Stack>
-          </Paper>
+          <ProjectActionItems items={selectedProject.actionItems || []} text={actionItemText} saving={saving} canEdit={!selectedProject.archived && selectedProject.projectStatus !== 'COMPLETE'} onTextChange={setActionItemText} onToggle={setActionItemCompleted} onSubmit={addActionItem} />
 
           <WorkOrderDocuments basePath={`/projects/${selectedProject.projectID}/documents`} canManage={!selectedProject.archived} title="Project Documents" emptyMessage="No documents are attached to this project." />
 

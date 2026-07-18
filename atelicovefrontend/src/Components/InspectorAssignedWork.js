@@ -49,7 +49,7 @@ const InspectorAssignedWork = () => {
                 <Typography variant="body2">Start: {formatDateTime(order.startDateTime)}</Typography>
                 <Chip label={order.status} size="small" sx={{ mt: 2 }} />
               </CardContent>
-              {order.status === 'ACTIVE' && (
+              {order.status === 'IN_PROCESS' && (
                 <CardActions>
                   <Button onClick={() => submit(order.workOrderID)}>Submit for review</Button>
                 </CardActions>

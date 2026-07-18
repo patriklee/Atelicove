@@ -73,7 +73,7 @@ const WorkOrders = ({
 
     const openWorkOrder = (workOrder) => {
         const assignedToUser = getWorkOrderWorkers(workOrder).some(worker => worker.workerID === user?.workerID);
-        if (assignedToUser && workOrder.status === 'ACTIVE') {
+        if (assignedToUser && workOrder.status === 'IN_PROCESS') {
             navigate(`/admin/my-assignments/${workOrder.workOrderID}`);
             return;
         }

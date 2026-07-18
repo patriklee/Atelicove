@@ -1,33 +1,30 @@
 export function normalizeWorker(worker = {}) {
   return {
-    workerID: worker.workerID ?? worker.id ?? worker.workerId ?? '',
-    firstName: worker.firstName ?? worker.first_name ?? '',
-    lastName: worker.lastName ?? worker.last_name ?? '',
-    role: worker.role ?? worker.roleTitle ?? '',
-    roleTitle: worker.roleTitle ?? worker.role ?? '',
-    roleDescription: worker.roleDescription ?? '',
-    email: worker.email ?? '',
     ...worker,
+    workerID: worker.workerID ?? '',
+    firstName: worker.workerFName ?? '',
+    lastName: worker.workerLName ?? '',
+    displayName: worker.workerDisplayName ?? '',
+    username: worker.workerUser ?? '',
+    email: worker.workerEmail ?? '',
+    isAdmin: Boolean(worker.admin),
+    role: worker.roleTitle ?? '',
+    roleTitle: worker.roleTitle ?? '',
+    roleDescription: worker.roleDescription ?? '',
   };
 }
 
 export function workerPayload(worker = {}) {
   return {
-    firstName: worker.firstName ?? '',
-    lastName: worker.lastName ?? '',
     workerFName: worker.firstName ?? worker.workerFName ?? '',
     workerLName: worker.lastName ?? worker.workerLName ?? '',
     workerDisplayName: worker.displayName ?? worker.workerDisplayName ?? '',
     workerUser: worker.username ?? worker.workerUser ?? '',
     workerEmail: worker.email ?? worker.workerEmail ?? '',
     workerPW: worker.password,
-    email: worker.email ?? '',
-    phone: worker.phone ?? '',
-    role: worker.role ?? 'WORKER',
     roleTitle: worker.roleTitle ?? worker.role ?? '',
     roleDescription: worker.roleDescription ?? '',
-    password: worker.password,
-    isAdmin: Boolean(worker.isAdmin || worker.role === 'ADMIN'),
+    admin: Boolean(worker.isAdmin || worker.role === 'ADMIN'),
   };
 }
 
@@ -43,10 +40,7 @@ export function formatMoney(value) {
 }
 
 export function getWorkOrderWorkers(workOrder = {}) {
-  if (Array.isArray(workOrder.workers)) return workOrder.workers;
-  if (Array.isArray(workOrder.assignedWorkers)) return workOrder.assignedWorkers;
-  if (Array.isArray(workOrder.workerList)) return workOrder.workerList;
-  if (Array.isArray(workOrder.teams)) return workOrder.teams.flatMap((team) => team.workers || team.members || []);
+  if (Array.isArray(workOrder.workers)) return workOrder.workers.map(normalizeWorker);
   return [];
 }
 

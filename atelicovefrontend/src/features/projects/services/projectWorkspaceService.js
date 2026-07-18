@@ -2,7 +2,7 @@ import { apiFetch } from '../../../shared/api/client';
 
 export const fetchProjectWorkspaceData = async () => {
   const [projects, workOrders, teams, workers, companies] = await Promise.all([
-    apiFetch('/projects/all-with-archived'),
+    apiFetch('/projects'),
     apiFetch('/workorders'),
     apiFetch('/teams'),
     apiFetch('/workers'),

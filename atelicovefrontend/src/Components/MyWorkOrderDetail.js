@@ -29,6 +29,7 @@ import { useAuth } from './AuthContext';
 import WorkOrderDetail from './WorkOrderDetail';
 import WorkOrderDocuments from './WorkOrderDocuments';
 import TableTitleRow from './TableTitleRow';
+import { projectPathFor } from '../shared/routing/rolePaths';
 
 const money = (value) => Number(value || 0).toLocaleString(undefined, {
   style: 'currency',
@@ -102,7 +103,7 @@ const MyWorkOrderDetail = () => {
   } : null);
   const openProject = () => {
     if (!project?.projectID) return;
-    navigate(`/admin/projects/${project.projectID}`);
+    navigate(projectPathFor(user, project.projectID));
   };
   const requestPassword = (action) => {
     setPendingAction(action);

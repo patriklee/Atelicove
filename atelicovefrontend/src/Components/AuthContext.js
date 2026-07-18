@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { AUTH_UNAUTHORIZED_EVENT } from '../shared/api/client';
+import { roleLandingPath } from '../shared/routing/rolePaths';
 
 const AuthContext = createContext(null);
 
@@ -75,12 +76,7 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
     storeUser(userData);
     
-    // Redirect based on user role
-    if (userData.isAdmin) {
-      navigate('/admin');
-    } else {
-      navigate('/worker');
-    }
+    navigate(roleLandingPath(userData));
   };
 
   const updateUser = (userData) => {

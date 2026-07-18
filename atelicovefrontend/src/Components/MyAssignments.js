@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../model';
 import { useAuth } from './AuthContext';
+import { projectPathFor, workOrderPathFor } from '../shared/routing/rolePaths';
 
 const formatStatus = (status = '') => status.replaceAll('_', ' ');
 
@@ -35,13 +36,13 @@ const MyAssignments = () => {
   useEffect(() => {
     Promise.all([
       apiFetch('/workorders'),
-      apiFetch('/projects/all-with-archived'),
+      apiFetch('/projects'),
     ])
       .then(([workOrderData, projectData]) => {
         setWorkOrders(workOrderData.filter(order =>
           !order.archived && getWorkOrderWorkers(order).some(worker => worker.workerID === user?.workerID)
         ));
-        setProjects(projectData.filter(project => !project.archived));
+        setProjects(projectData);
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
@@ -64,11 +65,11 @@ const MyAssignments = () => {
   const activeProjects = projects.filter(project => project.projectStatus === 'OPEN' && workerIsOnProject(project));
 
   const openWorkOrder = (workOrderID) => {
-    navigate(user?.isAdmin ? `/admin/my-assignments/${workOrderID}` : `/worker/my-assignments/${workOrderID}`);
+    navigate(user?.isAdmin ? `/admin/my-assignments/${workOrderID}` : workOrderPathFor(user, workOrderID));
   };
 
   const openProject = (projectID) => {
-    navigate(user?.isAdmin ? '/admin/projects/active' : `/worker/projects/${projectID}/edit`, {
+    navigate(user?.isAdmin ? '/admin/projects/active' : projectPathFor(user, projectID), {
       state: user?.isAdmin ? { projectStudioEditProjectID: projectID } : undefined,
     });
   };

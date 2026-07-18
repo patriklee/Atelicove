@@ -250,7 +250,7 @@ public class ProjectService {
 		if (workOrder.getProject() != null && workOrder.getProject().getProjectID() != projectID) {
 			throw new IllegalStateException("Work order is already associated with another project");
 		}
-		if (workOrder.getStatus() != WorkOrderStatus.OPEN && workOrder.getStatus() != WorkOrderStatus.ACTIVE) {
+		if (workOrder.getStatus() != WorkOrderStatus.OPEN && workOrder.getStatus() != WorkOrderStatus.IN_PROCESS) {
 			throw new IllegalStateException("Only open or active work orders can be attached to active projects");
 		}
 
@@ -292,7 +292,7 @@ public class ProjectService {
 
 		if (team != null && !team.getWorkers().isEmpty()) {
 			workOrder.setWorkers(new HashSet<>(team.getWorkers()));
-			workOrder.setStatus(WorkOrderStatus.ACTIVE);
+			workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
 		}
 
 		if (companyID != null) {
@@ -611,7 +611,7 @@ public class ProjectService {
 
 		for (WorkOrder workOrder : project.getWorkOrders()) {
 			if (workOrder.getStatus() != WorkOrderStatus.OPEN &&
-					workOrder.getStatus() != WorkOrderStatus.ACTIVE) {
+					workOrder.getStatus() != WorkOrderStatus.IN_PROCESS) {
 				continue;
 			}
 
@@ -625,7 +625,7 @@ public class ProjectService {
 
 			workOrder.setStatus(workOrder.getWorkers().isEmpty()
 					? WorkOrderStatus.OPEN
-					: WorkOrderStatus.ACTIVE);
+					: WorkOrderStatus.IN_PROCESS);
 		}
 	}
 

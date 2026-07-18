@@ -50,6 +50,31 @@ export const ProtectedRoute = () => {
   return <Outlet />;
 };
 
+// Route reserved for non-admin workers. Admins have equivalent assignment pages
+// under the admin route tree and should not enter worker-only URLs.
+export const WorkerRoute = () => {
+  const auth = useAuth();
+  const location = useLocation();
+
+  if (auth.loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!auth.isAuthenticated()) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (auth.isAdmin()) {
+    return <Navigate to="/admin/projects/active" replace />;
+  }
+
+  return <Outlet />;
+};
+
 // Route that is only accessible for non-authenticated users (like login page)
 export const PublicRoute = () => {
   const auth = useAuth();
@@ -64,7 +89,7 @@ export const PublicRoute = () => {
   
   // If user is already logged in, redirect them to their home page
   if (auth.isAuthenticated()) {
-    return <Navigate to={auth.isAdmin() ? "/admin" : "/worker"} replace />;
+    return <Navigate to={auth.isAdmin() ? "/admin/projects/active" : "/worker/my-assignments"} replace />;
   }
   
   return <Outlet />;
