@@ -27,6 +27,26 @@ test('includes the server session cookie on API requests', async () => {
   );
 });
 
+test('adds the readable CSRF cookie to state-changing request headers', async () => {
+  document.cookie = 'XSRF-TOKEN=csrf-token-value';
+  fetch.mockResolvedValue(response({ ok: true, status: 204, body: null, contentType: '' }));
+
+  await apiFetch('/auth/logout', { method: 'POST' });
+
+  const requestOptions = fetch.mock.calls[0][1];
+  expect(requestOptions.credentials).toBe('include');
+  expect(requestOptions.headers.get('X-XSRF-TOKEN')).toBe('csrf-token-value');
+});
+
+test('does not add a CSRF header to safe requests', async () => {
+  document.cookie = 'XSRF-TOKEN=csrf-token-value';
+  fetch.mockResolvedValue(response({ ok: true, status: 200, body: { value: 1 } }));
+
+  await apiFetch('/auth/me');
+
+  expect(fetch.mock.calls[0][1].headers.has('X-XSRF-TOKEN')).toBe(false);
+});
+
 test('clears cached auth and emits an event on unauthorized responses', async () => {
   localStorage.setItem('user', '{"username":"plee"}');
   localStorage.setItem('username', 'plee');

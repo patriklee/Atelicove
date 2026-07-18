@@ -2,6 +2,7 @@ package com.atelicove.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -44,8 +45,8 @@ class SecurityConfigTest {
     }
 
     @Test
-    void loginEndpointIsPublicAndCsrfIsDisabled() throws Exception {
-        mockMvc.perform(post("/auth/login")
+    void loginEndpointIsPublicWithAValidCsrfToken() throws Exception {
+        mockMvc.perform(post("/auth/login").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"\", \"password\":\"\"}"))
                 .andExpect(status().isBadRequest())
@@ -66,11 +67,11 @@ class SecurityConfigTest {
     }
 
     @Test
-    void unauthenticatedMutationIsRejected() throws Exception {
+    void mutationWithoutCsrfIsRejected() throws Exception {
         mockMvc.perform(post("/workorders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden());
     }
 
     @Test

@@ -3,6 +3,9 @@ import { mockApiFetch } from '../../mocks/mockApi';
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
 const USE_MOCK_API = String(process.env.REACT_APP_USE_MOCK_API || '').toLowerCase() === 'true';
 export const AUTH_UNAUTHORIZED_EVENT = 'atelicove:auth-unauthorized';
+const CSRF_COOKIE_NAME = 'XSRF-TOKEN';
+const CSRF_HEADER_NAME = 'X-XSRF-TOKEN';
+const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 if (USE_MOCK_API) {
   console.info('[Atelicove API] Mock API mode is ON');
@@ -16,12 +19,25 @@ function buildUrl(path = '') {
 function normalizeOptions(options = {}) {
   const headers = new Headers(options.headers || {});
   const normalized = { credentials: 'include', ...options, headers };
+  const method = String(normalized.method || 'GET').toUpperCase();
+
+  if (STATE_CHANGING_METHODS.has(method) && !headers.has(CSRF_HEADER_NAME)) {
+    const csrfToken = readCookie(CSRF_COOKIE_NAME);
+    if (csrfToken) headers.set(CSRF_HEADER_NAME, csrfToken);
+  }
 
   if (normalized.body && !(normalized.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
   return normalized;
+}
+
+function readCookie(name) {
+  if (typeof document === 'undefined' || !document.cookie) return null;
+  const prefix = `${name}=`;
+  const match = document.cookie.split(';').map(cookie => cookie.trim()).find(cookie => cookie.startsWith(prefix));
+  return match ? decodeURIComponent(match.substring(prefix.length)) : null;
 }
 
 function clearLocalAuthState() {
