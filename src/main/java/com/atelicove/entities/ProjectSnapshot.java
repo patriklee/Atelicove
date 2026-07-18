@@ -31,8 +31,6 @@ public class ProjectSnapshot {
 
 	private String snapshotName;
 
-	private Integer sourceDraftProjectID;
-
 	private String projectName;
 
 	@Column(length = 2000)
@@ -67,10 +65,6 @@ public class ProjectSnapshot {
 
 	public String getSnapshotName() {
 		return snapshotName;
-	}
-
-	public Integer getSourceDraftProjectID() {
-		return sourceDraftProjectID;
 	}
 
 	public String getProjectName() {
@@ -111,10 +105,6 @@ public class ProjectSnapshot {
 
 	public void setSnapshotName(String snapshotName) {
 		this.snapshotName = snapshotName;
-	}
-
-	public void setSourceDraftProjectID(Integer sourceDraftProjectID) {
-		this.sourceDraftProjectID = sourceDraftProjectID;
 	}
 
 	public void setProjectName(String projectName) {

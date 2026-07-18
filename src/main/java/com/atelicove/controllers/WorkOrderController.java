@@ -2,8 +2,6 @@ package com.atelicove.controllers;
 
 import org.springframework.web.bind.annotation.*;
 
-import com.atelicove.entities.DraftWorkOrder;
-import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.entities.WorkOrder;
 import com.atelicove.dto.AssignCompanyRequest;
 import com.atelicove.dto.AssignWorkerRequest;
@@ -43,26 +41,6 @@ public class WorkOrderController {
     @GetMapping
     public List<WorkOrder> getAllWorkOrders(Authentication authentication) {
         return authorizationService.visibleActiveWorkOrders(authentication);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/drafts")
-    public List<DraftWorkOrder> getDraftWorkOrders() {
-        return workOrderService.findDrafts();
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/drafts/{id}")
-    public ResponseEntity<DraftWorkOrder> getDraftWorkOrderById(@PathVariable Integer id) {
-        return workOrderService.findDraftById(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/drafts/archived")
-    public List<DraftWorkOrder> getArchivedDraftWorkOrders() {
-        return workOrderService.findArchivedDrafts();
     }
 
     @GetMapping("/all-with-archived")
@@ -145,44 +123,6 @@ public class WorkOrderController {
     public WorkOrder deleteItem(@PathVariable Integer id, @PathVariable Integer itemID, Authentication authentication) {
         authorizationService.requireWorkOrderAccess(id, authentication);
     	return workOrderService.deleteItem(id, itemID);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/drafts/{id}/items")
-    public DraftWorkOrder addDraftItem(@PathVariable Integer id, @RequestBody DraftWorkOrderItem item) {
-        return workOrderService.addDraftItem(id, item);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/drafts/{id}/items/{itemID}")
-    public DraftWorkOrder updateDraftItem(@PathVariable Integer id, @PathVariable Integer itemID, @RequestBody DraftWorkOrderItem item) {
-        return workOrderService.updateDraftItem(id, itemID, item);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/drafts/{id}/items/{itemID}")
-    public DraftWorkOrder deleteDraftItem(@PathVariable Integer id, @PathVariable Integer itemID) {
-        return workOrderService.deleteDraftItem(id, itemID);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/drafts/{id}")
-    public ResponseEntity<Void> archiveDraftWorkOrder(@PathVariable Integer id) {
-        workOrderService.archiveDraftById(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/drafts/{id}/restore")
-    public DraftWorkOrder restoreDraftWorkOrder(@PathVariable Integer id) {
-        return workOrderService.restoreDraftById(id);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/drafts/{id}/permanent")
-    public ResponseEntity<Void> deleteDraftWorkOrderPermanently(@PathVariable Integer id) {
-        workOrderService.deleteDraftPermanentlyById(id);
-        return ResponseEntity.noContent().build();
     }
 
     @PreAuthorize("hasRole('ADMIN')")

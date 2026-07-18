@@ -10,8 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.atelicove.entities.Company;
-import com.atelicove.entities.DraftWorkOrder;
-import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
@@ -20,7 +18,6 @@ import com.atelicove.dto.CreateWorkOrderRequest;
 import com.atelicove.dto.UpdateWorkOrderItemRequest;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.CompanyRepository;
-import com.atelicove.repositories.DraftWorkOrderRepository;
 import com.atelicove.repositories.WorkOrderRepository;
 import com.atelicove.repositories.WorkerRepository;
 import com.atelicove.repositories.WODocumentRepository;
@@ -30,7 +27,6 @@ import com.atelicove.repositories.WOItemRepository;
 public class WorkOrderService{
 
     private final WorkOrderRepository workOrderRepository;
-    private final DraftWorkOrderRepository draftWorkOrderRepository;
     private final WorkerRepository workerRepository;
     private final CompanyRepository companyRepository;
     private final WODocumentRepository documentRepository;
@@ -38,13 +34,11 @@ public class WorkOrderService{
 
     public WorkOrderService(
             WorkOrderRepository workOrderRepository,
-            DraftWorkOrderRepository draftWorkOrderRepository,
             WorkerRepository workerRepository,
             CompanyRepository companyRepository,
             WODocumentRepository documentRepository,
             WOItemRepository itemRepository) {
         this.workOrderRepository = workOrderRepository;
-        this.draftWorkOrderRepository = draftWorkOrderRepository;
         this.workerRepository = workerRepository;
         this.companyRepository = companyRepository;
         this.documentRepository = documentRepository;
@@ -53,7 +47,7 @@ public class WorkOrderService{
     
     /**
      * Moves an open work order into active work. Only work orders that have not
-     * already been started, submitted, completed, or drafted can enter this state.
+     * already been started, submitted, or completed can enter this state.
      *
      * @param workOrderID work order to start
      * @return the saved work order with an active status
@@ -82,24 +76,6 @@ public class WorkOrderService{
     
     public List<WorkOrder> findActive() {
         return workOrderRepository.findByArchivedFalse();
-    }
-
-    public List<DraftWorkOrder> findDrafts() {
-        return draftWorkOrderRepository.findByArchivedFalse().stream()
-                .filter(draftWorkOrder -> draftWorkOrder.getDraftProject() == null
-                        || !draftWorkOrder.getDraftProject().isArchived())
-                .toList();
-    }
-
-    public Optional<DraftWorkOrder> findDraftById(Integer id) {
-        return draftWorkOrderRepository.findById(id)
-                .filter(draftWorkOrder -> !draftWorkOrder.isArchived())
-                .filter(draftWorkOrder -> draftWorkOrder.getDraftProject() == null
-                        || !draftWorkOrder.getDraftProject().isArchived());
-    }
-
-    public List<DraftWorkOrder> findArchivedDrafts() {
-        return draftWorkOrderRepository.findByArchivedTrue();
     }
 
     public List<WorkOrder> findAll() {
@@ -309,35 +285,6 @@ public class WorkOrderService{
         return workOrderRepository.save(workOrder);
     }
 
-    @Transactional
-    public DraftWorkOrder addDraftItem(Integer draftWorkOrderID, DraftWorkOrderItem item) {
-        DraftWorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
-
-        validateItem(item.getItemName(), item.getQuantity(), item.getPrice(), item.getItemType());
-        item.setDraftWorkOrderItemID(0);
-        draftWorkOrder.addItem(item);
-
-        return draftWorkOrderRepository.save(draftWorkOrder);
-    }
-
-    @Transactional
-    public DraftWorkOrder updateDraftItem(Integer draftWorkOrderID, Integer itemID, DraftWorkOrderItem request) {
-        DraftWorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
-
-        validateItem(request.getItemName(), request.getQuantity(), request.getPrice(), request.getItemType());
-        DraftWorkOrderItem item = draftWorkOrder.getItems().stream()
-                .filter(existingItem -> existingItem.getDraftWorkOrderItemID() == itemID)
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Draft work order item not found"));
-
-        item.setItemName(request.getItemName());
-        item.setQuantity(request.getQuantity());
-        item.setPrice(request.getPrice());
-        item.setItemType(request.getItemType());
-
-        return draftWorkOrderRepository.save(draftWorkOrder);
-    }
-
     private void validateItem(String itemName, int quantity, java.math.BigDecimal price, com.atelicove.enums.ItemType itemType) {
         if (itemName == null || itemName.isBlank()) {
             throw new IllegalArgumentException("Item name is required");
@@ -359,54 +306,9 @@ public class WorkOrderService{
 		}
 	}
 
-    @Transactional
-    public DraftWorkOrder deleteDraftItem(Integer draftWorkOrderID, Integer itemID) {
-        DraftWorkOrder draftWorkOrder = getRequiredDraftWorkOrder(draftWorkOrderID);
-
-        DraftWorkOrderItem item = draftWorkOrder.getItems().stream()
-                .filter(existingItem -> existingItem.getDraftWorkOrderItemID() == itemID)
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Draft work order item not found"));
-
-        draftWorkOrder.removeItem(item);
-
-        return draftWorkOrderRepository.save(draftWorkOrder);
-    }
-
-    @Transactional
-    public void archiveDraftById(Integer draftWorkOrderID) {
-        DraftWorkOrder draftWorkOrder = draftWorkOrderRepository.findById(draftWorkOrderID)
-                .orElseThrow(() -> new IllegalArgumentException("Draft work order not found"));
-        draftWorkOrder.setArchived(true);
-        draftWorkOrder.setArchivedAt(LocalDateTime.now());
-        draftWorkOrderRepository.save(draftWorkOrder);
-    }
-
-    @Transactional
-    public DraftWorkOrder restoreDraftById(Integer draftWorkOrderID) {
-        DraftWorkOrder draftWorkOrder = draftWorkOrderRepository.findById(draftWorkOrderID)
-                .orElseThrow(() -> new IllegalArgumentException("Draft work order not found"));
-        draftWorkOrder.setArchived(false);
-        draftWorkOrder.setArchivedAt(null);
-        return draftWorkOrderRepository.save(draftWorkOrder);
-    }
-
-    @Transactional
-    public void deleteDraftPermanentlyById(Integer draftWorkOrderID) {
-        DraftWorkOrder draftWorkOrder = draftWorkOrderRepository.findById(draftWorkOrderID)
-                .orElseThrow(() -> new IllegalArgumentException("Draft work order not found"));
-        if (!draftWorkOrder.isArchived()) {
-            throw new IllegalStateException("Only archived draft work orders can be permanently deleted");
-        }
-        if (draftWorkOrder.getDraftProject() != null) {
-            draftWorkOrder.getDraftProject().removeDraftWorkOrder(draftWorkOrder);
-        }
-        draftWorkOrderRepository.delete(draftWorkOrder);
-    }
-
     /**
      * Archives a completed work order instead of deleting it. Open, active,
-     * review, and draft work orders stay visible so unfinished work is not hidden.
+     * and review work orders stay visible so unfinished work is not hidden.
      *
      * @param id completed work order to archive
      */
@@ -542,11 +444,6 @@ public class WorkOrderService{
         }
 
         return result.get();
-    }
-
-    private DraftWorkOrder getRequiredDraftWorkOrder(Integer draftWorkOrderID) {
-        return findDraftById(draftWorkOrderID)
-                .orElseThrow(() -> new IllegalArgumentException("Draft work order not found"));
     }
 
     private void ensureWorkOrderCanBeEdited(WorkOrder workOrder) {

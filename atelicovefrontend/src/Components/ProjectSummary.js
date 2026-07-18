@@ -70,7 +70,6 @@ const ProjectSummary = () => {
   if (!project) return <Alert severity="warning">Project not found.</Alert>;
 
   const workOrders = Array.isArray(project.workOrders) ? project.workOrders : [];
-  const draftWorkOrders = Array.isArray(project.draftWorkOrders) ? project.draftWorkOrders : [];
   const teams = Array.isArray(project.teams) ? project.teams : [];
   const actionItems = Array.isArray(project.actionItems) ? project.actionItems : [];
   const comments = Array.isArray(project.comments) ? project.comments : [];
@@ -78,9 +77,7 @@ const ProjectSummary = () => {
   const projectCost = project.projectStatus === 'OPEN' ? project.estimatedCost : project.actualCost;
 
   const openWorkOrder = (workOrder) => {
-    if (workOrder.status !== 'DRAFT') {
-      navigate(`/admin/workorders/${workOrder.workOrderID}`);
-    }
+    navigate(`/admin/workorders/${workOrder.workOrderID}`);
   };
 
   return (
@@ -164,37 +161,6 @@ const ProjectSummary = () => {
             {!workOrders.length && (
               <TableRow>
                 <TableCell colSpan={6}>No work orders are associated with this project.</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <TableContainer component={Paper} sx={{ mb: 4 }}>
-        <Table>
-          <TableHead>
-            <TableTitleRow title="Draft Work Orders" colSpan={5} />
-            <TableRow>
-              <TableCell>Draft</TableCell>
-              <TableCell>Source Work Order</TableCell>
-              <TableCell>Planned Company</TableCell>
-              <TableCell>Planned Team</TableCell>
-              <TableCell align="right">Estimated Cost</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {draftWorkOrders.map(draft => (
-              <TableRow key={draft.draftWorkOrderID || draft.workOrderID}>
-                <TableCell>#{draft.workOrderID}</TableCell>
-                <TableCell>{draft.sourceWorkOrderID ? `#${draft.sourceWorkOrderID}` : 'New planning item'}</TableCell>
-                <TableCell>{draft.company?.companyName || draft.plannedCompanyName || 'No company'}</TableCell>
-                <TableCell>{draft.plannedTeamName || 'No team'}</TableCell>
-                <TableCell align="right">{formatMoney(getWorkOrderActualPrice(draft))}</TableCell>
-              </TableRow>
-            ))}
-            {!draftWorkOrders.length && (
-              <TableRow>
-                <TableCell colSpan={5}>No draft work orders are associated with this project.</TableCell>
               </TableRow>
             )}
           </TableBody>

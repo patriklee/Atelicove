@@ -141,10 +141,10 @@ public class WODocumentService {
     }
 
     /**
-     * Uploads a document to a draft project after checking project membership,
+     * Uploads a document to an editable project after checking project membership,
      * document type, size, MIME type, and file extension.
      *
-     * @param projectID draft project receiving the document
+     * @param projectID project receiving the document
      * @param file uploaded file contents
      * @param documentType business category selected for the document
      * @param username authenticated uploader username
@@ -247,7 +247,7 @@ public class WODocumentService {
         }
 
 		if (project.getProjectStatus() != ProjectStatus.OPEN) {
-            throw new IllegalStateException("Project documents can only be changed while the project is draft or active");
+            throw new IllegalStateException("Project documents can only be changed while the project is open");
         }
 
         return project;

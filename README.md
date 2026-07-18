@@ -17,12 +17,13 @@ The supported Community Edition scope includes:
 - Session authentication and logout
 - `ADMIN` and `WORKER` authorization
 - Worker and company management
+- Live projects, teams, comments, action items, and snapshots
 - Work orders, work-order items, and document attachments
 - Work-order assignment and lifecycle behavior
 - Archive, restore, and historical deletion safeguards
 - Essential backend and frontend tests
 
-SaaS subscriptions, Draft Studio, draft-to-work-order launch conversion, advanced project planning, expanded teams, analytics, notifications, object storage, and microservices are intentionally deferred. This repository does not promise those features as part of the Community Edition support boundary.
+Draft Studio is available only in the SaaS/private edition and is not included in Community Edition. SaaS subscriptions, draft-to-work-order launch conversion, advanced project planning, expanded teams, analytics, notifications, object storage, and microservices are also outside the Community Edition support boundary.
 
 ## Prerequisites
 
@@ -82,6 +83,7 @@ mvn test
 ```
 
 Hibernate uses `spring.jpa.hibernate.ddl-auto=update` by default for local Community Edition development.
+Because `ddl-auto=update` does not drop removed tables automatically, existing local databases may retain obsolete draft-subsystem tables. They can be removed manually after confirming that no retained local data is needed.
 
 ## Start the frontend
 

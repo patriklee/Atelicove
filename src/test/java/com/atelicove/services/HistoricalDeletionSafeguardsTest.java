@@ -23,7 +23,6 @@ import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.CompanyRepository;
-import com.atelicove.repositories.DraftWorkOrderRepository;
 import com.atelicove.repositories.ProjectRepository;
 import com.atelicove.repositories.TeamRepository;
 import com.atelicove.repositories.WODocumentRepository;
@@ -40,7 +39,6 @@ class HistoricalDeletionSafeguardsTest {
     private static final int DOCUMENT_ID = 14;
 
     @Mock WorkOrderRepository workOrderRepository;
-    @Mock DraftWorkOrderRepository draftWorkOrderRepository;
     @Mock WorkerRepository workerRepository;
     @Mock CompanyRepository companyRepository;
     @Mock WODocumentRepository documentRepository;

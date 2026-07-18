@@ -26,7 +26,6 @@ import com.atelicove.entities.Worker;
 import com.atelicove.enums.ItemType;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.CompanyRepository;
-import com.atelicove.repositories.DraftWorkOrderRepository;
 import com.atelicove.repositories.WorkOrderRepository;
 import com.atelicove.repositories.WorkerRepository;
 import com.atelicove.repositories.WODocumentRepository;
@@ -36,7 +35,6 @@ import com.atelicove.repositories.WOItemRepository;
 class WorkOrderRequestServiceTest {
 
     @Mock WorkOrderRepository workOrderRepository;
-    @Mock DraftWorkOrderRepository draftWorkOrderRepository;
     @Mock WorkerRepository workerRepository;
     @Mock CompanyRepository companyRepository;
     @Mock WODocumentRepository documentRepository;

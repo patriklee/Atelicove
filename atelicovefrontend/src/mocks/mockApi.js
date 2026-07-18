@@ -32,8 +32,6 @@ const withWorkerDefaults = (worker) => ({
   ...withAuditDefaults(worker),
 });
 
-const isLegacyDraftWorkOrder = (order) => order?.status === 'DRAFT';
-
 const hydrateState = (rawState) => ({
   workers: (rawState.workers || []).map(withWorkerDefaults),
   companies: (rawState.companies || []).map(withAuditDefaults),
@@ -46,17 +44,15 @@ const hydrateState = (rawState) => ({
     return {
       ...withAuditDefaults(cleanProject),
       teams: cleanProject.teams || [],
-      workOrders: (cleanProject.workOrders || []).filter(order => !isLegacyDraftWorkOrder(order)),
-      draftWorkOrders: cleanProject.draftWorkOrders || [],
+      workOrders: (cleanProject.workOrders || []).filter(order => ['OPEN', 'IN_PROCESS', 'ACTIVE', 'IN_REVIEW', 'COMPLETE'].includes(order.status)),
       comments: cleanProject.comments || [],
       actionItems: cleanProject.actionItems || [],
       documents: (cleanProject.documents || []).map(withAuditDefaults),
       snapshots: cleanProject.snapshots || [],
-      associatedActiveProject: cleanProject.associatedActiveProject || null,
     };
   }),
   workOrders: (rawState.workOrders || [])
-    .filter(order => !isLegacyDraftWorkOrder(order))
+    .filter(order => ['OPEN', 'IN_PROCESS', 'ACTIVE', 'IN_REVIEW', 'COMPLETE'].includes(order.status))
     .map(order => ({
       ...withAuditDefaults(order),
       workers: (order.workers || []).map(withWorkerDefaults),
@@ -275,96 +271,18 @@ const sumWorkOrderItems = (workOrders) => (workOrders || [])
   .flatMap(order => order.items || [])
   .reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 0)), 0);
 
-const createProjectSnapshot = (ownerProject, draftProject, snapshotName = 'Associated draft snapshot') => {
-  const estimatedCost = sumWorkOrderItems(draftProject.draftWorkOrders);
-  const budget = Number(draftProject.budget) || 0;
-  ownerProject.snapshots = [...(ownerProject.snapshots || []), {
-    projectSnapshotID: nextId(ownerProject.snapshots || [], 'projectSnapshotID'),
-    snapshotName,
-    sourceDraftProjectID: draftProject.projectID,
-    projectName: draftProject.projectName,
-    description: draftProject.description,
-    budget: draftProject.budget ?? null,
-    estimatedCost,
-    budgetDifference: budget - estimatedCost,
-    snapshotData: JSON.stringify({
-      projectID: draftProject.projectID,
-      projectName: draftProject.projectName,
-      description: draftProject.description,
-      budget: draftProject.budget ?? null,
-      estimatedCost,
-      budgetDifference: budget - estimatedCost,
-      draftWorkOrders: draftProject.draftWorkOrders || [],
-    }),
-    createdAt: now(),
-  }];
-};
-
 const projectResponse = (project) => {
-  const estimatedCost = sumWorkOrderItems(project.draftWorkOrders);
   const actualCost = sumWorkOrderItems(project.workOrders);
   const budget = Number(project.budget) || 0;
-  const plannedTeams = parsePlannedTeams(project.plannedTeamsJson);
 
   return {
     ...project,
-    plannedTeams,
-    estimatedCost,
+    estimatedCost: actualCost,
     actualCost,
-    budgetDifference: budget - estimatedCost,
-    teamCount: project.projectStatus === 'OPEN' ? plannedTeams.length : project.teams?.length || 0,
+    budgetDifference: budget - actualCost,
+    teamCount: project.teams?.length || 0,
     workOrderCount: project.workOrders?.length || 0,
-    draftWorkOrderCount: project.draftWorkOrders?.length || 0,
   };
-};
-
-const parsePlannedTeams = (value) => {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const plannedTeamSnapshot = (team) => ({
-  teamID: team.teamID,
-  teamName: team.teamName,
-  workers: (team.workers || []).map(withoutPassword),
-});
-
-const plannedTeamsJsonFromIDs = (teamIDs = []) => JSON.stringify(
-  teamIDs.map(findTeam).filter(Boolean).map(plannedTeamSnapshot)
-);
-
-const addPlannedTeamToProject = (project, team) => {
-  const plannedTeams = parsePlannedTeams(project.plannedTeamsJson);
-  if (!plannedTeams.some(item => Number(item.teamID) === Number(team.teamID))) {
-    plannedTeams.push(plannedTeamSnapshot(team));
-  }
-  project.plannedTeamsJson = JSON.stringify(plannedTeams);
-};
-
-const resolvePlannedTeams = (project) => {
-  const resolved = parsePlannedTeams(project.plannedTeamsJson)
-    .map(team => {
-      const existingTeam = findTeam(team.teamID);
-      if (existingTeam) return clone(existingTeam);
-      const workers = (team.workers || []).map(worker => findWorker(worker.workerID)).filter(Boolean).map(withoutPassword);
-      if (!workers.length) return null;
-      const savedTeam = {
-        teamID: nextId(state.teams, 'teamID'),
-        teamName: team.teamName || 'Planned Draft Team',
-        projectStartedAt: null,
-        workers,
-      };
-      state.teams.push(savedTeam);
-      return clone(savedTeam);
-    })
-    .filter(Boolean);
-  return resolved.length ? resolved : (project.teams || []);
 };
 
 const actionItemAssignee = (payload) => {
@@ -743,7 +661,7 @@ const handleWorkOrderDocuments = (workOrder, segments, method, options) => {
 
 const handleProjectDocuments = (project, segments, method, options) => {
   if (method !== 'GET' && (project.archived || !['OPEN', 'ACTIVE'].includes(project.projectStatus))) {
-    throw new MockApiError('Project documents can only be changed while the project is draft or active', 409);
+    throw new MockApiError('Project documents can only be changed while the project is open', 409);
   }
 
   project.documents = project.documents || [];
@@ -824,93 +742,6 @@ const handleWorkOrders = (segments, method, options) => {
       project: order.project || projectReferenceForWorkOrder(order.workOrderID),
       fileNo: order.documents?.length || 0,
     }));
-  }
-
-  if (segments[1] === 'drafts' && segments.length === 2 && method === 'GET') {
-    return activeOnly(state.projects)
-      .filter(project => project.projectStatus === 'OPEN')
-      .flatMap(project => (project.draftWorkOrders || []).map(order => ({
-        ...order,
-        projectID: project.projectID,
-        projectName: project.projectName,
-      })));
-  }
-
-  if (segments[1] === 'drafts' && segments[2]) {
-    const draftWorkOrderID = Number(segments[2]);
-    const project = activeOnly(state.projects).find(item =>
-      (item.draftWorkOrders || []).some(order => order.workOrderID === draftWorkOrderID)
-    );
-    const draftWorkOrder = project?.draftWorkOrders?.find(order => order.workOrderID === draftWorkOrderID);
-    if (!draftWorkOrder) throw new MockApiError('Draft work order not found', 404);
-
-    if (segments.length === 3 && method === 'GET') {
-      return {
-        ...clone(draftWorkOrder),
-        projectID: project.projectID,
-        projectName: project.projectName,
-      };
-    }
-
-    if (segments[3] === 'items' && method === 'POST') {
-      const payload = bodyAsJson(options);
-      const item = {
-        draftWorkOrderItemID: nextId(draftWorkOrder.items || [], 'draftWorkOrderItemID'),
-        itemName: payload.itemName || '',
-        quantity: Number(payload.quantity) || 0,
-        price: Number(payload.price) || 0,
-        itemType: payload.itemType || 'OTHER',
-        createdAt: now(),
-        lastModifiedAt: now(),
-      };
-      draftWorkOrder.items = [...(draftWorkOrder.items || []), item];
-      touch(draftWorkOrder);
-      touch(project);
-      saveState();
-      return {
-        ...clone(draftWorkOrder),
-        projectID: project.projectID,
-        projectName: project.projectName,
-      };
-    }
-
-    if (segments[3] === 'items' && segments[4] && method === 'PUT') {
-      const itemID = Number(segments[4]);
-      const payload = bodyAsJson(options);
-      draftWorkOrder.items = (draftWorkOrder.items || []).map(item => (
-        item.draftWorkOrderItemID === itemID
-          ? {
-              ...item,
-              itemType: payload.itemType || item.itemType || 'OTHER',
-              itemName: payload.itemName || '',
-              quantity: Number(payload.quantity) || 0,
-              price: Number(payload.price) || 0,
-              lastModifiedAt: now(),
-            }
-          : item
-      ));
-      touch(draftWorkOrder);
-      touch(project);
-      saveState();
-      return {
-        ...clone(draftWorkOrder),
-        projectID: project.projectID,
-        projectName: project.projectName,
-      };
-    }
-
-    if (segments[3] === 'items' && segments[4] && method === 'DELETE') {
-      const itemID = Number(segments[4]);
-      draftWorkOrder.items = (draftWorkOrder.items || []).filter(item => item.draftWorkOrderItemID !== itemID);
-      touch(draftWorkOrder);
-      touch(project);
-      saveState();
-      return {
-        ...clone(draftWorkOrder),
-        projectID: project.projectID,
-        projectName: project.projectName,
-      };
-    }
   }
 
   if (segments[1] === 'archived' && method === 'GET') {
@@ -1313,17 +1144,13 @@ const handleProjects = (segments, method, options) => {
     return archivedOnly(state.projects).map(projectResponse);
   }
 
-  if (segments[1] === 'drafts' && method === 'GET') {
-    return activeOnly(state.projects).filter(project => project.projectStatus === 'OPEN').map(projectResponse);
-  }
-
   if (segments[1] === 'count' && method === 'GET') {
     return activeOnly(state.projects).length;
   }
 
   if (segments.length === 1 && method === 'POST') {
     const payload = bodyAsJson(options);
-    const plannedTeamsJson = payload.plannedTeamsJson || plannedTeamsJsonFromIDs(payload.teamIDs || []);
+    const projectTeams = (payload.teamIDs || []).map(findTeam).filter(Boolean).map(clone);
     const project = withAuditDefaults({
       projectID: nextId(state.projects, 'projectID'),
       projectName: payload.projectName || '',
@@ -1336,29 +1163,13 @@ const handleProjects = (segments, method, options) => {
       completedAt: null,
       archived: false,
       archivedAt: null,
-      plannedTeamsJson,
-      teams: [],
+      teams: projectTeams,
       workOrders: [],
-      draftWorkOrders: [],
       comments: [],
       actionItems: [],
       documents: [],
       snapshots: [],
-      associatedActiveProject: null,
     });
-    if (payload.associatedActiveProjectID) {
-      const activeProject = findProject(payload.associatedActiveProjectID);
-      if (!activeProject || activeProject.archived || activeProject.projectStatus !== 'ACTIVE') {
-        throw new MockApiError('Draft projects can only be attached to active projects', 409);
-      }
-      project.associatedActiveProject = {
-        projectID: activeProject.projectID,
-        projectName: activeProject.projectName,
-        projectStatus: activeProject.projectStatus,
-      };
-      createProjectSnapshot(activeProject, project);
-      touch(activeProject);
-    }
     state.projects.push(project);
     saveState();
     return projectResponse(project);
@@ -1377,9 +1188,8 @@ const handleProjects = (segments, method, options) => {
 
   if (segments[2] === 'permanent' && method === 'DELETE') {
     if (!project.archived && project.projectStatus !== 'OPEN') {
-      throw new MockApiError('Only archived or draft projects can be permanently deleted', 409);
+      throw new MockApiError('Only archived or empty open projects can be permanently deleted', 409);
     }
-    if (project.projectStatus === 'OPEN') project.draftWorkOrders = [];
     state.projects = state.projects.filter(item => item.projectID !== project.projectID);
     saveState();
     return null;
@@ -1395,37 +1205,12 @@ const handleProjects = (segments, method, options) => {
       actualCost: payload.actualCost ?? project.actualCost ?? null,
     });
     if (Array.isArray(payload.teamIDs)) {
-      if (project.projectStatus === 'OPEN') {
-        project.plannedTeamsJson = payload.plannedTeamsJson || plannedTeamsJsonFromIDs(payload.teamIDs || []);
-      } else {
-        const previousTeams = project.teams || [];
-        const nextTeams = payload.teamIDs.map(findTeam).filter(Boolean).map(clone);
-        ensureProjectTeamsAreNotEmpty(nextTeams);
-        project.teams = nextTeams;
-        Object.assign(project, syncActiveProjectTeamWorkers(project, previousTeams, nextTeams));
-        syncProjectWorkOrdersIntoState(project);
-      }
-    }
-    if (payload.associatedActiveProjectID) {
-      if (project.projectStatus !== 'OPEN') {
-        throw new MockApiError('Only draft projects can be attached to an active project', 409);
-      }
-      if (Number(payload.associatedActiveProjectID) === project.projectID) {
-        throw new MockApiError('A project cannot be attached to itself', 409);
-      }
-      const activeProject = findProject(payload.associatedActiveProjectID);
-      if (!activeProject || activeProject.archived || activeProject.projectStatus !== 'ACTIVE') {
-        throw new MockApiError('Draft projects can only be attached to active projects', 409);
-      }
-      project.associatedActiveProject = {
-        projectID: activeProject.projectID,
-        projectName: activeProject.projectName,
-        projectStatus: activeProject.projectStatus,
-      };
-      createProjectSnapshot(activeProject, project);
-      touch(activeProject);
-    } else {
-      project.associatedActiveProject = null;
+      const previousTeams = project.teams || [];
+      const nextTeams = payload.teamIDs.map(findTeam).filter(Boolean).map(clone);
+      ensureProjectTeamsAreNotEmpty(nextTeams);
+      project.teams = nextTeams;
+      Object.assign(project, syncActiveProjectTeamWorkers(project, previousTeams, nextTeams));
+      syncProjectWorkOrdersIntoState(project);
     }
     touch(project);
     saveState();
@@ -1433,8 +1218,8 @@ const handleProjects = (segments, method, options) => {
   }
 
   if (segments.length === 2 && method === 'DELETE') {
-    if (project.projectStatus === 'OPEN') {
-      throw new MockApiError('Draft projects cannot be archived', 409);
+    if (project.projectStatus !== 'COMPLETE') {
+      throw new MockApiError('Only completed projects can be archived', 409);
     }
     const hasOpenWorkOrder = (project.workOrders || []).some(order => order.status !== 'COMPLETE');
     if (hasOpenWorkOrder) {
@@ -1442,80 +1227,13 @@ const handleProjects = (segments, method, options) => {
     }
     ensureProjectTeamsAreNotEmpty(project.teams || []);
     archiveEntity(project);
-    const associatedDraftIDs = state.projects
-      .filter(item => item.associatedActiveProject?.projectID === project.projectID)
-      .map(item => item.projectID);
-    const associatedDraftWorkOrderIDs = state.projects
-      .filter(item => associatedDraftIDs.includes(item.projectID))
-      .flatMap(item => item.workOrders || [])
-      .map(order => order.workOrderID);
-    state.workOrders = state.workOrders.filter(order => !associatedDraftWorkOrderIDs.includes(order.workOrderID));
-    state.projects = state.projects.filter(item => item.associatedActiveProject?.projectID !== project.projectID);
     saveState();
     return null;
   }
 
-  if (segments[2] === 'activate' && method === 'PUT') {
-    const payload = bodyAsJson(options);
-    const draftIDsToActivate = new Set((payload.activateDraftWorkOrderIDs || []).map(Number));
-    if (project.projectStatus !== 'OPEN') {
-      throw new MockApiError('Only draft projects can be activated', 409);
-    }
-    if (project.associatedActiveProject) {
-      throw new MockApiError('Draft projects attached to an active project cannot be activated', 409);
-    }
-    createProjectSnapshot(project, project, 'Launch snapshot');
-    const previousTeams = project.teams || [];
-    const launchTeams = resolvePlannedTeams(project);
-    ensureProjectTeamsAreNotEmpty(launchTeams);
-    project.projectStatus = 'ACTIVE';
-    project.activatedAt = now();
-    project.teams = launchTeams.map(team => ({
-      ...team,
-      projectStartedAt: team.projectStartedAt || project.activatedAt,
-    }));
-    Object.assign(project, syncActiveProjectTeamWorkers(project, previousTeams, project.teams));
-    (project.draftWorkOrders || []).forEach(draftWorkOrder => {
-      if (!draftIDsToActivate.has(Number(draftWorkOrder.workOrderID))) return;
-      const matchingTeam = draftWorkOrder.plannedTeamID
-        ? project.teams.find(team => Number(team.teamID) === Number(draftWorkOrder.plannedTeamID))
-        : null;
-      const workers = matchingTeam
-        ? (matchingTeam.workers || []).map(withoutPassword)
-        : [...teamWorkers(project.teams).values()].map(withoutPassword);
-      const workOrder = {
-        workOrderID: nextId(state.workOrders, 'workOrderID'),
-        workers,
-        company: null,
-        project: {
-          projectID: project.projectID,
-          projectName: project.projectName,
-          projectStatus: project.projectStatus,
-        },
-        status: workers.length ? 'ACTIVE' : 'OPEN',
-        startDateTime: project.activatedAt,
-        endDateTime: null,
-        comment: '',
-        items: [],
-        documents: [],
-        createdAt: now(),
-        lastModifiedAt: now(),
-        archived: false,
-        archivedAt: null,
-      };
-      state.workOrders.push(workOrder);
-      project.workOrders = [...(project.workOrders || []), clone(workOrder)];
-    });
-    project.draftWorkOrders = [];
-    project.plannedTeamsJson = '';
-    touch(project);
-    saveState();
-    return projectResponse(project);
-  }
-
   if (segments[2] === 'submit' && method === 'PUT') {
-    if (project.projectStatus !== 'ACTIVE') {
-      throw new MockApiError('Only active projects can be submitted for review', 409);
+    if (project.projectStatus !== 'OPEN') {
+      throw new MockApiError('Only open projects can be submitted for review', 409);
     }
     if (!(project.workOrders || []).every(order => order.status === 'COMPLETE')) {
       throw new MockApiError('Projects can only be submitted when all work orders are complete', 409);
@@ -1633,83 +1351,6 @@ const handleProjects = (segments, method, options) => {
       workOrder.project = null;
     }
     project.workOrders = (project.workOrders || []).filter(order => order.workOrderID !== Number(segments[3]));
-    touch(project);
-    saveState();
-    return projectResponse(project);
-  }
-
-  if (segments[2] === 'draft-workorders' && method === 'POST') {
-    if (project.archived || project.projectStatus !== 'OPEN') {
-      throw new MockApiError('Draft work orders can only be created for draft projects', 409);
-    }
-
-    const payload = bodyAsJson(options);
-    const sourceWorkOrder = payload.workOrderID ? findWorkOrder(payload.workOrderID) : null;
-    if (payload.workOrderID && !sourceWorkOrder) throw new MockApiError('Work order not found', 404);
-    const team = payload.workOrderID ? null : findTeam(payload.teamID);
-    if (!payload.workOrderID && !team) throw new MockApiError('Team not found', 404);
-    if (team) ensureProjectTeamsAreNotEmpty([team]);
-    const company = payload.companyID ? findCompany(payload.companyID) : null;
-    if (payload.companyID && !company) throw new MockApiError('Company not found', 404);
-    if (company?.archived) throw new MockApiError('Archived companies cannot be assigned', 409);
-
-    if (team) addPlannedTeamToProject(project, team);
-
-    const workOrder = {
-      draftWorkOrderID: nextId(project.draftWorkOrders || [], 'draftWorkOrderID'),
-      workOrderID: nextId(project.draftWorkOrders || [], 'draftWorkOrderID'),
-      sourceWorkOrderID: sourceWorkOrder?.workOrderID || null,
-      plannedTeamID: team?.teamID || null,
-      plannedTeamName: team?.teamName || null,
-      plannedCompanyID: sourceWorkOrder?.company?.companyID || company?.companyID || null,
-      plannedCompanyName: sourceWorkOrder?.company?.companyName || company?.companyName || null,
-      company: sourceWorkOrder?.company ? clone(sourceWorkOrder.company) : company ? clone(company) : null,
-      status: 'DRAFT',
-      comment: payload.comment || '',
-      items: [],
-      createdAt: now(),
-      lastModifiedAt: now(),
-    };
-
-    project.draftWorkOrders = [...(project.draftWorkOrders || []), clone(workOrder)];
-    touch(project);
-    saveState();
-    return projectResponse(project);
-  }
-
-  if (segments[2] === 'draft-workorders' && segments[3] && method === 'DELETE') {
-    project.draftWorkOrders = (project.draftWorkOrders || []).filter(order => order.workOrderID !== Number(segments[3]));
-    touch(project);
-    saveState();
-    return projectResponse(project);
-  }
-
-  if (segments[2] === 'draft-workorders' && segments[3] && method === 'PUT') {
-    if (project.archived || project.projectStatus !== 'OPEN') {
-      throw new MockApiError('Draft work orders can only be edited for draft projects', 409);
-    }
-
-    const payload = bodyAsJson(options);
-    const workOrder = (project.draftWorkOrders || []).find(order => order.workOrderID === Number(segments[3]));
-    if (!workOrder) throw new MockApiError('Draft work order is not assigned to this project', 404);
-
-    const company = payload.companyID ? findCompany(payload.companyID) : null;
-    if (payload.companyID && !company) throw new MockApiError('Company not found', 404);
-    if (company?.archived) throw new MockApiError('Archived companies cannot be assigned', 409);
-    const team = payload.teamID ? findTeam(payload.teamID) : null;
-    if (payload.teamID && !team) throw new MockApiError('Team not found', 404);
-    if (team) ensureProjectTeamsAreNotEmpty([team]);
-
-    workOrder.plannedCompanyID = company?.companyID || null;
-    workOrder.plannedCompanyName = company?.companyName || null;
-    workOrder.company = company ? clone(company) : null;
-    if (Object.prototype.hasOwnProperty.call(payload, 'teamID')) {
-      workOrder.plannedTeamID = team?.teamID || null;
-      workOrder.plannedTeamName = team?.teamName || null;
-      if (team) addPlannedTeamToProject(project, team);
-    }
-    workOrder.comment = payload.comment || '';
-    touch(workOrder);
     touch(project);
     saveState();
     return projectResponse(project);

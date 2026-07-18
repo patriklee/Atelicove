@@ -39,7 +39,6 @@ export const mockWorkers = [
   worker(21, 'Caleb', 'Turner', 'Retired Electrician', true),
   worker(22, 'Sofia', 'Martinez', 'Former Project Coordinator', true),
 ];
-
 const company = (companyID, companyName, address, phone, email, archived = false) => ({
   companyID, id: companyID, name: companyName, companyName,
   address, companyAddress: address, phone, companyPhone: phone, email, companyEmail: email,
@@ -152,7 +151,7 @@ const projectCommentText = [
   ['All quarterly motor inspections are complete.', 'Compressed-air pressure test passed.', 'Conveyor guards were accepted by the safety manager.', 'Final maintenance records were uploaded.', 'Customer signed the preventive-maintenance summary.'],
   ['Framing inspection passed with two minor corrections.', 'Breakroom plumbing rough-in is complete.', 'Paint color was changed to the approved warm gray.', 'Final punch list has seven remaining items.', 'Turnover manuals are being assembled.'],
   ['Field measurements are complete for the warehouse addition.', 'Geotechnical report recommends deeper perimeter footings.', 'Customer approved the revised loading-dock layout.', 'Utility locate is scheduled for next Wednesday.', 'Budget estimate was updated with current concrete pricing.'],
-  ['Electrical load study is ready for customer review.', 'Line shutdown window is still awaiting production approval.', 'Equipment vendor supplied updated anchor details.', 'Controls scope was clarified during design review.', 'Draft work orders now reflect the phased installation plan.'],
+  ['Electrical load study is ready for customer review.', 'Line shutdown window is still awaiting production approval.', 'Equipment vendor supplied updated anchor details.', 'Controls scope was clarified during design review.', 'Work orders now reflect the phased installation plan.'],
   ['Office renovation was completed ahead of schedule.', 'Final inspection passed without correction notices.', 'Customer training and turnover are complete.', 'All closeout documents have been accepted.', 'Warranty contacts were provided to facilities staff.'],
   ['Historical switchgear drawings were indexed.', 'Boiler pressure certificate was added to the archive.', 'Previously assigned technicians are retained for audit history.', 'Final invoice reconciliation was completed.', 'Archived project records passed the retention review.'],
 ];
@@ -212,21 +211,8 @@ const projectDocumentsFor = projectIndex => {
 const order = workOrderID => mockWorkOrders.find(workOrder => workOrder.workOrderID === workOrderID);
 const orders = (...workOrderIDs) => workOrderIDs.map(order);
 
-const draftItem = (id, itemType, itemName, quantity, price) => ({
-  draftWorkOrderItemID: id, id, itemType, itemName, name: itemName, quantity, price,
-});
-
-const draftWorkOrder = (id, title, companyIndex, workerIndexes, items) => ({
-  draftWorkOrderID: id, id, workOrderID: null, title, workOrderName: title, status: 'DRAFT',
-  comment: `${title} prepared for customer review.`, description: `${title} prepared for customer review.`,
-  workers: workerIndexes.map(index => mockWorkers[index]),
-  assignedWorkers: workerIndexes.map(index => mockWorkers[index]),
-  company: mockCompanies[companyIndex], startDateTime: null, endDateTime: null,
-  archived: false, archivedAt: null, items,
-});
-
 const project = (projectIndex, values) => {
-  const [projectID, projectName, description, budget, projectStatus, teamIndexes, workOrders, archived = false, draftWorkOrders = []] = values;
+  const [projectID, projectName, description, budget, projectStatus, teamIndexes, workOrders, archived = false] = values;
   const completed = projectStatus === 'COMPLETE';
   return {
     projectID, id: projectID, projectName, name: projectName, description, budget,
@@ -234,9 +220,8 @@ const project = (projectIndex, values) => {
     activatedAt: projectStatus === 'OPEN' ? null : `2026-0${(projectIndex % 5) + 2}-10T08:00:00`,
     completedAt: completed ? '2026-06-28T16:30:00' : null,
     archived, archivedAt: archived ? '2026-07-01T10:00:00' : null,
-    plannedTeamsJson: projectStatus === 'OPEN' ? JSON.stringify(teamIndexes.map(index => mockTeams[index])) : null,
-    teams: projectStatus === 'OPEN' ? [] : teamIndexes.map(index => mockTeams[index]),
-    workOrders, draftWorkOrders,
+    teams: teamIndexes.map(index => mockTeams[index]),
+    workOrders,
     comments: commentsFor(projectIndex),
     actionItems: actionsFor(projectIndex, completed),
     documents: projectDocumentsFor(projectIndex),
@@ -251,16 +236,10 @@ export const mockProjects = [
   project(3, [304, 'Warehouse Expansion', 'Loading-dock, roof, drainage, and life-safety improvements for expanded operations.', 240000, 'ACTIVE', [0, 2, 4], orders(1014, 1015, 1016, 1017, 1019, 1020)]),
   project(4, [305, 'Preventive Maintenance Program', 'Completed quarterly maintenance and safety program for plant equipment.', 46000, 'COMPLETE', [1, 4], orders(1021, 1022, 1023, 1024)]),
   project(5, [306, 'Employee Facilities Refresh', 'Breakroom, office framing, finishes, and turnover for the Atlas field office.', 68000, 'IN_REVIEW', [1, 2, 3], orders(1025, 1026, 1027)]),
-  project(6, [307, 'Harbor Annex Planning', 'Draft plan for a warehouse annex with new docks and utility connections.', 310000, 'OPEN', [2, 4], [], false, [
-    draftWorkOrder(601, 'Annex site preparation', 3, [10, 12], [draftItem(6001, 'LABOR', 'Site layout', 24, 78), draftItem(6002, 'MATERIAL', 'Survey stakes', 40, 8)]),
-    draftWorkOrder(602, 'New dock electrical service', 3, [1, 2], [draftItem(6003, 'MATERIAL', 'Electrical switchboard', 1, 6800), draftItem(6004, 'LABOR', 'Electrical installation', 80, 88)]),
-  ]]),
-  project(7, [308, 'Assembly Cell Modernization', 'Draft phased upgrade for controls, power, and equipment installation.', 215000, 'OPEN', [0, 1, 2], [], false, [
-    draftWorkOrder(603, 'Controls cabinet installation', 0, [13, 2], [draftItem(6005, 'MATERIAL', 'Controls cabinet', 3, 2400), draftItem(6006, 'LABOR', 'Controls integration', 60, 110)]),
-    draftWorkOrder(604, 'Machine utility connections', 0, [3, 14], [draftItem(6007, 'MATERIAL', 'Copper pipe', 180, 12), draftItem(6008, 'LABOR', 'Utility connection labor', 48, 88)]),
-  ]]),
+  project(6, [307, 'Harbor Annex Planning', 'Warehouse annex planning with new docks and utility connections.', 310000, 'OPEN', [2, 4], []]),
+  project(7, [308, 'Assembly Cell Modernization', 'Phased upgrade for controls, power, and equipment installation.', 215000, 'OPEN', [0, 1, 2], []]),
   project(8, [309, 'Completed Facility Fit-Out', 'Completed fit-out retained with its furniture, cleaning, closeout, and warranty records.', 84000, 'COMPLETE', [0, 2, 3], orders(1018, 1028), true]),
   project(9, [310, 'Summit Plant Decommissioning', 'Archived historical project containing legacy electrical, mechanical, and structural records.', 125000, 'COMPLETE', [0, 1, 3], orders(1029, 1030, 1031), true]),
 ];
 
-export const mockDraftWorkOrders = mockProjects.flatMap(projectRecord => projectRecord.draftWorkOrders || []);
+// Keep the bundled Community Edition fixtures limited to live project records.

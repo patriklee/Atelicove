@@ -2,7 +2,8 @@
 
 ## Latest result
 
-The consolidated Community Edition backend suite was verified on July 18, 2026 with:
+The consolidated Community Edition backend suite was verified after removal of the
+draft subsystem on July 18, 2026 with:
 
 ```text
 Tests run: 76, Failures: 0, Errors: 0, Skipped: 0
@@ -17,6 +18,18 @@ mvn clean test
 
 The Maven build completed successfully. JaCoCo also generated its HTML report at
 `target/site/jacoco/index.html`; this report does not claim a coverage percentage.
+
+The existing frontend suite also completed successfully:
+
+```text
+Test suites: 3 passed, 3 total
+Tests: 8 passed, 8 total
+Snapshots: 0 total
+```
+
+The production frontend build completed successfully with `npm run build`. The
+former draft-specific frontend test file was removed with its implementation and no
+replacement tests were added merely to preserve the previous frontend count.
 
 ## Scope represented by the current suite
 

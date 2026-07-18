@@ -27,7 +27,6 @@ import ArchivedWorkers from '../features/workers/ArchivedWorkers';
 import ArchivedProjects from '../Components/ArchivedProjects';
 import Documents from '../features/documents/Documents';
 import ProjectsPage from '../features/projects/ProjectsPage';
-import DraftStudioPage from '../features/draftStudio/DraftStudioPage';
 import ProjectStudioPage from '../features/projectStudio/ProjectStudioPage';
 import ProjectSummary from '../features/projects/ProjectSummary';
 
@@ -71,8 +70,6 @@ function AppRoutes() {
               <Route path="settings" element={<Settings />} />
               <Route path="my-assignments" element={<MyAssignments />} />
               <Route path="my-assignments/:workOrderID" element={<MyWorkOrderDetail />} />
-              <Route path="draft-workorders/:projectID/:workOrderID" element={<MyWorkOrderDetail />} />
-              <Route path="projects/draft-studio" element={<DraftStudioPage />} />
               <Route path="projects/active" element={<ProjectStudioPage />} />
               <Route path="projects/:projectID" element={<ProjectSummary />} />
 			  <Route path="workorders" element={<WorkOrders />} />

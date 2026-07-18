@@ -29,7 +29,6 @@ const AdminHomePage = () => {
             label: 'Projects',
             key: 'projects',
             children: [
-                { label: 'Draft Studio', path: '/admin/projects/draft-studio' },
                 { label: 'Project Studio', path: '/admin/projects/active' },
                 { label: 'My Assignments', path: '/admin/my-assignments' },
             ],

@@ -39,7 +39,6 @@ public class WorkOrder extends ArchivableEntity {
 	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 	@JsonIgnoreProperties({
 		"associatedActiveProject",
-		"associatedDrafts",
 		"comments",
 		"actionItems",
 		"snapshots",

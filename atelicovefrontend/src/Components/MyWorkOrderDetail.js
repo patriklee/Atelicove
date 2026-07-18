@@ -39,7 +39,6 @@ const ITEM_TYPES = ['LABOR', 'MATERIAL', 'OTHER'];
 
 const emptyItem = () => ({
   workOrderItemID: `new-${Date.now()}`,
-  draftWorkOrderItemID: `new-${Date.now()}`,
   itemType: 'LABOR',
   itemName: '',
   quantity: 1,
@@ -48,10 +47,9 @@ const emptyItem = () => ({
 });
 
 const MyWorkOrderDetail = () => {
-  const { workOrderID, projectID: routeProjectID } = useParams();
+  const { workOrderID } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isDraftWorkOrder = Boolean(routeProjectID);
   const [workOrder, setWorkOrder] = useState(null);
   const [savedItems, setSavedItems] = useState([]);
   const [editItems, setEditItems] = useState([]);
@@ -66,7 +64,7 @@ const MyWorkOrderDetail = () => {
 
   const load = () => {
     setLoading(true);
-    apiFetch(isDraftWorkOrder ? `/workorders/drafts/${workOrderID}` : `/workorders/${workOrderID}`)
+    apiFetch(`/workorders/${workOrderID}`)
       .then(data => {
         setWorkOrder(data);
         setSavedItems(Array.isArray(data.items) ? data.items : []);
@@ -77,7 +75,7 @@ const MyWorkOrderDetail = () => {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [isDraftWorkOrder, workOrderID]);
+  useEffect(load, [workOrderID]);
 
   if (loading) return <Box sx={{ textAlign: 'center', mt: 8 }}><CircularProgress /></Box>;
   if (!workOrder) return <Alert severity="warning">Work order not found.</Alert>;
@@ -88,9 +86,8 @@ const MyWorkOrderDetail = () => {
   }
 
   const workers = getWorkOrderWorkers(workOrder);
-  const itemIDField = isDraftWorkOrder ? 'draftWorkOrderItemID' : 'workOrderItemID';
-  const getItemID = (item) => item?.[itemIDField] ?? item?.workOrderItemID ?? item?.draftWorkOrderItemID;
-  const itemApiBase = isDraftWorkOrder ? `/workorders/drafts/${workOrder.workOrderID}/items` : `/workorders/${workOrder.workOrderID}/items`;
+  const getItemID = (item) => item?.workOrderItemID;
+  const itemApiBase = `/workorders/${workOrder.workOrderID}/items`;
   const editingItemIDs = new Set(editItems.filter(item => !item.isNew).map(getItemID));
   const displayedSavedItems = savedItems
     .filter(item => Number(item.quantity) > 0)
@@ -105,7 +102,7 @@ const MyWorkOrderDetail = () => {
   } : null);
   const openProject = () => {
     if (!project?.projectID) return;
-    navigate(`/admin/projects/draft-studio?projectId=${project.projectID}`);
+    navigate(`/admin/projects/${project.projectID}`);
   };
   const requestPassword = (action) => {
     setPendingAction(action);
@@ -247,7 +244,7 @@ const MyWorkOrderDetail = () => {
     <Box sx={{ p: 3 }}>
       <Button onClick={() => navigate(-1)} sx={{ mb: 2 }}>Back</Button>
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
-        {isDraftWorkOrder ? 'Draft Work Order' : 'Work Order'} #{workOrder.workOrderID}
+        Work Order #{workOrder.workOrderID}
       </Typography>
       {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
 
@@ -281,8 +278,7 @@ const MyWorkOrderDetail = () => {
         </Table>
       </TableContainer>
 
-      {!isDraftWorkOrder && (
-        <TableContainer component={Paper} sx={{ mb: 4 }}>
+      <TableContainer component={Paper} sx={{ mb: 4 }}>
           <Table>
             <TableHead>
               <TableTitleRow title="Comments" colSpan={2} />
@@ -307,8 +303,7 @@ const MyWorkOrderDetail = () => {
               </TableRow>
             </TableBody>
           </Table>
-        </TableContainer>
-      )}
+      </TableContainer>
 
       <TableContainer component={Paper}>
         <Table>
@@ -413,17 +408,13 @@ const MyWorkOrderDetail = () => {
         </Box>
       </TableContainer>
 
-      {!isDraftWorkOrder && (
-        <WorkOrderDocuments workOrderID={workOrder.workOrderID} canManage={workOrder.status !== 'COMPLETE'} />
-      )}
+      <WorkOrderDocuments workOrderID={workOrder.workOrderID} canManage={workOrder.status !== 'COMPLETE'} />
 
-      {!isDraftWorkOrder && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
           <Button variant="contained" color="success" onClick={() => requestPassword('submit')}>
             Submit for Review
           </Button>
-        </Box>
-      )}
+      </Box>
 
       <Dialog open={passwordOpen} onClose={() => setPasswordOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Confirm Changes</DialogTitle>
