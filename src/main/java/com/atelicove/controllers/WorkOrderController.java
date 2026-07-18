@@ -37,7 +37,7 @@ public class WorkOrderController {
 
     @GetMapping
     public List<WorkOrder> getAllWorkOrders(Authentication authentication) {
-        return authorizationService.visibleWorkOrders(workOrderService.findActive(), authentication);
+        return authorizationService.visibleActiveWorkOrders(authentication);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -62,12 +62,12 @@ public class WorkOrderController {
 
     @GetMapping("/all-with-archived")
     public List<WorkOrder> getAllWorkOrdersIncludingArchived(Authentication authentication) {
-        return authorizationService.visibleWorkOrders(workOrderService.findAll(), authentication);
+        return authorizationService.visibleAllWorkOrders(authentication);
     }
 
     @GetMapping("/archived")
     public List<WorkOrder> getArchivedWorkOrders(Authentication authentication) {
-        return authorizationService.visibleWorkOrders(workOrderService.findArchived(), authentication);
+        return authorizationService.visibleArchivedWorkOrders(authentication);
     }
 
     @GetMapping("/{id}")
@@ -85,7 +85,7 @@ public class WorkOrderController {
 
     @GetMapping("/company/{companyID}")
     public List<WorkOrder> getWorkOrderByCompany(@PathVariable Integer companyID, Authentication authentication) {
-        return authorizationService.visibleWorkOrders(workOrderService.findByCompanyID(companyID), authentication);
+        return authorizationService.visibleActiveWorkOrdersForCompany(companyID, authentication);
     }
 
     @PreAuthorize("hasRole('ADMIN')")

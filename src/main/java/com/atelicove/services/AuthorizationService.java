@@ -58,6 +58,36 @@ public class AuthorizationService {
         return current;
     }
 
+    public List<WorkOrder> visibleActiveWorkOrders(Authentication authentication) {
+        Worker current = currentWorker(authentication);
+        return current.isAdmin()
+                ? workOrderRepository.findByArchivedFalse()
+                : workOrderRepository.findDistinctByWorkers_WorkerIDAndArchivedFalse(current.getWorkerID());
+    }
+
+    public List<WorkOrder> visibleArchivedWorkOrders(Authentication authentication) {
+        Worker current = currentWorker(authentication);
+        return current.isAdmin()
+                ? workOrderRepository.findByArchivedTrue()
+                : workOrderRepository.findDistinctByWorkers_WorkerIDAndArchivedTrue(current.getWorkerID());
+    }
+
+    public List<WorkOrder> visibleAllWorkOrders(Authentication authentication) {
+        Worker current = currentWorker(authentication);
+        return current.isAdmin()
+                ? workOrderRepository.findAll()
+                : workOrderRepository.findDistinctByWorkers_WorkerID(current.getWorkerID());
+    }
+
+    public List<WorkOrder> visibleActiveWorkOrdersForCompany(
+            Integer companyID, Authentication authentication) {
+        Worker current = currentWorker(authentication);
+        return current.isAdmin()
+                ? workOrderRepository.findByCompany_CompanyIDAndArchivedFalse(companyID)
+                : workOrderRepository.findDistinctByCompany_CompanyIDAndWorkers_WorkerIDAndArchivedFalse(
+                        companyID, current.getWorkerID());
+    }
+
     public Worker requireProjectAccess(Integer projectID, Authentication authentication) {
         Worker current = currentWorker(authentication);
         if (current.isAdmin()) {
@@ -70,16 +100,6 @@ public class AuthorizationService {
             throw new AccessDeniedException("Worker is not assigned to this project");
         }
         return current;
-    }
-
-    public List<WorkOrder> visibleWorkOrders(List<WorkOrder> workOrders, Authentication authentication) {
-        Worker current = currentWorker(authentication);
-        if (current.isAdmin()) {
-            return workOrders;
-        }
-        return workOrders.stream()
-                .filter(workOrder -> canAccessWorkOrder(workOrder, current))
-                .toList();
     }
 
     public List<Project> visibleProjects(List<Project> projects, Authentication authentication) {

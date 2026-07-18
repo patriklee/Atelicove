@@ -222,8 +222,17 @@ public class WODocumentService {
             throw new IllegalStateException("Archived work orders cannot have documents changed");
         }
 
+        if (workOrder.getStatus() == WorkOrderStatus.IN_REVIEW) {
+            throw new IllegalStateException("Work orders under review cannot have documents changed");
+        }
+
         if (workOrder.getStatus() == WorkOrderStatus.COMPLETE) {
             throw new IllegalStateException("Completed work orders are sealed and cannot be edited");
+        }
+
+        if (workOrder.getStatus() != WorkOrderStatus.OPEN
+                && workOrder.getStatus() != WorkOrderStatus.IN_PROCESS) {
+            throw new IllegalStateException("Work order documents can only be changed while open or in process");
         }
 
         return workOrder;

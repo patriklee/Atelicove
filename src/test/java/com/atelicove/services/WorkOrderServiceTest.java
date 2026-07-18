@@ -91,7 +91,7 @@ public class WorkOrderServiceTest {
         WorkOrder result = workOrderService.createWorkOrder(workOrder);
 
         assertSame(workOrder, result);
-        assertEquals(WorkOrderStatus.ACTIVE, workOrder.getStatus());
+        assertEquals(WorkOrderStatus.IN_PROCESS, workOrder.getStatus());
     }
 
     @Test
@@ -118,12 +118,12 @@ public class WorkOrderServiceTest {
         WorkOrder result = workOrderService.startWorkOrder(1);
 
         assertSame(workOrder, result);
-        assertEquals(WorkOrderStatus.ACTIVE, workOrder.getStatus());
+        assertEquals(WorkOrderStatus.IN_PROCESS, workOrder.getStatus());
     }
 
     @Test
     void startWorkOrderRejectsOrderThatIsNotOpen() {
-        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.ACTIVE);
+        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.IN_PROCESS);
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
 
         assertThrows(IllegalStateException.class, () -> workOrderService.startWorkOrder(1));
@@ -132,7 +132,7 @@ public class WorkOrderServiceTest {
 
     @Test
     void submitForReviewMovesInProcessOrderToReview() {
-        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.ACTIVE);
+        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.IN_PROCESS);
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
         when(workOrderRepository.save(workOrder)).thenReturn(workOrder);
 
@@ -178,7 +178,7 @@ public class WorkOrderServiceTest {
 
         workOrderService.rejectWorkOrder(1);
 
-        assertEquals(WorkOrderStatus.ACTIVE, workOrder.getStatus());
+        assertEquals(WorkOrderStatus.IN_PROCESS, workOrder.getStatus());
     }
 
     @Test
@@ -227,7 +227,7 @@ public class WorkOrderServiceTest {
 
     @Test
     void archiveByIdRejectsIncompleteWorkOrder() {
-        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.ACTIVE);
+        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.IN_PROCESS);
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
 
         assertThrows(IllegalStateException.class, () -> workOrderService.archiveById(1));
@@ -266,8 +266,34 @@ public class WorkOrderServiceTest {
     }
 
     @Test
+    void reviewWorkOrderRejectsCommentAndItemEdits() {
+        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.IN_REVIEW);
+        WorkOrderItem item = new WorkOrderItem();
+        when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
+
+        assertThrows(IllegalStateException.class,
+                () -> workOrderService.updateComment(1, "changed"));
+        assertThrows(IllegalStateException.class,
+                () -> workOrderService.addItem(1, item));
+        verify(workOrderRepository, never()).save(workOrder);
+    }
+
+    @Test
+    void completedWorkOrderRejectsCommentAndItemEdits() {
+        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.COMPLETE);
+        WorkOrderItem item = new WorkOrderItem();
+        when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
+
+        assertThrows(IllegalStateException.class,
+                () -> workOrderService.updateComment(1, "changed"));
+        assertThrows(IllegalStateException.class,
+                () -> workOrderService.addItem(1, item));
+        verify(workOrderRepository, never()).save(workOrder);
+    }
+
+    @Test
     void reassignWorkOrderAddsWorkerOnIncompleteOrder() {
-        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.ACTIVE);
+        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.IN_PROCESS);
         Worker currentWorker = new Worker();
         currentWorker.setWorkerID(2);
         Worker newWorker = new Worker();
@@ -282,7 +308,7 @@ public class WorkOrderServiceTest {
 
         assertSame(workOrder, result);
         assertEquals(2, workOrder.getWorkers().size());
-        assertEquals(WorkOrderStatus.ACTIVE, workOrder.getStatus());
+        assertEquals(WorkOrderStatus.IN_PROCESS, workOrder.getStatus());
     }
 
     @Test
@@ -297,7 +323,7 @@ public class WorkOrderServiceTest {
 
     @Test
     void removeWorkerFromWorkOrderReturnsEmptyOrderToOpen() {
-        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.ACTIVE);
+        WorkOrder workOrder = orderWithStatus(WorkOrderStatus.IN_PROCESS);
         Worker worker = new Worker();
         worker.setWorkerID(2);
         workOrder.addWorker(worker);

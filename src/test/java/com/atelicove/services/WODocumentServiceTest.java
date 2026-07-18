@@ -145,7 +145,7 @@ class WODocumentServiceTest {
         @Test
         void upload_ShouldPersistValidatedWorkOrderDocument() {
             // Given
-            WorkOrder order = aWorkOrder().status(WorkOrderStatus.ACTIVE).build();
+            WorkOrder order = aWorkOrder().status(WorkOrderStatus.IN_PROCESS).build();
             Worker worker = aWorker().build();
             MockMultipartFile file = pdf(FILE_NAME);
             when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
@@ -189,7 +189,7 @@ class WODocumentServiceTest {
         }, delimiter = '|')
         void upload_ShouldRejectUnsafeFileTypes(String name, String mimeType, String message) {
             // Given
-            WorkOrder order = aWorkOrder().status(WorkOrderStatus.ACTIVE).build();
+            WorkOrder order = aWorkOrder().status(WorkOrderStatus.IN_PROCESS).build();
             when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
             when(authorizationService.requireWorkOrderAccess(WORK_ORDER_ID, authentication)).thenReturn(aWorker().build());
             MockMultipartFile file = new MockMultipartFile("file", name, mimeType, new byte[] {1});
@@ -203,7 +203,7 @@ class WODocumentServiceTest {
         @Test
         void upload_ShouldRejectMissingTypeEmptyAndOversizedFiles() {
             // Given
-            WorkOrder order = aWorkOrder().status(WorkOrderStatus.ACTIVE).build();
+            WorkOrder order = aWorkOrder().status(WorkOrderStatus.IN_PROCESS).build();
             when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
             when(authorizationService.requireWorkOrderAccess(WORK_ORDER_ID, authentication)).thenReturn(aWorker().build());
             MockMultipartFile empty = new MockMultipartFile("file", FILE_NAME, PDF_MIME_TYPE, new byte[0]);
@@ -222,7 +222,7 @@ class WODocumentServiceTest {
         @Test
         void upload_ShouldWrapFileReadFailures() throws IOException {
             // Given
-            WorkOrder order = aWorkOrder().status(WorkOrderStatus.ACTIVE).build();
+            WorkOrder order = aWorkOrder().status(WorkOrderStatus.IN_PROCESS).build();
             MultipartFile broken = org.mockito.Mockito.mock(MultipartFile.class);
             when(broken.isEmpty()).thenReturn(false);
             when(broken.getSize()).thenReturn(1L);

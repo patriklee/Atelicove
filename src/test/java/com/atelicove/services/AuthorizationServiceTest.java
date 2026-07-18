@@ -226,21 +226,41 @@ class AuthorizationServiceTest {
     class Visibility {
 
         @Test
-        void visibility_ShouldFilterRecordsForWorker_ButReturnOriginalListsForAdmin() {
+        void workOrderLists_ShouldUseGlobalQueriesForAdminAndAssignedQueriesForWorker() {
+            Worker worker = aWorker().build();
+            WorkOrder assignedOrder = aWorkOrder().assignedTo(worker).build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(worker));
+            when(workOrderRepository.findDistinctByWorkers_WorkerIDAndArchivedFalse(WORKER_ID))
+                    .thenReturn(List.of(assignedOrder));
+
+            assertThat(service.visibleActiveWorkOrders(authentication)).containsExactly(assignedOrder);
+            verify(workOrderRepository, never()).findByArchivedFalse();
+
+            Worker admin = aWorker().asAdmin().build();
+            WorkOrder unrelatedOrder = aWorkOrder().withId(999).build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(admin));
+            when(workOrderRepository.findByArchivedFalse())
+                    .thenReturn(List.of(assignedOrder, unrelatedOrder));
+
+            assertThat(service.visibleActiveWorkOrders(authentication))
+                    .containsExactly(assignedOrder, unrelatedOrder);
+        }
+
+        @Test
+        void projectVisibility_ShouldFilterRecordsForWorker_ButReturnOriginalListForAdmin() {
             // Given
             Worker worker = aWorker().build();
             WorkOrder assignedOrder = aWorkOrder().assignedTo(worker).build();
-            WorkOrder unrelatedOrder = aWorkOrder().withId(999).build();
             Project assignedProject = aProject().build();
             assignedProject.addWorkOrder(assignedOrder);
             Project unrelatedProject = aProject().withId(999).build();
-            List<WorkOrder> orders = List.of(assignedOrder, unrelatedOrder);
             List<Project> projects = List.of(assignedProject, unrelatedProject);
             when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
                     .thenReturn(Optional.of(worker));
 
             // When / Then
-            assertThat(service.visibleWorkOrders(orders, authentication)).containsExactly(assignedOrder);
             assertThat(service.visibleProjects(projects, authentication)).containsExactly(assignedProject);
 
             // Given
@@ -249,7 +269,6 @@ class AuthorizationServiceTest {
                     .thenReturn(Optional.of(admin));
 
             // When / Then
-            assertThat(service.visibleWorkOrders(orders, authentication)).isSameAs(orders);
             assertThat(service.visibleProjects(projects, authentication)).isSameAs(projects);
         }
     }

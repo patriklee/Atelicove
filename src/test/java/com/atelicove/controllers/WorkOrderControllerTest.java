@@ -22,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.atelicove.controllers.WorkOrderController;
@@ -50,9 +51,8 @@ class WorkOrderControllerTest {
     @Test
     void getAllAndCompanyWorkOrdersReturnServiceResults() throws Exception {
         WorkOrder workOrder = order(1, WorkOrderStatus.OPEN);
-        when(workOrderService.findActive()).thenReturn(List.of(workOrder));
-        when(workOrderService.findByCompanyID(5)).thenReturn(List.of(workOrder));
-        when(authorizationService.visibleWorkOrders(any(), any()))
+        when(authorizationService.visibleActiveWorkOrders(any())).thenReturn(List.of(workOrder));
+        when(authorizationService.visibleActiveWorkOrdersForCompany(org.mockito.ArgumentMatchers.eq(5), any()))
                 .thenReturn(List.of(workOrder));
 
         mockMvc.perform(get("/workorders"))
@@ -62,8 +62,8 @@ class WorkOrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].status").value("OPEN"));
 
-        verify(authorizationService, org.mockito.Mockito.times(2))
-                .visibleWorkOrders(any(), any());
+        verify(authorizationService).visibleActiveWorkOrders(any());
+        verify(authorizationService).visibleActiveWorkOrdersForCompany(org.mockito.ArgumentMatchers.eq(5), any());
     }
 
     @Test
@@ -107,24 +107,24 @@ class WorkOrderControllerTest {
     @Test
     void workflowEndpointsReturnUpdatedOrders() throws Exception {
         when(workOrderService.startWorkOrder(1))
-                .thenReturn(order(1, WorkOrderStatus.ACTIVE));
+                .thenReturn(order(1, WorkOrderStatus.IN_PROCESS));
         when(workOrderService.reassignWorkOrder(1, 3))
-                .thenReturn(order(1, WorkOrderStatus.ACTIVE));
+                .thenReturn(order(1, WorkOrderStatus.IN_PROCESS));
         when(workOrderService.submitForReview(1))
                 .thenReturn(order(1, WorkOrderStatus.IN_REVIEW));
         when(workOrderService.approveWorkOrder(1))
                 .thenReturn(order(1, WorkOrderStatus.COMPLETE));
         when(workOrderService.rejectWorkOrder(2))
-                .thenReturn(order(2, WorkOrderStatus.ACTIVE));
+                .thenReturn(order(2, WorkOrderStatus.IN_PROCESS));
 
         mockMvc.perform(put("/workorders/1/start"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ACTIVE"));
+                .andExpect(jsonPath("$.status").value("IN_PROCESS"));
         mockMvc.perform(put("/workorders/1/assign")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"workerID\":3}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ACTIVE"));
+                .andExpect(jsonPath("$.status").value("IN_PROCESS"));
         mockMvc.perform(put("/workorders/1/submit"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("IN_REVIEW"));
@@ -133,7 +133,7 @@ class WorkOrderControllerTest {
                 .andExpect(jsonPath("$.status").value("COMPLETE"));
         mockMvc.perform(put("/workorders/2/reject"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ACTIVE"));
+                .andExpect(jsonPath("$.status").value("IN_PROCESS"));
     }
 
     @Test
@@ -149,7 +149,7 @@ class WorkOrderControllerTest {
 
     @Test
     void remainingWorkOrderEndpoints_ShouldDelegateAndReturnExpectedBodies() throws Exception {
-        WorkOrder order = order(1, WorkOrderStatus.ACTIVE);
+        WorkOrder order = order(1, WorkOrderStatus.IN_PROCESS);
         WorkOrderItem item = new WorkOrderItem();
         DraftWorkOrder draft = new DraftWorkOrder();
         draft.setDraftWorkOrderID(5);
@@ -158,9 +158,8 @@ class WorkOrderControllerTest {
         when(workOrderService.findDraftById(5)).thenReturn(Optional.of(draft));
         when(workOrderService.findDraftById(99)).thenReturn(Optional.empty());
         when(workOrderService.findArchivedDrafts()).thenReturn(List.of(draft));
-        when(workOrderService.findAll()).thenReturn(List.of(order));
-        when(workOrderService.findArchived()).thenReturn(List.of(order));
-        when(authorizationService.visibleWorkOrders(any(), any())).thenReturn(List.of(order));
+        when(authorizationService.visibleAllWorkOrders(any())).thenReturn(List.of(order));
+        when(authorizationService.visibleArchivedWorkOrders(any())).thenReturn(List.of(order));
         when(workOrderService.removeWorkerFromWorkOrder(1, 3)).thenReturn(order);
         when(workOrderService.removeCompanyFromWorkOrder(1)).thenReturn(order);
         when(workOrderService.assignCompanyToWorkOrder(1, 4)).thenReturn(order);
@@ -202,6 +201,38 @@ class WorkOrderControllerTest {
         verify(workOrderService).archiveDraftById(5);
         verify(workOrderService).deleteDraftPermanentlyById(5);
         verify(workOrderService).deletePermanentlyById(1);
+    }
+
+    @Test
+    void unassignedWorkerReceivesForbiddenForReadAndUpdate() throws Exception {
+        org.mockito.Mockito.doThrow(new AccessDeniedException("Worker is not assigned"))
+                .when(authorizationService).requireWorkOrderAccess(org.mockito.ArgumentMatchers.eq(1), any());
+
+        mockMvc.perform(get("/workorders/1"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put("/workorders/1/comment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"comment\":\"changed\"}"))
+                .andExpect(status().isForbidden());
+
+        verify(workOrderService, org.mockito.Mockito.never()).updateComment(any(), any());
+    }
+
+    @Test
+    void assignedWorkerCanReadAndUpdateEditableWorkOrder() throws Exception {
+        WorkOrder workOrder = order(1, WorkOrderStatus.IN_PROCESS);
+        when(workOrderService.findById(1)).thenReturn(Optional.of(workOrder));
+        when(workOrderService.updateComment(1, "changed")).thenReturn(workOrder);
+
+        mockMvc.perform(get("/workorders/1"))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/workorders/1/comment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"comment\":\"changed\"}"))
+                .andExpect(status().isOk());
+
+        verify(authorizationService, org.mockito.Mockito.times(2))
+                .requireWorkOrderAccess(org.mockito.ArgumentMatchers.eq(1), any());
     }
 
     private WorkOrder order(int id, WorkOrderStatus status) {

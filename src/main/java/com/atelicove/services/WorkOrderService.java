@@ -56,7 +56,7 @@ public class WorkOrderService{
     		throw new IllegalStateException("Only open work orders can be started");
     	}
     	
-        workOrder.setStatus(WorkOrderStatus.ACTIVE);
+        workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
     	
     	return workOrderRepository.save(workOrder);
     }
@@ -143,7 +143,7 @@ public class WorkOrderService{
     				throw new IllegalStateException("Archived workers cannot be assigned");
     			}
     		}
-            workOrder.setStatus(WorkOrderStatus.ACTIVE);
+            workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
     	}
 
     	if (workOrder.getCompany() != null) {
@@ -181,14 +181,14 @@ public class WorkOrderService{
         }
 
         boolean alreadyAssigned = workOrder.getWorkers().stream()
-                .anyMatch(assignedWorker -> assignedWorker.getWorkerID() == workerID);
+                .anyMatch(assignedWorker -> java.util.Objects.equals(assignedWorker.getWorkerID(), workerID));
 
         if (alreadyAssigned) {
             return workOrder;
         }
 
         workOrder.addWorker(worker);
-        workOrder.setStatus(WorkOrderStatus.ACTIVE);
+        workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
 
         return workOrderRepository.save(workOrder);
     }
@@ -210,7 +210,7 @@ public class WorkOrderService{
                 .orElseThrow(() -> new IllegalArgumentException("Worker not found"));
 
         Worker assignedWorker = workOrder.getWorkers().stream()
-                .filter(item -> item.getWorkerID() == worker.getWorkerID())
+                .filter(item -> java.util.Objects.equals(item.getWorkerID(), worker.getWorkerID()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Worker is not assigned to this work order"));
 
@@ -277,7 +277,7 @@ public class WorkOrderService{
 
         validateItem(request.getItemName(), request.getQuantity(), request.getPrice(), request.getItemType());
         WorkOrderItem item = workOrder.getItems().stream()
-                .filter(existingItem -> existingItem.getWorkOrderItemID() == itemID)
+                .filter(existingItem -> java.util.Objects.equals(existingItem.getWorkOrderItemID(), itemID))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Work order item not found"));
 
@@ -295,7 +295,7 @@ public class WorkOrderService{
         ensureWorkOrderCanBeEdited(workOrder);
 
         WorkOrderItem item = workOrder.getItems().stream()
-                .filter(existingItem -> existingItem.getWorkOrderItemID() == itemID)
+                .filter(existingItem -> java.util.Objects.equals(existingItem.getWorkOrderItemID(), itemID))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Work order item not found"));
 
@@ -480,9 +480,9 @@ public class WorkOrderService{
         WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
         ensureWorkOrderCanBeEdited(workOrder);
 
-        if (workOrder.getStatus() != WorkOrderStatus.ACTIVE &&
+        if (workOrder.getStatus() != WorkOrderStatus.IN_PROCESS &&
                 workOrder.getStatus() != WorkOrderStatus.OPEN) {
-            throw new IllegalStateException("Only open or active work orders can be submitted");
+            throw new IllegalStateException("Only open or in-process work orders can be submitted");
         }
 
         workOrder.setStatus(WorkOrderStatus.IN_REVIEW);
@@ -500,7 +500,7 @@ public class WorkOrderService{
     @Transactional
     public WorkOrder approveWorkOrder(Integer workOrderID) {
     	WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
-		ensureWorkOrderCanBeEdited(workOrder);
+		ensureWorkOrderIsNotArchived(workOrder);
     	
     	if(workOrder.getStatus() != WorkOrderStatus.IN_REVIEW) {
     		throw new IllegalStateException("Only work orders under review can be approved");
@@ -515,13 +515,13 @@ public class WorkOrderService{
     @Transactional
     public WorkOrder rejectWorkOrder(Integer workOrderID) {
     	WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
-		ensureWorkOrderCanBeEdited(workOrder);
+		ensureWorkOrderIsNotArchived(workOrder);
     	
     	if(workOrder.getStatus() != WorkOrderStatus.IN_REVIEW) {
     		throw new IllegalStateException("Only work orders under review can be rejected");
     	}
     	
-        workOrder.setStatus(WorkOrderStatus.ACTIVE);
+        workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
         
         return workOrderRepository.save(workOrder);
     }
@@ -544,11 +544,16 @@ public class WorkOrderService{
     }
 
     private void ensureWorkOrderCanBeEdited(WorkOrder workOrder) {
+        ensureWorkOrderIsNotArchived(workOrder);
+        if (workOrder.getStatus() != WorkOrderStatus.OPEN
+                && workOrder.getStatus() != WorkOrderStatus.IN_PROCESS) {
+            throw new IllegalStateException("Work orders can only be edited while open or in process");
+        }
+    }
+
+    private void ensureWorkOrderIsNotArchived(WorkOrder workOrder) {
         if (workOrder.isArchived()) {
             throw new IllegalStateException("Archived work orders cannot be edited");
-        }
-        if (workOrder.getStatus() == WorkOrderStatus.COMPLETE) {
-            throw new IllegalStateException("Completed work orders are sealed and cannot be edited");
         }
     }
     
