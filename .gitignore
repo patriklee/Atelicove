@@ -39,6 +39,7 @@ mysql_data/
 # Eclipse / STS
 # ===============================
 
+.metadata/
 .apt_generated
 .classpath
 .factorypath
