@@ -6,12 +6,20 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import com.atelicove.dto.PasswordResetRequest;
+import com.atelicove.dto.CreateWorkerRequest;
+import com.atelicove.dto.UpdateWorkerProfileRequest;
+import com.atelicove.dto.UpdateWorkerRequest;
+import com.atelicove.dto.WorkerProfileResponse;
+import com.atelicove.dto.WorkerSummaryResponse;
 import com.atelicove.entities.Worker;
+import com.atelicove.mappers.WorkerMapper;
 import com.atelicove.services.WorkerService;
 import com.atelicove.services.AuthorizationService;
 
 import java.util.List;
 import java.util.Optional;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/workers")
@@ -19,51 +27,60 @@ public class WorkerController {
 
     private final WorkerService workerService;
     private final AuthorizationService authorizationService;
+    private final WorkerMapper workerMapper;
 
-    public WorkerController(WorkerService WorkerService, AuthorizationService authorizationService) {
-        this.workerService = WorkerService;
+    public WorkerController(WorkerService workerService, AuthorizationService authorizationService,
+            WorkerMapper workerMapper) {
+        this.workerService = workerService;
         this.authorizationService = authorizationService;
+        this.workerMapper = workerMapper;
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
-    public List<Worker> getAllWorkers() {
-        return workerService.findActive();
+    public List<WorkerSummaryResponse> getAllWorkers() {
+        return workerService.findActive().stream().map(workerMapper::toSummaryResponse).toList();
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/all-with-archived")
-    public List<Worker> getAllWorkersIncludingArchived() {
-        return workerService.findAll();
+    public List<WorkerSummaryResponse> getAllWorkersIncludingArchived() {
+        return workerService.findAll().stream().map(workerMapper::toSummaryResponse).toList();
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/archived")
-    public List<Worker> getArchivedWorkers() {
-        return workerService.findArchived();
+    public List<WorkerSummaryResponse> getArchivedWorkers() {
+        return workerService.findArchived().stream().map(workerMapper::toSummaryResponse).toList();
+    }
+
+    @GetMapping("/me")
+    public WorkerProfileResponse getCurrentWorker(Authentication authentication) {
+        return workerMapper.toProfileResponse(authorizationService.currentWorker(authentication));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Worker> getWorkerById(@PathVariable Integer id, Authentication authentication) {
+    public ResponseEntity<WorkerProfileResponse> getWorkerById(
+            @PathVariable Integer id, Authentication authentication) {
         authorizationService.requireOwnWorkerOrAdmin(id, authentication);
     	
     	Optional<Worker> worker = workerService.findById(id);
     	
     	if(worker.isPresent()) {
-    		return ResponseEntity.ok(worker.get());
+            return ResponseEntity.ok(workerMapper.toProfileResponse(worker.get()));
     	}
     	
         return ResponseEntity.notFound().build();
     }
 
     @GetMapping("/username/{username}")
-    public ResponseEntity<Worker> getWorkerByUsername(@PathVariable String username, Authentication authentication) {
-    	
+    public ResponseEntity<WorkerProfileResponse> getWorkerByUsername(
+            @PathVariable String username, Authentication authentication) {
+        authorizationService.requireOwnUsernameOrAdmin(username, authentication);
         Optional<Worker> worker = workerService.findByUsername(username);
 
         if (worker.isPresent()) {
-            authorizationService.requireOwnWorkerOrAdmin(worker.get().getWorkerID(), authentication);
-            return ResponseEntity.ok(worker.get());
+            return ResponseEntity.ok(workerMapper.toProfileResponse(worker.get()));
         }
         
         return ResponseEntity.notFound().build();
@@ -71,14 +88,15 @@ public class WorkerController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public Worker addWorker(@RequestBody Worker worker) {
-        return workerService.createWorker(worker);
+    public WorkerProfileResponse addWorker(@Valid @RequestBody CreateWorkerRequest request) {
+        return workerMapper.toProfileResponse(workerService.createWorker(workerMapper.toWorker(request)));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public Worker updateWorker(@PathVariable Integer id, @RequestBody Worker worker) {
-    	return workerService.updateWorker(id, worker);
+    public WorkerProfileResponse updateWorker(
+            @PathVariable Integer id, @Valid @RequestBody UpdateWorkerRequest request) {
+		return workerMapper.toProfileResponse(workerService.updateWorker(id, workerMapper.toWorker(request)));
     }
 
     /**
@@ -91,9 +109,10 @@ public class WorkerController {
      * @return the saved worker profile
      */
     @PutMapping("/{id}/profile")
-    public Worker updateProfile(@PathVariable Integer id, @RequestBody Worker worker, Authentication authentication) {
+    public WorkerProfileResponse updateProfile(@PathVariable Integer id,
+            @Valid @RequestBody UpdateWorkerProfileRequest request, Authentication authentication) {
         authorizationService.requireOwnWorkerOrAdmin(id, authentication);
-    	return workerService.updateProfile(id, worker);
+        return workerMapper.toProfileResponse(workerService.updateProfile(id, workerMapper.toWorker(request)));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -105,8 +124,8 @@ public class WorkerController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}/restore")
-    public Worker restoreWorker(@PathVariable Integer id) {
-    	return workerService.restoreById(id);
+    public WorkerProfileResponse restoreWorker(@PathVariable Integer id) {
+		return workerMapper.toProfileResponse(workerService.restoreById(id));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -118,7 +137,8 @@ public class WorkerController {
     
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}/password")
-    public ResponseEntity<Void> resetPassword(@PathVariable Integer id, @RequestBody PasswordResetRequest request){
+    public ResponseEntity<Void> resetPassword(
+            @PathVariable Integer id, @Valid @RequestBody PasswordResetRequest request){
     	workerService.resetPassword(id,  request.getNewPassword());
     	return ResponseEntity.noContent().build();
     }

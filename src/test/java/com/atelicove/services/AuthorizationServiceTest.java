@@ -127,6 +127,34 @@ class AuthorizationServiceTest {
                     .isInstanceOf(AccessDeniedException.class)
                     .hasMessage("Only your own worker account can be accessed");
         }
+
+        @Test
+        void requireOwnUsernameOrAdmin_ShouldAllowOwnerAndAdministrator() {
+            Worker owner = aWorker().build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(owner));
+
+            assertThat(service.requireOwnUsernameOrAdmin(USERNAME.toUpperCase(), authentication))
+                    .isSameAs(owner);
+
+            Worker admin = aWorker().asAdmin().build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(admin));
+
+            assertThat(service.requireOwnUsernameOrAdmin("another.worker", authentication))
+                    .isSameAs(admin);
+        }
+
+        @Test
+        void requireOwnUsernameOrAdmin_ShouldRejectUnrelatedWorker() {
+            Worker worker = aWorker().build();
+            when(workerRepository.findByWorkerUserIgnoreCaseAndArchivedFalse(USERNAME))
+                    .thenReturn(Optional.of(worker));
+
+            assertThatThrownBy(() -> service.requireOwnUsernameOrAdmin("another.worker", authentication))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Only your own worker account can be accessed");
+        }
     }
 
     @Nested

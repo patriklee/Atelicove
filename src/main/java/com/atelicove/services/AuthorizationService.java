@@ -44,6 +44,14 @@ public class AuthorizationService {
         throw new AccessDeniedException("Only your own worker account can be accessed");
     }
 
+    public Worker requireOwnUsernameOrAdmin(String username, Authentication authentication) {
+        Worker current = currentWorker(authentication);
+        if (current.isAdmin() || current.getWorkerUser().equalsIgnoreCase(username)) {
+            return current;
+        }
+        throw new AccessDeniedException("Only your own worker account can be accessed");
+    }
+
     public Worker requireWorkOrderAccess(Integer workOrderID, Authentication authentication) {
         Worker current = currentWorker(authentication);
         if (current.isAdmin()) {
