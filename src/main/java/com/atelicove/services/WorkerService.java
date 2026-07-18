@@ -12,17 +12,35 @@ import org.springframework.transaction.annotation.Transactional;
 import com.atelicove.entities.Worker;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.WorkerRepository;
+import com.atelicove.repositories.WorkOrderRepository;
+import com.atelicove.repositories.WODocumentRepository;
+import com.atelicove.repositories.TeamRepository;
+import com.atelicove.repositories.ProjectRepository;
 
 @Service
 public class WorkerService {
 
     private final WorkerRepository workerRepository;
     private final PasswordEncoder passwordEncoder;
+    private final WorkOrderRepository workOrderRepository;
+    private final WODocumentRepository documentRepository;
+    private final TeamRepository teamRepository;
+    private final ProjectRepository projectRepository;
 
 
-    public WorkerService(WorkerRepository workerRepository, PasswordEncoder passwordEncoder) {
+    public WorkerService(
+            WorkerRepository workerRepository,
+            PasswordEncoder passwordEncoder,
+            WorkOrderRepository workOrderRepository,
+            WODocumentRepository documentRepository,
+            TeamRepository teamRepository,
+            ProjectRepository projectRepository) {
         this.workerRepository = workerRepository;
 		this.passwordEncoder = passwordEncoder;
+        this.workOrderRepository = workOrderRepository;
+        this.documentRepository = documentRepository;
+        this.teamRepository = teamRepository;
+        this.projectRepository = projectRepository;
     }
     
     /**
@@ -225,14 +243,27 @@ public class WorkerService {
     	Worker worker = workerRepository.findById(id)
     			.orElseThrow(() -> new IllegalArgumentException("Worker not found"));
 
-	ensureNotFinalActiveAdministrator(worker, "deleted");
-	if (worker.isArchived()) {
-    		throw new IllegalStateException("Archived workers can only be restored");
-    	}
+		ensureNotFinalActiveAdministrator(worker, "deleted");
+		if (worker.isArchived()) {
+			throw new IllegalStateException("Archived workers can only be restored");
+		}
 
-    	if (!worker.getWorkOrders().isEmpty()) {
-    		throw new IllegalStateException("Worker cannot be permanently deleted while work orders are attached");
-    	}
+        if (workOrderRepository.existsByWorkers_WorkerID(id)) {
+			throw new IllegalStateException("Worker cannot be permanently deleted while work orders are attached");
+		}
+
+        if (documentRepository.existsByUploadedByWorker_WorkerID(id)) {
+            throw new IllegalStateException("Worker cannot be permanently deleted while uploaded documents are attached");
+        }
+
+        if (teamRepository.existsByWorkers_WorkerID(id)) {
+            throw new IllegalStateException("Worker cannot be permanently deleted while assigned to a team");
+        }
+
+        if (projectRepository.existsByComments_Author_WorkerID(id)
+                || projectRepository.existsByActionItems_AssignedWorker_WorkerID(id)) {
+            throw new IllegalStateException("Worker cannot be permanently deleted while project history is attached");
+        }
 
     	workerRepository.delete(worker);
     }

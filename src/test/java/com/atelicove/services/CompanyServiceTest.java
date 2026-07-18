@@ -186,7 +186,7 @@ class CompanyServiceTest {
             // Given
             Company company = aCompany().build();
             when(companyRepository.findById(COMPANY_ID)).thenReturn(Optional.of(company));
-            when(workOrderRepository.findByCompany_CompanyID(COMPANY_ID)).thenReturn(List.of());
+            when(workOrderRepository.existsByCompany_CompanyID(COMPANY_ID)).thenReturn(false);
 
             // When
             service.deletePermanentlyById(COMPANY_ID);
@@ -217,8 +217,7 @@ class CompanyServiceTest {
             // Given
             Company active = aCompany().build();
             when(companyRepository.findById(COMPANY_ID)).thenReturn(Optional.of(active));
-            when(workOrderRepository.findByCompany_CompanyID(COMPANY_ID))
-                    .thenReturn(List.of(aWorkOrder().forCompany(active).build()));
+            when(workOrderRepository.existsByCompany_CompanyID(COMPANY_ID)).thenReturn(true);
 
             // When / Then
             assertThatThrownBy(() -> service.deletePermanentlyById(COMPANY_ID))

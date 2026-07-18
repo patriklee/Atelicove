@@ -13,4 +13,6 @@ public interface ProjectRepository extends JpaRepository<Project, Integer> {
 	List<Project> findByArchivedFalse();
 	List<Project> findByArchivedTrue();
 	long countByArchivedFalse();
+	boolean existsByComments_Author_WorkerID(Integer workerID);
+	boolean existsByActionItems_AssignedWorker_WorkerID(Integer workerID);
 }

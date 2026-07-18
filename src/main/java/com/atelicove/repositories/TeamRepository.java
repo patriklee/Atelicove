@@ -7,4 +7,5 @@ import com.atelicove.entities.Team;
 
 @Repository
 public interface TeamRepository extends JpaRepository<Team, Integer> {
+	boolean existsByWorkers_WorkerID(Integer workerID);
 }

@@ -12,4 +12,6 @@ public interface WODocumentRepository extends JpaRepository<Document, Integer> {
     List<Document> findByProject_ProjectIDOrderByCreatedAtDesc(Integer projectID);
     Optional<Document> findByDocumentIDAndWorkOrder_WorkOrderID(Integer documentID, Integer workOrderID);
     Optional<Document> findByDocumentIDAndProject_ProjectID(Integer documentID, Integer projectID);
+    boolean existsByWorkOrder_WorkOrderID(Integer workOrderID);
+    boolean existsByUploadedByWorker_WorkerID(Integer workerID);
 }

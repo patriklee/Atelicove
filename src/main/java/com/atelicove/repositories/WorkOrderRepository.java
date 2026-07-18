@@ -16,6 +16,8 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Integer> {
 	List<WorkOrder> findDistinctByWorkers_WorkerIDAndArchivedFalse(Integer workerID);
 	List<WorkOrder> findDistinctByWorkers_WorkerIDAndArchivedTrue(Integer workerID);
 	List<WorkOrder> findDistinctByWorkers_WorkerID(Integer workerID);
+	boolean existsByWorkers_WorkerID(Integer workerID);
+	boolean existsByCompany_CompanyID(Integer companyID);
 	List<WorkOrder> findDistinctByCompany_CompanyIDAndWorkers_WorkerIDAndArchivedFalse(
 			Integer companyID, Integer workerID);
 	long countByArchivedFalse();

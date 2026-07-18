@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 import com.atelicove.entities.WorkOrderItem;
 
 public interface WOItemRepository extends JpaRepository<WorkOrderItem, Integer> {
-
+	boolean existsByWorkOrder_WorkOrderID(Integer workOrderID);
 }

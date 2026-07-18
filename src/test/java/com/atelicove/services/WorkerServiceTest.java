@@ -34,6 +34,10 @@ import com.atelicove.entities.Worker;
 import com.atelicove.entities.WorkOrder;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.WorkerRepository;
+import com.atelicove.repositories.WorkOrderRepository;
+import com.atelicove.repositories.WODocumentRepository;
+import com.atelicove.repositories.TeamRepository;
+import com.atelicove.repositories.ProjectRepository;
 
 @ExtendWith(MockitoExtension.class)
 class WorkerServiceTest {
@@ -42,6 +46,10 @@ class WorkerServiceTest {
 
     @Mock private WorkerRepository workerRepository;
     @Mock private PasswordEncoder passwordEncoder;
+    @Mock private WorkOrderRepository workOrderRepository;
+    @Mock private WODocumentRepository documentRepository;
+    @Mock private TeamRepository teamRepository;
+    @Mock private ProjectRepository projectRepository;
     @InjectMocks private WorkerService service;
 
     @Nested
@@ -373,6 +381,7 @@ class WorkerServiceTest {
             Worker assigned = aWorker().build();
             assign(assigned, WorkOrderStatus.OPEN);
             when(workerRepository.findById(WORKER_ID)).thenReturn(Optional.of(assigned));
+            when(workOrderRepository.existsByWorkers_WorkerID(WORKER_ID)).thenReturn(true);
             assertThatThrownBy(() -> service.deletePermanentlyById(WORKER_ID))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessage("Worker cannot be permanently deleted while work orders are attached");

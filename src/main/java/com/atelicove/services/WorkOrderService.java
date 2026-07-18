@@ -23,6 +23,8 @@ import com.atelicove.repositories.CompanyRepository;
 import com.atelicove.repositories.DraftWorkOrderRepository;
 import com.atelicove.repositories.WorkOrderRepository;
 import com.atelicove.repositories.WorkerRepository;
+import com.atelicove.repositories.WODocumentRepository;
+import com.atelicove.repositories.WOItemRepository;
 
 @Service
 public class WorkOrderService{
@@ -31,16 +33,22 @@ public class WorkOrderService{
     private final DraftWorkOrderRepository draftWorkOrderRepository;
     private final WorkerRepository workerRepository;
     private final CompanyRepository companyRepository;
+    private final WODocumentRepository documentRepository;
+    private final WOItemRepository itemRepository;
 
     public WorkOrderService(
             WorkOrderRepository workOrderRepository,
             DraftWorkOrderRepository draftWorkOrderRepository,
             WorkerRepository workerRepository,
-            CompanyRepository companyRepository) {
+            CompanyRepository companyRepository,
+            WODocumentRepository documentRepository,
+            WOItemRepository itemRepository) {
         this.workOrderRepository = workOrderRepository;
         this.draftWorkOrderRepository = draftWorkOrderRepository;
         this.workerRepository = workerRepository;
         this.companyRepository = companyRepository;
+        this.documentRepository = documentRepository;
+        this.itemRepository = itemRepository;
     }
     
     /**
@@ -441,18 +449,19 @@ public class WorkOrderService{
             throw new IllegalStateException("Only empty open work orders without business history can be permanently deleted");
         }
 
-        workOrder.setWorkers(new HashSet<>());
         workOrderRepository.delete(workOrder);
     }
 
     private boolean canDeleteMistakenWorkOrder(WorkOrder workOrder) {
-        boolean hasItems = workOrder.getItems() != null && !workOrder.getItems().isEmpty();
+        boolean hasItems = itemRepository.existsByWorkOrder_WorkOrderID(workOrder.getWorkOrderID());
+        boolean hasDocuments = documentRepository.existsByWorkOrder_WorkOrderID(workOrder.getWorkOrderID());
         boolean hasWorkers = workOrder.getWorkers() != null && !workOrder.getWorkers().isEmpty();
 
         return !workOrder.isArchived() &&
                 workOrder.getStatus() == WorkOrderStatus.OPEN &&
                 workOrder.getEndDateTime() == null &&
                 !hasItems &&
+                !hasDocuments &&
                 !hasWorkers &&
                 workOrder.getCompany() == null &&
                 workOrder.getProject() == null &&

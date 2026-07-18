@@ -21,6 +21,8 @@ import com.atelicove.entities.Worker;
 import com.atelicove.repositories.ProjectRepository;
 import com.atelicove.repositories.WorkOrderRepository;
 import com.atelicove.repositories.WorkerRepository;
+import com.atelicove.repositories.WODocumentRepository;
+import com.atelicove.repositories.TeamRepository;
 
 @ExtendWith(MockitoExtension.class)
 class WorkerApiBoundaryTest {
@@ -33,6 +35,8 @@ class WorkerApiBoundaryTest {
     @Mock private WorkOrderRepository workOrderRepository;
     @Mock private ProjectRepository projectRepository;
     @Mock private PasswordEncoder passwordEncoder;
+    @Mock private WODocumentRepository documentRepository;
+    @Mock private TeamRepository teamRepository;
 
     private WorkerService workerService;
     private AuthorizationService authorizationService;
@@ -40,7 +44,9 @@ class WorkerApiBoundaryTest {
 
     @BeforeEach
     void setUp() {
-        workerService = new WorkerService(workerRepository, passwordEncoder);
+        workerService = new WorkerService(
+                workerRepository, passwordEncoder, workOrderRepository, documentRepository, teamRepository,
+                projectRepository);
         authorizationService = new AuthorizationService(
                 workerRepository, workOrderRepository, projectRepository);
         authentication = new TestingAuthenticationToken(USERNAME, "n/a", "ROLE_WORKER");

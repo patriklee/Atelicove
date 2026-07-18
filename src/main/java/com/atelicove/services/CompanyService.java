@@ -103,7 +103,7 @@ public class CompanyService{
 	            throw new IllegalStateException("Archived companies can only be restored");
 	        }
 
-	        if (!workOrderRepository.findByCompany_CompanyID(company.getCompanyID()).isEmpty()) {
+	        if (workOrderRepository.existsByCompany_CompanyID(company.getCompanyID())) {
 	            throw new IllegalStateException("Company cannot be permanently deleted while work orders are attached");
 	        }
 

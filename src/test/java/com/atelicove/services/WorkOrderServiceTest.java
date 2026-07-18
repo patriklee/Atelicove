@@ -44,6 +44,8 @@ import com.atelicove.repositories.CompanyRepository;
 import com.atelicove.repositories.DraftWorkOrderRepository;
 import com.atelicove.repositories.WorkOrderRepository;
 import com.atelicove.repositories.WorkerRepository;
+import com.atelicove.repositories.WODocumentRepository;
+import com.atelicove.repositories.WOItemRepository;
 import com.atelicove.services.WorkOrderService;
 
 @ExtendWith(MockitoExtension.class)
@@ -62,6 +64,12 @@ public class WorkOrderServiceTest {
 
     @Mock
     private CompanyRepository companyRepository;
+
+    @Mock
+    private WODocumentRepository documentRepository;
+
+    @Mock
+    private WOItemRepository itemRepository;
 
     @InjectMocks
     private WorkOrderService workOrderService;
