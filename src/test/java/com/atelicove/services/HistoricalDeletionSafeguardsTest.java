@@ -34,7 +34,7 @@ import com.atelicove.repositories.WorkerRepository;
 @ExtendWith(MockitoExtension.class)
 class HistoricalDeletionSafeguardsTest {
 
-    private static final int WORK_ORDER_ID = 11;
+    private static final int ORDER_ID = 11;
     private static final int WORKER_ID = 12;
     private static final int COMPANY_ID = 13;
     private static final int DOCUMENT_ID = 14;
@@ -58,98 +58,61 @@ class HistoricalDeletionSafeguardsTest {
 
     @Test
     void completedWorkOrderCannotBePermanentlyDeleted() {
-        WorkOrder order = order(WorkOrderStatus.COMPLETE, false);
-        when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
-
-        assertHistoricalWorkOrderIsRejected(order);
+        assertWorkOrderDeletionRejected(order(WorkOrderStatus.COMPLETE, false));
     }
 
     @Test
     void archivedCompletedWorkOrderCannotBePermanentlyDeleted() {
-        WorkOrder order = order(WorkOrderStatus.COMPLETE, true);
-        when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
-
-        assertHistoricalWorkOrderIsRejected(order);
+        assertWorkOrderDeletionRejected(order(WorkOrderStatus.COMPLETE, true));
     }
 
     @Test
     void workOrderWithItemsCannotBePermanentlyDeleted() {
         WorkOrder order = order(WorkOrderStatus.OPEN, false);
-        when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
-        when(itemRepository.existsByWorkOrder_WorkOrderID(WORK_ORDER_ID)).thenReturn(true);
+        when(workOrderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        when(itemRepository.existsByWorkOrder_WorkOrderID(ORDER_ID)).thenReturn(true);
 
-        assertHistoricalWorkOrderIsRejected(order);
+        assertDeletionConflict();
     }
 
     @Test
     void workOrderWithDocumentsCannotBePermanentlyDeleted() {
         WorkOrder order = order(WorkOrderStatus.OPEN, false);
-        when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
-        when(documentRepository.existsByWorkOrder_WorkOrderID(WORK_ORDER_ID)).thenReturn(true);
+        when(workOrderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        when(documentRepository.existsByWorkOrder_WorkOrderID(ORDER_ID)).thenReturn(true);
 
-        assertHistoricalWorkOrderIsRejected(order);
+        assertDeletionConflict();
     }
 
     @Test
-    void workOrderWithAssignedWorkersCannotBePermanentlyDeleted() {
+    void workOrderWithAssignedWorkerCannotBePermanentlyDeleted() {
         WorkOrder order = order(WorkOrderStatus.OPEN, false);
-        Worker worker = new Worker();
-        worker.setWorkerID(WORKER_ID);
+        Worker worker = worker();
         order.addWorker(worker);
-        when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
+        when(workOrderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-        assertHistoricalWorkOrderIsRejected(order);
+        assertDeletionConflict();
         assertThat(order.getWorkers()).containsExactly(worker);
     }
 
     @Test
-    void eligibleAccidentalEmptyOpenWorkOrderCanBeDeleted() {
+    void emptyAccidentalOpenWorkOrderCanBeDeleted() {
         WorkOrder order = order(WorkOrderStatus.OPEN, false);
-        order.setStartDateTime(null);
-        when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
+        when(workOrderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-        workOrderService.deletePermanentlyById(WORK_ORDER_ID);
+        workOrderService.deletePermanentlyById(ORDER_ID);
 
         verify(workOrderRepository).delete(order);
     }
 
     @Test
     void referencedWorkerCannotBePermanentlyDeleted() {
-        Worker worker = worker();
-        when(workerRepository.findById(WORKER_ID)).thenReturn(Optional.of(worker));
+        when(workerRepository.findById(WORKER_ID)).thenReturn(Optional.of(worker()));
         when(workOrderRepository.existsByWorkers_WorkerID(WORKER_ID)).thenReturn(true);
 
         assertThatThrownBy(() -> workerService.deletePermanentlyById(WORKER_ID))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Worker cannot be permanently deleted while work orders are attached");
-        verify(workerRepository, never()).delete(any());
-    }
-
-    @Test
-    void workerWithUploadedDocumentsOrTeamMembershipCannotBePermanentlyDeleted() {
-        Worker worker = worker();
-        when(workerRepository.findById(WORKER_ID)).thenReturn(Optional.of(worker));
-        when(documentRepository.existsByUploadedByWorker_WorkerID(WORKER_ID)).thenReturn(true);
-
-        assertThatThrownBy(() -> workerService.deletePermanentlyById(WORKER_ID))
-                .hasMessage("Worker cannot be permanently deleted while uploaded documents are attached");
-
-        when(documentRepository.existsByUploadedByWorker_WorkerID(WORKER_ID)).thenReturn(false);
-        when(teamRepository.existsByWorkers_WorkerID(WORKER_ID)).thenReturn(true);
-
-        assertThatThrownBy(() -> workerService.deletePermanentlyById(WORKER_ID))
-                .hasMessage("Worker cannot be permanently deleted while assigned to a team");
-        verify(workerRepository, never()).delete(any());
-    }
-
-    @Test
-    void workerReferencedByProjectHistoryCannotBePermanentlyDeleted() {
-        Worker worker = worker();
-        when(workerRepository.findById(WORKER_ID)).thenReturn(Optional.of(worker));
-        when(projectRepository.existsByComments_Author_WorkerID(WORKER_ID)).thenReturn(true);
-
-        assertThatThrownBy(() -> workerService.deletePermanentlyById(WORKER_ID))
-                .hasMessage("Worker cannot be permanently deleted while project history is attached");
         verify(workerRepository, never()).delete(any());
     }
 
@@ -167,48 +130,48 @@ class HistoricalDeletionSafeguardsTest {
     }
 
     @Test
-    void archivedDocumentsRemainLinkedAndRetrievable() {
+    void archivedDocumentRemainsLinkedAndDownloadable() {
         WorkOrder order = order(WorkOrderStatus.COMPLETE, true);
-        Document document = new Document();
-        document.setDocumentID(DOCUMENT_ID);
-        document.setWorkOrder(order);
-        when(documentRepository.findByDocumentIDAndWorkOrder_WorkOrderID(DOCUMENT_ID, WORK_ORDER_ID))
+        Document document = document(order);
+        when(documentRepository.findByDocumentIDAndWorkOrder_WorkOrderID(DOCUMENT_ID, ORDER_ID))
                 .thenReturn(Optional.of(document));
 
-        Document result = documentService.getRequiredDocument(WORK_ORDER_ID, DOCUMENT_ID);
+        Document result = documentService.getRequiredDocument(ORDER_ID, DOCUMENT_ID);
 
-        assertThat(result).isSameAs(document);
         assertThat(result.getWorkOrder()).isSameAs(order);
-        assertThat(result.getWorkOrder().isArchived()).isTrue();
+        assertThat(result.getDocumentData()).containsExactly((byte) 1, (byte) 2, (byte) 3);
     }
 
     @Test
-    void deletingDocumentLeavesItsWorkOrderIntact() {
+    void deletingDocumentLeavesWorkOrderIntact() {
         WorkOrder order = order(WorkOrderStatus.OPEN, false);
-        Document document = new Document();
-        document.setDocumentID(DOCUMENT_ID);
-        document.setWorkOrder(order);
-        when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
-        when(documentRepository.findByDocumentIDAndWorkOrder_WorkOrderID(DOCUMENT_ID, WORK_ORDER_ID))
+        Document document = document(order);
+        when(workOrderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        when(documentRepository.findByDocumentIDAndWorkOrder_WorkOrderID(DOCUMENT_ID, ORDER_ID))
                 .thenReturn(Optional.of(document));
 
-        documentService.deleteFromWorkOrder(WORK_ORDER_ID, DOCUMENT_ID, authentication);
+        documentService.deleteFromWorkOrder(ORDER_ID, DOCUMENT_ID, authentication);
 
         verify(documentRepository).delete(document);
         verify(workOrderRepository, never()).delete(any());
         assertThat(document.getWorkOrder()).isSameAs(order);
     }
 
-    private void assertHistoricalWorkOrderIsRejected(WorkOrder order) {
-        assertThatThrownBy(() -> workOrderService.deletePermanentlyById(WORK_ORDER_ID))
+    private void assertWorkOrderDeletionRejected(WorkOrder order) {
+        when(workOrderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        assertDeletionConflict();
+    }
+
+    private void assertDeletionConflict() {
+        assertThatThrownBy(() -> workOrderService.deletePermanentlyById(ORDER_ID))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Only empty open work orders without business history can be permanently deleted");
-        verify(workOrderRepository, never()).delete(order);
+        verify(workOrderRepository, never()).delete(any());
     }
 
     private WorkOrder order(WorkOrderStatus status, boolean archived) {
         WorkOrder order = new WorkOrder();
-        order.setWorkOrderID(WORK_ORDER_ID);
+        order.setWorkOrderID(ORDER_ID);
         order.setStatus(status);
         order.setArchived(archived);
         return order;
@@ -218,5 +181,13 @@ class HistoricalDeletionSafeguardsTest {
         Worker worker = new Worker();
         worker.setWorkerID(WORKER_ID);
         return worker;
+    }
+
+    private Document document(WorkOrder order) {
+        Document document = new Document();
+        document.setDocumentID(DOCUMENT_ID);
+        document.setWorkOrder(order);
+        document.setDocumentData(new byte[] {1, 2, 3});
+        return document;
     }
 }

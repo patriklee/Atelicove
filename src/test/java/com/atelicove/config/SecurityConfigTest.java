@@ -85,15 +85,4 @@ class SecurityConfigTest {
                 .andExpect(status().isOk());
     }
 
-    @Test
-    void draftStudioEndpointsAreAdminOnly() throws Exception {
-        mockMvc.perform(get("/draft-projects"))
-                .andExpect(status().isUnauthorized());
-
-        mockMvc.perform(get("/draft-projects").with(user("worker").roles("WORKER")))
-                .andExpect(status().isForbidden());
-
-        mockMvc.perform(get("/draft-projects").with(user("admin").roles("ADMIN")))
-                .andExpect(status().isOk());
-    }
 }

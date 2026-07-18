@@ -52,7 +52,8 @@ class WODocumentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].documentID").value(3))
                 .andExpect(jsonPath("$[0].workOrderID").value(7))
-                .andExpect(jsonPath("$[0].fileName").value("report.pdf"));
+                .andExpect(jsonPath("$[0].fileName").value("report.pdf"))
+                .andExpect(jsonPath("$[0].documentData").doesNotExist());
     }
 
     @Test
