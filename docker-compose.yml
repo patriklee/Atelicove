@@ -6,8 +6,8 @@ services:
         environment:
             MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
             MYSQL_DATABASE: ${MYSQL_DATABASE:-atelicoveDB}
-            MYSQL_USER: ${MYSQL_USER:-atelicove_user}
-            MYSQL_PASSWORD: ${MYSQL_PASSWORD:-atelicove_pass}
+            MYSQL_USER: ${DB_USERNAME:-atelicove_user}
+            MYSQL_PASSWORD: ${DB_PASSWORD:-atelicove_pass}
         ports:
             - "${MYSQL_PORT:-3307}:3306" # host:container
         volumes:

@@ -14,7 +14,7 @@
 		<groupId>com.atelicove</groupId>
 		<artifactId>atelicove</artifactId>
 		<name>Atelicove</name>
-		<description>Administrative workspace for managing work orders, companies, workers, and creative project planning.</description>
+		<description>Atelicove Community Edition for managing workers, companies, work orders, and documents.</description>
     <properties>
         <java.version>17</java.version>
     </properties>
