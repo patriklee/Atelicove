@@ -14,7 +14,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +27,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.atelicove.controllers.WorkOrderController;
 import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.WorkOrderItem;
+import com.atelicove.dto.CreateWorkOrderItemRequest;
+import com.atelicove.dto.CreateWorkOrderRequest;
+import com.atelicove.dto.UpdateWorkOrderItemRequest;
+import com.atelicove.enums.ItemType;
 import com.atelicove.entities.DraftWorkOrder;
 import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.enums.WorkOrderStatus;
@@ -81,7 +84,7 @@ class WorkOrderControllerTest {
 
     @Test
     void addAndDeleteWorkOrderDelegateToService() throws Exception {
-        when(workOrderService.createWorkOrder(any(WorkOrder.class)))
+        when(workOrderService.createWorkOrder(any(CreateWorkOrderRequest.class)))
                 .thenReturn(order(2, WorkOrderStatus.OPEN));
 
         mockMvc.perform(post("/workorders")
@@ -137,6 +140,34 @@ class WorkOrderControllerTest {
     }
 
     @Test
+    void assignmentAndCommentRequestsRejectInvalidBodies() throws Exception {
+        mockMvc.perform(put("/workorders/1/assign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"workerID\":0}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/workorders/1/company")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/workorders/1/comment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"comment\":\"   \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createRequestIgnoresEntityControlledFields() throws Exception {
+        when(workOrderService.createWorkOrder(any(CreateWorkOrderRequest.class)))
+                .thenReturn(order(2, WorkOrderStatus.OPEN));
+
+        mockMvc.perform(post("/workorders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"comment\":\"New job\",\"status\":\"COMPLETE\",\"archived\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OPEN"));
+    }
+
+    @Test
     void illegalWorkflowTransitionBecomesConflict() throws Exception {
         when(workOrderService.startWorkOrder(1))
                 .thenThrow(new IllegalStateException("Only open work orders can be started"));
@@ -150,7 +181,10 @@ class WorkOrderControllerTest {
     @Test
     void remainingWorkOrderEndpoints_ShouldDelegateAndReturnExpectedBodies() throws Exception {
         WorkOrder order = order(1, WorkOrderStatus.IN_PROCESS);
-        WorkOrderItem item = new WorkOrderItem();
+        CreateWorkOrderItemRequest createItem = new CreateWorkOrderItemRequest(
+                "Part", 1, new java.math.BigDecimal("10.00"), ItemType.MATERIAL);
+        UpdateWorkOrderItemRequest updateItem = new UpdateWorkOrderItemRequest(
+                "Part", 1, new java.math.BigDecimal("10.00"), ItemType.MATERIAL);
         DraftWorkOrder draft = new DraftWorkOrder();
         draft.setDraftWorkOrderID(5);
         DraftWorkOrderItem draftItem = new DraftWorkOrderItem();
@@ -164,8 +198,8 @@ class WorkOrderControllerTest {
         when(workOrderService.removeCompanyFromWorkOrder(1)).thenReturn(order);
         when(workOrderService.assignCompanyToWorkOrder(1, 4)).thenReturn(order);
         when(workOrderService.updateComment(1, "done")).thenReturn(order);
-        when(workOrderService.addItem(1, item)).thenReturn(order);
-        when(workOrderService.updateItem(1, 2, item)).thenReturn(order);
+        when(workOrderService.addItem(1, createItem)).thenReturn(order);
+        when(workOrderService.updateItem(1, 2, updateItem)).thenReturn(order);
         when(workOrderService.deleteItem(1, 2)).thenReturn(order);
         when(workOrderService.addDraftItem(5, draftItem)).thenReturn(draft);
         when(workOrderService.updateDraftItem(5, 6, draftItem)).thenReturn(draft);
@@ -187,8 +221,8 @@ class WorkOrderControllerTest {
                 .andExpect(status().isOk());
 
         WorkOrderController controller = new WorkOrderController(workOrderService, authorizationService);
-        assertThat(controller.addItem(1, item, null)).isSameAs(order);
-        assertThat(controller.updateItem(1, 2, item, null)).isSameAs(order);
+        assertThat(controller.addItem(1, createItem, null)).isSameAs(order);
+        assertThat(controller.updateItem(1, 2, updateItem, null)).isSameAs(order);
         assertThat(controller.deleteItem(1, 2, null)).isSameAs(order);
         assertThat(controller.addDraftItem(5, draftItem)).isSameAs(draft);
         assertThat(controller.updateDraftItem(5, 6, draftItem)).isSameAs(draft);

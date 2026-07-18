@@ -5,7 +5,12 @@ import org.springframework.web.bind.annotation.*;
 import com.atelicove.entities.DraftWorkOrder;
 import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.entities.WorkOrder;
-import com.atelicove.entities.WorkOrderItem;
+import com.atelicove.dto.AssignCompanyRequest;
+import com.atelicove.dto.AssignWorkerRequest;
+import com.atelicove.dto.CreateWorkOrderItemRequest;
+import com.atelicove.dto.CreateWorkOrderRequest;
+import com.atelicove.dto.UpdateWorkOrderCommentRequest;
+import com.atelicove.dto.UpdateWorkOrderItemRequest;
 import com.atelicove.services.WorkOrderService;
 
 import java.util.List;
@@ -15,7 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import com.atelicove.services.AuthorizationService;
-import java.util.Map;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/workorders")
@@ -90,14 +95,14 @@ public class WorkOrderController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public WorkOrder addWorkOrder(@RequestBody WorkOrder workOrder) {
-        return workOrderService.createWorkOrder(workOrder);
+    public WorkOrder addWorkOrder(@Valid @RequestBody CreateWorkOrderRequest request) {
+        return workOrderService.createWorkOrder(request);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}/assign")
-    public WorkOrder reassignWorkOrder(@PathVariable Integer id, @RequestBody Map<String, Integer> request) {
-    	return workOrderService.reassignWorkOrder(id, request.get("workerID"));
+    public WorkOrder reassignWorkOrder(@PathVariable Integer id, @Valid @RequestBody AssignWorkerRequest request) {
+        return workOrderService.reassignWorkOrder(id, request.workerID());
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -114,26 +119,26 @@ public class WorkOrderController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}/company")
-    public WorkOrder assignCompanyToWorkOrder(@PathVariable Integer id, @RequestBody Map<String, Integer> request) {
-    	return workOrderService.assignCompanyToWorkOrder(id, request.get("companyID"));
+    public WorkOrder assignCompanyToWorkOrder(@PathVariable Integer id, @Valid @RequestBody AssignCompanyRequest request) {
+        return workOrderService.assignCompanyToWorkOrder(id, request.companyID());
     }
 
     @PutMapping("/{id}/comment")
-    public WorkOrder updateComment(@PathVariable Integer id, @RequestBody Map<String, String> request, Authentication authentication) {
+    public WorkOrder updateComment(@PathVariable Integer id, @Valid @RequestBody UpdateWorkOrderCommentRequest request, Authentication authentication) {
         authorizationService.requireWorkOrderAccess(id, authentication);
-    	return workOrderService.updateComment(id, request.get("comment"));
+        return workOrderService.updateComment(id, request.comment());
     }
 
     @PostMapping("/{id}/items")
-    public WorkOrder addItem(@PathVariable Integer id, @RequestBody WorkOrderItem item, Authentication authentication) {
+    public WorkOrder addItem(@PathVariable Integer id, @Valid @RequestBody CreateWorkOrderItemRequest request, Authentication authentication) {
         authorizationService.requireWorkOrderAccess(id, authentication);
-    	return workOrderService.addItem(id, item);
+        return workOrderService.addItem(id, request);
     }
 
     @PutMapping("/{id}/items/{itemID}")
-    public WorkOrder updateItem(@PathVariable Integer id, @PathVariable Integer itemID, @RequestBody WorkOrderItem item, Authentication authentication) {
+    public WorkOrder updateItem(@PathVariable Integer id, @PathVariable Integer itemID, @Valid @RequestBody UpdateWorkOrderItemRequest request, Authentication authentication) {
         authorizationService.requireWorkOrderAccess(id, authentication);
-    	return workOrderService.updateItem(id, itemID, item);
+        return workOrderService.updateItem(id, itemID, request);
     }
 
     @DeleteMapping("/{id}/items/{itemID}")

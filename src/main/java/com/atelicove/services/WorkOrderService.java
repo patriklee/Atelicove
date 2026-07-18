@@ -15,6 +15,9 @@ import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
+import com.atelicove.dto.CreateWorkOrderItemRequest;
+import com.atelicove.dto.CreateWorkOrderRequest;
+import com.atelicove.dto.UpdateWorkOrderItemRequest;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.CompanyRepository;
 import com.atelicove.repositories.DraftWorkOrderRepository;
@@ -104,51 +107,44 @@ public class WorkOrderService{
      * New work orders are opened when no worker is assigned and moved directly to
      * active when workers are provided.
      *
-     * @param workOrder work order details from the request
+     * @param request client-controlled work order details
      * @return the saved work order
      */
-    public WorkOrder createWorkOrder(WorkOrder workOrder) {
-		if (workOrder == null) {
+    @Transactional
+    public WorkOrder createWorkOrder(CreateWorkOrderRequest request) {
+		if (request == null) {
 			throw new IllegalArgumentException("Work order is required");
 		}
-		validateDateRange(workOrder.getStartDateTime(), workOrder.getEndDateTime());
-    	workOrder.setWorkOrderID(0);
-    	workOrder.setArchived(false);
-		workOrder.setArchivedAt(null);
-		workOrder.setProject(null);
+		validateDateRange(request.startDateTime(), request.endDateTime());
 
-		for (WorkOrderItem item : workOrder.getItems()) {
-			validateItem(item.getItemName(), item.getQuantity(), item.getPrice(), item.getItemType());
-			item.setWorkOrderItemID(0);
-			item.setWorkOrder(workOrder);
+		WorkOrder workOrder = new WorkOrder();
+		if (request.startDateTime() != null) {
+			workOrder.setStartDateTime(request.startDateTime());
 		}
+		workOrder.setEndDateTime(request.endDateTime());
+		workOrder.setComment(request.comment());
 
-    	if (workOrder.getWorkers() == null || workOrder.getWorkers().isEmpty()) {
-    		workOrder.setStatus(WorkOrderStatus.OPEN);
-    	} else {
-    		Set<Worker> assignedWorkers = new HashSet<>();
-    		for (Worker worker : workOrder.getWorkers()) {
-    			Worker managedWorker = workerRepository.findById(worker.getWorkerID())
-    					.orElseThrow(() -> new IllegalArgumentException("Worker not found"));
+		if (request.workerIDs() == null || request.workerIDs().isEmpty()) {
+			workOrder.setStatus(WorkOrderStatus.OPEN);
+		} else {
+			Set<Worker> assignedWorkers = new HashSet<>();
+			for (Integer workerID : request.workerIDs()) {
+				Worker managedWorker = workerRepository.findById(workerID)
+						.orElseThrow(() -> new IllegalArgumentException("Worker not found: " + workerID));
 
-    			if (managedWorker.isArchived()) {
-    				throw new IllegalStateException("Archived workers cannot be assigned");
-    			}
+				if (managedWorker.isArchived()) {
+					throw new IllegalStateException("Archived workers cannot be assigned");
+				}
 
     			assignedWorkers.add(managedWorker);
-    		}
-    		workOrder.setWorkers(assignedWorkers);
-    		for (Worker worker : assignedWorkers) {
-    			if (worker.isArchived()) {
-    				throw new IllegalStateException("Archived workers cannot be assigned");
-    			}
-    		}
+			}
+			workOrder.setWorkers(assignedWorkers);
             workOrder.setStatus(WorkOrderStatus.IN_PROCESS);
-    	}
+		}
 
-    	if (workOrder.getCompany() != null) {
-    		Company company = companyRepository.findById(workOrder.getCompany().getCompanyID())
-    				.orElseThrow(() -> new IllegalArgumentException("Company not found"));
+		if (request.companyID() != null) {
+			Company company = companyRepository.findById(request.companyID())
+					.orElseThrow(() -> new IllegalArgumentException("Company not found: " + request.companyID()));
 
     		if (company.isArchived()) {
     			throw new IllegalStateException("Archived companies cannot be assigned");
@@ -259,32 +255,33 @@ public class WorkOrderService{
     }
 
     @Transactional
-    public WorkOrder addItem(Integer workOrderID, WorkOrderItem item) {
+    public WorkOrder addItem(Integer workOrderID, CreateWorkOrderItemRequest request) {
         WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
         ensureWorkOrderCanBeEdited(workOrder);
 
-        validateItem(item.getItemName(), item.getQuantity(), item.getPrice(), item.getItemType());
-        item.setWorkOrderItemID(0);
+        validateItem(request.itemName(), request.quantity(), request.price(), request.itemType());
+        WorkOrderItem item = new WorkOrderItem(
+                request.itemName(), request.quantity(), request.price(), request.itemType(), workOrder);
         workOrder.addItem(item);
 
         return workOrderRepository.save(workOrder);
     }
 
     @Transactional
-    public WorkOrder updateItem(Integer workOrderID, Integer itemID, WorkOrderItem request) {
+    public WorkOrder updateItem(Integer workOrderID, Integer itemID, UpdateWorkOrderItemRequest request) {
         WorkOrder workOrder = getRequiredWorkOrder(workOrderID);
         ensureWorkOrderCanBeEdited(workOrder);
 
-        validateItem(request.getItemName(), request.getQuantity(), request.getPrice(), request.getItemType());
+        validateItem(request.itemName(), request.quantity(), request.price(), request.itemType());
         WorkOrderItem item = workOrder.getItems().stream()
                 .filter(existingItem -> java.util.Objects.equals(existingItem.getWorkOrderItemID(), itemID))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Work order item not found"));
 
-        item.setItemName(request.getItemName());
-        item.setQuantity(request.getQuantity());
-        item.setPrice(request.getPrice());
-        item.setItemType(request.getItemType());
+        item.setItemName(request.itemName());
+        item.setQuantity(request.quantity());
+        item.setPrice(request.price());
+        item.setItemType(request.itemType());
 
         return workOrderRepository.save(workOrder);
     }

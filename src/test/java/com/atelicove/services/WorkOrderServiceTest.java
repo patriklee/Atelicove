@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,6 +35,9 @@ import com.atelicove.entities.DraftWorkOrderItem;
 import com.atelicove.entities.WorkOrder;
 import com.atelicove.entities.WorkOrderItem;
 import com.atelicove.entities.Worker;
+import com.atelicove.dto.CreateWorkOrderItemRequest;
+import com.atelicove.dto.CreateWorkOrderRequest;
+import com.atelicove.dto.UpdateWorkOrderItemRequest;
 import com.atelicove.enums.ItemType;
 import com.atelicove.enums.WorkOrderStatus;
 import com.atelicove.repositories.CompanyRepository;
@@ -66,32 +70,64 @@ public class WorkOrderServiceTest {
     class WorkOrderLifecycle {
 
     @Test
-    void createWorkOrderResetsIdAndSetsOpenWhenUnassignedBeforeSaving() {
-        WorkOrder workOrder = new WorkOrder();
-        workOrder.setWorkOrderID(25);
-        workOrder.setStatus(WorkOrderStatus.COMPLETE);
-        when(workOrderRepository.save(workOrder)).thenReturn(workOrder);
+    void createWorkOrderChoosesOpenStatusAndCannotBeForcedArchived() {
+        CreateWorkOrderRequest request = new CreateWorkOrderRequest(
+                null, null, "New job", null, List.of());
+        when(workOrderRepository.save(any(WorkOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        WorkOrder result = workOrderService.createWorkOrder(workOrder);
+        WorkOrder result = workOrderService.createWorkOrder(request);
 
-        assertSame(workOrder, result);
-        assertEquals(0, workOrder.getWorkOrderID());
-        assertEquals(WorkOrderStatus.OPEN, workOrder.getStatus());
+        assertEquals(0, result.getWorkOrderID());
+        assertEquals(WorkOrderStatus.OPEN, result.getStatus());
+        assertThat(result.isArchived()).isFalse();
+        assertThat(result.getArchivedAt()).isNull();
     }
 
     @Test
-    void createWorkOrderSetsInProcessWhenWorkerIsAssigned() {
-        WorkOrder workOrder = new WorkOrder();
+    void createWorkOrderResolvesWorkerIdsToManagedWorkers() {
         Worker worker = new Worker();
         worker.setWorkerID(1);
-        workOrder.addWorker(worker);
+        CreateWorkOrderRequest request = new CreateWorkOrderRequest(
+                null, null, "Assigned job", null, List.of(1));
         when(workerRepository.findById(1)).thenReturn(Optional.of(worker));
-        when(workOrderRepository.save(workOrder)).thenReturn(workOrder);
+        when(workOrderRepository.save(any(WorkOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        WorkOrder result = workOrderService.createWorkOrder(workOrder);
+        WorkOrder result = workOrderService.createWorkOrder(request);
 
-        assertSame(workOrder, result);
-        assertEquals(WorkOrderStatus.IN_PROCESS, workOrder.getStatus());
+        assertThat(result.getWorkers()).containsExactly(worker);
+        assertEquals(WorkOrderStatus.IN_PROCESS, result.getStatus());
+    }
+
+    @Test
+    void createWorkOrderRejectsMissingAndArchivedWorkers() {
+        CreateWorkOrderRequest request = new CreateWorkOrderRequest(null, null, null, null, List.of(7));
+        when(workerRepository.findById(7)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> workOrderService.createWorkOrder(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Worker not found: 7");
+
+        Worker archivedWorker = new Worker();
+        archivedWorker.setWorkerID(7);
+        archivedWorker.setArchived(true);
+        when(workerRepository.findById(7)).thenReturn(Optional.of(archivedWorker));
+
+        assertThatThrownBy(() -> workOrderService.createWorkOrder(request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Archived workers cannot be assigned");
+        verify(workOrderRepository, never()).save(any());
+    }
+
+    @Test
+    void createWorkOrderRejectsArchivedCompany() {
+        CreateWorkOrderRequest request = new CreateWorkOrderRequest(null, null, null, COMPANY_ID, List.of());
+        Company company = aCompany().archived().build();
+        when(companyRepository.findById(COMPANY_ID)).thenReturn(Optional.of(company));
+
+        assertThatThrownBy(() -> workOrderService.createWorkOrder(request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Archived companies cannot be assigned");
+        verify(workOrderRepository, never()).save(any());
     }
 
     @Test
@@ -155,19 +191,16 @@ public class WorkOrderServiceTest {
     @Test
     void addItemAssociatesItemToWorkOrder() {
         WorkOrder workOrder = orderWithStatus(WorkOrderStatus.OPEN);
-        WorkOrderItem item = new WorkOrderItem();
-        item.setItemName("Inspection");
-        item.setQuantity(1);
-        item.setPrice(new java.math.BigDecimal("100"));
-        item.setItemType(ItemType.LABOR);
+        CreateWorkOrderItemRequest item = itemRequest("Inspection", 1, "100", ItemType.LABOR);
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
         when(workOrderRepository.save(workOrder)).thenReturn(workOrder);
 
         workOrderService.addItem(1, item);
 
         assertEquals(1, workOrder.getItems().size());
-        assertEquals(ItemType.LABOR, item.getItemType());
-        assertSame(workOrder, item.getWorkOrder());
+        WorkOrderItem savedItem = workOrder.getItems().get(0);
+        assertEquals(ItemType.LABOR, savedItem.getItemType());
+        assertSame(workOrder, savedItem.getWorkOrder());
     }
 
     @Test
@@ -268,7 +301,7 @@ public class WorkOrderServiceTest {
     @Test
     void reviewWorkOrderRejectsCommentAndItemEdits() {
         WorkOrder workOrder = orderWithStatus(WorkOrderStatus.IN_REVIEW);
-        WorkOrderItem item = new WorkOrderItem();
+        CreateWorkOrderItemRequest item = itemRequest("Inspection", 1, "0", ItemType.OTHER);
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
 
         assertThrows(IllegalStateException.class,
@@ -281,7 +314,7 @@ public class WorkOrderServiceTest {
     @Test
     void completedWorkOrderRejectsCommentAndItemEdits() {
         WorkOrder workOrder = orderWithStatus(WorkOrderStatus.COMPLETE);
-        WorkOrderItem item = new WorkOrderItem();
+        CreateWorkOrderItemRequest item = itemRequest("Inspection", 1, "0", ItemType.OTHER);
         when(workOrderRepository.findById(1)).thenReturn(Optional.of(workOrder));
 
         assertThrows(IllegalStateException.class,
@@ -439,7 +472,7 @@ public class WorkOrderServiceTest {
             WorkOrder order = aWorkOrder().build();
             WorkOrderItem existing = aWorkOrderItem().withId(ITEM_ID).forWorkOrder(order).build();
             order.addItem(existing);
-            WorkOrderItem update = aWorkOrderItem().named("Updated labor").withQuantity(3).pricedAt("25.00").build();
+            UpdateWorkOrderItemRequest update = updateItemRequest("Updated labor", 3, "25.00", ItemType.OTHER);
             when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
             when(workOrderRepository.save(order)).thenReturn(order);
 
@@ -449,6 +482,7 @@ public class WorkOrderServiceTest {
             // Then
             assertThat(existing.getItemName()).isEqualTo("Updated labor");
             assertThat(existing.getQuantity()).isEqualTo(3);
+            assertThat(existing.getWorkOrder()).isSameAs(order);
 
             // When
             workOrderService.deleteItem(WORK_ORDER_ID, ITEM_ID);
@@ -462,14 +496,14 @@ public class WorkOrderServiceTest {
         void itemMutations_ShouldValidateContentAndExplainMissingItems() {
             // Given
             WorkOrder order = aWorkOrder().build();
-            WorkOrderItem invalid = aWorkOrderItem().named(" ").build();
+            CreateWorkOrderItemRequest invalid = itemRequest(" ", 1, "10.00", ItemType.OTHER);
             when(workOrderRepository.findById(WORK_ORDER_ID)).thenReturn(Optional.of(order));
 
             // When / Then
             assertThatThrownBy(() -> workOrderService.addItem(WORK_ORDER_ID, invalid))
                     .isInstanceOf(IllegalArgumentException.class).hasMessage("Item name is required");
             assertThatThrownBy(() -> workOrderService.updateItem(
-                    WORK_ORDER_ID, ITEM_ID, aWorkOrderItem().build()))
+                    WORK_ORDER_ID, ITEM_ID, updateItemRequest("Item", 1, "10.00", ItemType.OTHER)))
                     .isInstanceOf(IllegalArgumentException.class).hasMessage("Work order item not found");
             assertThatThrownBy(() -> workOrderService.deleteItem(WORK_ORDER_ID, ITEM_ID))
                     .isInstanceOf(IllegalArgumentException.class).hasMessage("Work order item not found");
@@ -601,5 +635,13 @@ public class WorkOrderServiceTest {
         item.setPrice(new java.math.BigDecimal("10.00"));
         item.setItemType(ItemType.LABOR);
         return item;
+    }
+
+    private CreateWorkOrderItemRequest itemRequest(String name, int quantity, String price, ItemType type) {
+        return new CreateWorkOrderItemRequest(name, quantity, new java.math.BigDecimal(price), type);
+    }
+
+    private UpdateWorkOrderItemRequest updateItemRequest(String name, int quantity, String price, ItemType type) {
+        return new UpdateWorkOrderItemRequest(name, quantity, new java.math.BigDecimal(price), type);
     }
 }

@@ -312,32 +312,19 @@ const ManageWorkOrders = () => {
         return;
       }
 
-      const workerPayload = worker ? {
-        workerID: worker.workerID,
-        workerFName: worker.firstName,
-        workerLName: worker.lastName,
-        workerUser: worker.username,
-        admin: worker.isAdmin,
-      } : null;
-      const workerPayloadsById = new Map();
+      const workerIDs = new Set();
       selectedCreateTeamWorkers.forEach(teamWorker => {
-        workerPayloadsById.set(teamWorker.workerID, {
-          workerID: teamWorker.workerID,
-          workerFName: teamWorker.firstName,
-          workerLName: teamWorker.lastName,
-          workerUser: teamWorker.username,
-          admin: teamWorker.isAdmin,
-        });
+        workerIDs.add(teamWorker.workerID);
       });
-      if (workerPayload) {
-        workerPayloadsById.set(workerPayload.workerID, workerPayload);
+      if (worker) {
+        workerIDs.add(worker.workerID);
       }
 
       const saved = await apiFetch('/workorders', {
         method: 'POST',
         body: JSON.stringify({
-          workers: Array.from(workerPayloadsById.values()),
-          company: company || null,
+          workerIDs: Array.from(workerIDs),
+          companyID: company?.companyID || null,
           comment: comment.trim(),
         }),
       });
