@@ -1,4 +1,4 @@
-import ProjectsPage from '../../Components/ProjectsPage';
+import ProjectsPage from '../projects/ProjectsPage';
 
 export default function ProjectStudioPage() {
   return (
