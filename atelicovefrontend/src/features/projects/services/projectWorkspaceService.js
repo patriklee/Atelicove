@@ -1,12 +1,16 @@
-import { apiFetch } from '../../../shared/api/client';
+import { projectService } from '../../../services/projectService';
+import { workOrderService } from '../../../services/workOrderService';
+import { teamService } from '../../../services/teamService';
+import { workerService } from '../../../services/workerService';
+import { companyService } from '../../../services/companyService';
 
 export const fetchProjectWorkspaceData = async () => {
   const [projects, workOrders, teams, workers, companies] = await Promise.all([
-    apiFetch('/projects'),
-    apiFetch('/workorders'),
-    apiFetch('/teams'),
-    apiFetch('/workers'),
-    apiFetch('/companies'),
+    projectService.getActive(),
+    workOrderService.getActive(),
+    teamService.getAll(),
+    workerService.getActive(),
+    companyService.getActive(),
   ]);
 
   return {
