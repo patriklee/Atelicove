@@ -16,7 +16,7 @@ import CompanySummary from '../features/companies/CompanySummary';
 import ActiveWorkers from '../features/workers/ActiveWorkers';
 import ManageWorkers from '../features/workers/ManageWorkers';
 import WorkerSummary from '../features/workers/WorkerSummary';
-import Settings from '../Components/Settings';
+import Settings from '../features/admin/Settings';
 import WorkOrders from '../features/workOrders/WorkOrders';
 import WorkOrderDetail from '../features/workOrders/WorkOrderDetail';
 import MyAssignments from '../features/workOrders/MyAssignments';
@@ -24,7 +24,7 @@ import MyWorkOrderDetail from '../features/workOrders/MyWorkOrderDetail';
 import ArchivedWorkOrders from '../features/workOrders/ArchivedWorkOrders';
 import ArchivedCompanies from '../features/companies/ArchivedCompanies';
 import ArchivedWorkers from '../features/workers/ArchivedWorkers';
-import ArchivedProjects from '../Components/ArchivedProjects';
+import ArchivedProjects from '../features/projects/ArchivedProjects';
 import Documents from '../features/documents/Documents';
 import ProjectsPage from '../features/projects/ProjectsPage';
 import ProjectStudioPage from '../features/projectStudio/ProjectStudioPage';
@@ -32,8 +32,8 @@ import ProjectSummary from '../features/projects/ProjectSummary';
 
 // Worker pages
 import HomePage from '../Components/HomePage';
-import InspectorAssignedWork from '../Components/InspectorAssignedWork';
-import InspectorBillingPage from '../Components/InspectorBillingPage';
+import InspectorAssignedWork from '../features/workOrders/InspectorAssignedWork';
+import InspectorBillingPage from '../features/workOrders/InspectorBillingPage';
 
 
 function AppRoutes() {
@@ -74,7 +74,7 @@ function AppRoutes() {
               <Route path="projects/:projectID" element={<ProjectSummary />} />
 			  <Route path="workorders" element={<WorkOrders />} />
               <Route path="workorders/:workOrderID" element={<WorkOrderDetail />} />
-              <Route path="*" element={<Navigate to="/admin" replace />} />
+              <Route path="*" element={<Navigate to="projects/active" replace />} />
             </Route>
           </Route>
 
@@ -88,7 +88,7 @@ function AppRoutes() {
               <Route path="projects/:projectID/edit" element={<ProjectsPage mode="worker-edit" title="Project" subtitle="Review project details and action items." />} />
               <Route path="billing" element={<InspectorBillingPage />} />
               <Route path="settings" element={<Settings />} />
-              <Route path="*" element={<Navigate to="/worker" replace />} />
+              <Route path="*" element={<Navigate to="my-assignments" replace />} />
             </Route>
           </Route>
 
