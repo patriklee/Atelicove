@@ -2,15 +2,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { AUTH_UNAUTHORIZED_EVENT } from '../shared/api/client';
+import { clearStoredAuth, storeUser } from '../shared/auth';
 import { roleLandingPath } from '../shared/routing/rolePaths';
 
 const AuthContext = createContext(null);
-
-const clearStoredAuth = () => {
-  localStorage.removeItem('user');
-  localStorage.removeItem('username');
-  localStorage.removeItem('loggedInUser');
-};
 
 const toFrontendUser = (profile) => ({
   username: profile.workerUser,
@@ -22,11 +17,6 @@ const toFrontendUser = (profile) => ({
   isAdmin: profile.admin,
   workerID: profile.workerID,
 });
-
-const storeUser = (userData) => {
-  localStorage.setItem('user', JSON.stringify(userData));
-  localStorage.setItem('username', userData.username);
-};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

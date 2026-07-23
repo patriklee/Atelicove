@@ -1,4 +1,5 @@
 import { mockApiFetch } from '../../mocks/mockApi';
+import { clearStoredAuth } from '../auth';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
 const USE_MOCK_API = String(process.env.REACT_APP_USE_MOCK_API || '').toLowerCase() === 'true';
@@ -40,15 +41,8 @@ function readCookie(name) {
   return match ? decodeURIComponent(match.substring(prefix.length)) : null;
 }
 
-function clearLocalAuthState() {
-  if (typeof localStorage === 'undefined') return;
-  localStorage.removeItem('user');
-  localStorage.removeItem('username');
-  localStorage.removeItem('loggedInUser');
-}
-
 function notifyUnauthorized() {
-  clearLocalAuthState();
+  clearStoredAuth();
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
   }
