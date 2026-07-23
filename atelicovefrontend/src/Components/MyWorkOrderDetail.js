@@ -27,7 +27,7 @@ import { apiFetch } from '../api';
 import { formatDateTime, getWorkOrderWorkers } from '../model';
 import { useAuth } from './AuthContext';
 import WorkOrderDetail from './WorkOrderDetail';
-import WorkOrderDocuments from './WorkOrderDocuments';
+import WorkOrderDocuments from '../features/documents/WorkOrderDocuments';
 import TableTitleRow from './TableTitleRow';
 import { projectPathFor } from '../shared/routing/rolePaths';
 

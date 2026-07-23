@@ -9,7 +9,7 @@ import {
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
-import WorkOrderDocuments from './WorkOrderDocuments';
+import WorkOrderDocuments from '../features/documents/WorkOrderDocuments';
 import { useAuth } from './AuthContext';
 import { projectPathFor, workOrderPathFor } from '../shared/routing/rolePaths';
 import ProjectList from './projects/ProjectList';

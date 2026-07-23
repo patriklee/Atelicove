@@ -17,7 +17,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { workOrderService } from '../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../model';
-import WorkOrderDocuments from './WorkOrderDocuments';
+import WorkOrderDocuments from '../features/documents/WorkOrderDocuments';
 import TableTitleRow from './TableTitleRow';
 
 const money = (value) => Number(value || 0).toLocaleString(undefined, {
