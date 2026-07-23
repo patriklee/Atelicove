@@ -4,11 +4,10 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Typography, Button
 } from '@mui/material';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { useAuth } from './AuthContext';
+import { useAuth } from '../../Components/AuthContext';
 
-const HomePage = () => {
+const WorkerHomePage = () => {
   const [open, setOpen] = useState(false);
-  const [, setActiveTab] = useState('/worker');
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user } = useAuth();
@@ -23,7 +22,6 @@ const HomePage = () => {
 
   const handleLogoutClick = () => {
     setOpen(true);
-    setActiveTab('/worker/logout');
   };
 
   const handleConfirmLogout = () => {
@@ -33,7 +31,6 @@ const HomePage = () => {
 
   const handleCancelLogout = () => {
     setOpen(false);
-    setActiveTab(location.pathname);
   };
 
   const handleItemClick = (path, label) => {
@@ -41,13 +38,11 @@ const HomePage = () => {
       handleLogoutClick();
     } else {
       navigate(path);
-      setActiveTab(path);
     }
   };
   
   const handleTitleClick = () => {
     navigate('/worker');
-    setActiveTab('/worker');
   };
 
   return (
@@ -121,4 +116,4 @@ const HomePage = () => {
   );
 };
 
-export default HomePage;
+export default WorkerHomePage;

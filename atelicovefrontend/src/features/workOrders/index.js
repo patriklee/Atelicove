@@ -1,6 +1,6 @@
 export { default as ArchivedWorkOrders } from './ArchivedWorkOrders';
-export { default as InspectorAssignedWork } from './InspectorAssignedWork';
-export { default as InspectorBillingPage } from './InspectorBillingPage';
+export { default as WorkerAssignedWork } from './WorkerAssignedWork';
+export { default as WorkerBillingPage } from './WorkerBillingPage';
 export { default as ManageWorkOrders } from './ManageWorkOrders';
 export { default as MyAssignments } from './MyAssignments';
 export { default as MyWorkOrderDetail } from './MyWorkOrderDetail';

@@ -33,7 +33,7 @@ export const mockWorkers = [
   worker(16, 'Layla', 'Hassan', 'Estimator'),
   worker(17, 'Mateo', 'Alvarez', 'Concrete Finisher'),
   worker(18, 'Natalie', 'Price', 'Document Controller'),
-  worker(19, 'Owen', 'Murphy', 'Inspector'),
+  worker(19, 'Owen', 'Murphy', 'Worker'),
   worker(20, 'Zoe', 'Campbell', 'Procurement Specialist'),
   worker(21, 'Caleb', 'Turner', 'Retired Electrician', true),
   worker(22, 'Sofia', 'Martinez', 'Former Project Coordinator', true),

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert, Box, Paper, Typography } from '@mui/material';
 
-const InspectorBillingPage = () => (
+const WorkerBillingPage = () => (
   <Box sx={{ p: 3 }}>
     <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>Billing</Typography>
     <Paper sx={{ p: 3, maxWidth: 720 }}>
@@ -13,4 +13,4 @@ const InspectorBillingPage = () => (
   </Box>
 );
 
-export default InspectorBillingPage;
+export default WorkerBillingPage;

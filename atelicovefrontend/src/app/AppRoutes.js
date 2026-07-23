@@ -31,9 +31,9 @@ import ProjectStudioPage from '../features/projectStudio/ProjectStudioPage';
 import ProjectSummary from '../features/projects/ProjectSummary';
 
 // Worker pages
-import HomePage from '../Components/HomePage';
-import InspectorAssignedWork from '../features/workOrders/InspectorAssignedWork';
-import InspectorBillingPage from '../features/workOrders/InspectorBillingPage';
+import WorkerHomePage from '../features/workers/WorkerHomePage';
+import WorkerAssignedWork from '../features/workOrders/WorkerAssignedWork';
+import WorkerBillingPage from '../features/workOrders/WorkerBillingPage';
 
 
 function AppRoutes() {
@@ -80,13 +80,13 @@ function AppRoutes() {
 
           {/* Worker Routes */}
           <Route element={<WorkerRoute />}>
-            <Route path="/worker" element={<HomePage />}>
+            <Route path="/worker" element={<WorkerHomePage />}>
               <Route index element={<Navigate to="my-assignments" replace />} />
-              <Route path="assigned" element={<InspectorAssignedWork />} />
+              <Route path="assigned" element={<WorkerAssignedWork />} />
               <Route path="my-assignments" element={<MyAssignments />} />
               <Route path="my-assignments/:workOrderID" element={<MyWorkOrderDetail />} />
               <Route path="projects/:projectID/edit" element={<ProjectsPage mode="worker-edit" title="Project" subtitle="Review project details and action items." />} />
-              <Route path="billing" element={<InspectorBillingPage />} />
+              <Route path="billing" element={<WorkerBillingPage />} />
               <Route path="settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="my-assignments" replace />} />
             </Route>

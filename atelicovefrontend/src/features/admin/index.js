@@ -1,1 +1,2 @@
-export { default } from '../../Components/AdminHomePage';
+export { default as AdminHomePage } from './AdminHomePage';
+export { default as Settings } from './Settings';

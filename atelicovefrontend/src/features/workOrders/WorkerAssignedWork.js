@@ -8,7 +8,7 @@ import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 
-const InspectorAssignedWork = () => {
+const WorkerAssignedWork = () => {
   const { user } = useAuth();
   const [workOrders, setWorkOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,4 +63,4 @@ const InspectorAssignedWork = () => {
   );
 };
 
-export default InspectorAssignedWork;
+export default WorkerAssignedWork;
