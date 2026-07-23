@@ -19,7 +19,7 @@ import {
     Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { apiFetch } from '../api';
+import { workOrderService } from '../services/workOrderService';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers } from '../model';
 import { useAuth } from './AuthContext';
 
@@ -37,7 +37,7 @@ const WorkOrders = ({
     const [error, setError] = useState('');
 
     useEffect(() => {
-        apiFetch('/workorders/all-with-archived')
+        workOrderService.getAll()
             .then(setWorkOrders)
             .catch(err => setError(err.message));
     }, []);

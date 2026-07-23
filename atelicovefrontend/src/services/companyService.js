@@ -2,6 +2,7 @@ import { apiFetch } from '../shared/api';
 
 export const companyService = {
   getAll: () => apiFetch('/companies/all-with-archived'),
+  getAllActive: () => apiFetch('/companies/all'),
   getActive: () => apiFetch('/companies'),
   getArchived: () => apiFetch('/companies/archived'),
   create: (payload) => apiFetch('/companies/add', { method: 'POST', body: JSON.stringify(payload) }),

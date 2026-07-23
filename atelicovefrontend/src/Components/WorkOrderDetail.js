@@ -15,7 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiFetch } from '../api';
+import { workOrderService } from '../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../model';
 import WorkOrderDocuments from './WorkOrderDocuments';
 import TableTitleRow from './TableTitleRow';
@@ -42,7 +42,7 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
   const [itemOrder, setItemOrder] = useState('asc');
 
   useEffect(() => {
-    apiFetch(`/workorders/${workOrderID}`)
+    workOrderService.getById(workOrderID)
       .then(setWorkOrder)
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));

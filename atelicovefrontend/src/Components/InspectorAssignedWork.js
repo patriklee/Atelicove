@@ -4,6 +4,7 @@ import {
   Chip, CircularProgress, Grid, Typography
 } from '@mui/material';
 import { apiFetch } from '../api';
+import { workOrderService } from '../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../model';
 import { useAuth } from './AuthContext';
 
@@ -14,7 +15,7 @@ const InspectorAssignedWork = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    apiFetch('/workorders')
+    workOrderService.getActive()
       .then(data => setWorkOrders(data.filter(order =>
         getWorkOrderWorkers(order).some(worker => worker.workerID === user?.workerID)
       )))

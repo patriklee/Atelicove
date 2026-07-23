@@ -4,7 +4,7 @@ import {
   TableHead, TableRow, Typography
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { apiFetch } from '../api';
+import { workerService } from '../services/workerService';
 import { formatDateTime, normalizeWorker } from '../model';
 
 const ActiveWorkers = () => {
@@ -13,7 +13,7 @@ const ActiveWorkers = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    apiFetch('/workers')
+    workerService.getActive()
       .then(data => setWorkers(data.map(normalizeWorker)))
       .catch(err => setError(err.message));
   }, []);

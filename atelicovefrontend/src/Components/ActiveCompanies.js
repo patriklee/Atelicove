@@ -4,7 +4,7 @@ import {
   TableHead, TableRow, TableSortLabel, Typography
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { apiFetch } from '../api';
+import { companyService } from '../services/companyService';
 
 const ActiveCompanies = () => {
   const navigate = useNavigate();
@@ -14,7 +14,7 @@ const ActiveCompanies = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    apiFetch('/companies/all')
+    companyService.getAllActive()
       .then(setCompanies)
       .catch(err => setError(err.message));
   }, []);
