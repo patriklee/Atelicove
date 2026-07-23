@@ -19,7 +19,7 @@ test('redirects an authenticated worker away from admin routes', () => {
 });
 
 test('redirects an admin away from worker-only routes', () => {
-  useAuth.mockReturnValue({ loading: false, isAuthenticated: () => true, isAdmin: () => true });
+  useAuth.mockReturnValue({ loading: false, isAuthenticated: () => true, isAdmin: () => true, user: { isAdmin: true } });
   renderGuard(WorkerRoute);
   expect(screen.getByText('/admin/projects/active')).toBeTruthy();
 });

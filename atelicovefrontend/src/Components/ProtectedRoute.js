@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { CircularProgress, Box } from '@mui/material';
+import { roleLandingPath } from '../shared/routing/rolePaths';
 
 // Route that requires user to be authenticated as an admin
 export const AdminRoute = () => {
@@ -69,7 +70,7 @@ export const WorkerRoute = () => {
   }
 
   if (auth.isAdmin()) {
-    return <Navigate to="/admin/projects/active" replace />;
+    return <Navigate to={roleLandingPath(auth.user)} replace />;
   }
 
   return <Outlet />;
@@ -89,7 +90,7 @@ export const PublicRoute = () => {
   
   // If user is already logged in, redirect them to their home page
   if (auth.isAuthenticated()) {
-    return <Navigate to={auth.isAdmin() ? "/admin/projects/active" : "/worker/my-assignments"} replace />;
+    return <Navigate to={roleLandingPath(auth.user)} replace />;
   }
   
   return <Outlet />;
