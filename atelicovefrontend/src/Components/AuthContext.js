@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiFetch } from '../api';
+import { authService } from '../services/authService';
 import { AUTH_UNAUTHORIZED_EVENT } from '../shared/api/client';
 import { clearStoredAuth, storeUser } from '../shared/auth';
 import { roleLandingPath } from '../shared/routing/rolePaths';
@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
 
     window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
 
-    apiFetch('/auth/me')
+    authService.me()
       .then(profile => {
         if (!active) return;
         const authenticatedUser = toFrontendUser(profile);
@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await apiFetch('/auth/logout', { method: 'POST' });
+      await authService.logout();
     } catch (error) {
       console.warn('Server logout failed; clearing the local session.', error);
     }

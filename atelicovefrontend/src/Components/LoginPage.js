@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Container, TextField, Button, Typography, Box, IconButton, InputAdornment, CircularProgress } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from './AuthContext';
-import { apiFetch } from '../api';
+import { authService } from '../services/authService';
 
 const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
@@ -22,10 +22,7 @@ const LoginPage = () => {
         setIsLoading(true);
         
         try {
-            const data = await apiFetch('/auth/login', {
-                method: 'POST',
-                body: JSON.stringify({ username: username.trim(), password }),
-            });
+            const data = await authService.login({ username: username.trim(), password });
             login({
                 username: data.workerUser,
                 firstName: data.workerFName,
