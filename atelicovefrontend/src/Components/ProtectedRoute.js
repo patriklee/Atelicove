@@ -4,17 +4,19 @@ import { useAuth } from './AuthContext';
 import { CircularProgress, Box } from '@mui/material';
 import { roleLandingPath } from '../shared/routing/rolePaths';
 
+const RouteLoadingState = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    <CircularProgress />
+  </Box>
+);
+
 // Route that requires user to be authenticated as an admin
 export const AdminRoute = () => {
   const auth = useAuth();
   const location = useLocation();
 
   if (auth.loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <RouteLoadingState />;
   }
 
   // Redirect to login if not authenticated
@@ -37,11 +39,7 @@ export const ProtectedRoute = () => {
   const location = useLocation();
 
   if (auth.loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <RouteLoadingState />;
   }
 
   if (!auth.isAuthenticated()) {
@@ -58,11 +56,7 @@ export const WorkerRoute = () => {
   const location = useLocation();
 
   if (auth.loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <RouteLoadingState />;
   }
 
   if (!auth.isAuthenticated()) {
@@ -81,11 +75,7 @@ export const PublicRoute = () => {
   const auth = useAuth();
   
   if (auth.loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <RouteLoadingState />;
   }
   
   // If user is already logged in, redirect them to their home page
