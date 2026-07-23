@@ -16,8 +16,6 @@ export { default as ManageWorkOrders } from './ManageWorkOrders';
 export { default as ManageWorkers } from './ManageWorkers';
 export { default as MyAssignments } from './MyAssignments';
 export { default as MyWorkOrderDetail } from './MyWorkOrderDetail';
-export { default as PageShell } from './PageShell';
-export { default as PlaceholderPage } from './PlaceholderPage';
 export { default as ProjectSummary } from './ProjectSummary';
 export { default as Settings } from './Settings';
 export { default as UnauthorizedPage } from './UnauthorizedPage';
