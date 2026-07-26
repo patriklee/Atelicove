@@ -4,10 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   Grid,
   InputLabel,
@@ -30,6 +26,8 @@ import { apiFetch } from '../../api';
 import { useAuth } from '../../Components/AuthContext';
 import { formatDateTime } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { ConfirmationDialog } from '../../shared/components/dialogs';
+import { useConfirmationDialog } from '../../shared/hooks';
 
 const emptyCompany = {
   companyName: '',
@@ -57,11 +55,11 @@ const ManageCompanies = () => {
   const [createForm, setCreateForm] = useState(emptyCompany);
   const [editForm, setEditForm] = useState(emptyCompany);
   const [password, setPassword] = useState('');
-  const [passwordOpen, setPasswordOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
-  const [pendingCompany, setPendingCompany] = useState(null);
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const confirmationDialog = useConfirmationDialog();
+  const pendingAction = confirmationDialog.target?.action;
+  const pendingCompany = confirmationDialog.target?.company;
 
   const loadData = useCallback(async () => {
     const [companyData, workOrderData] = await Promise.all([
@@ -126,17 +124,13 @@ const ManageCompanies = () => {
   };
 
   const requestPassword = (action, company = null) => {
-    setPendingAction(action);
-    setPendingCompany(company);
     setPassword('');
-    setPasswordOpen(true);
+    confirmationDialog.openDialog({ action, company });
   };
 
   const closePasswordDialog = () => {
-    setPasswordOpen(false);
     setPassword('');
-    setPendingAction(null);
-    setPendingCompany(null);
+    confirmationDialog.closeDialog();
   };
 
   const verifyPassword = () => apiFetch('/auth/login', {
@@ -356,9 +350,16 @@ const ManageCompanies = () => {
         <Alert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</Alert>
       </Snackbar>
 
-      <Dialog open={passwordOpen} onClose={closePasswordDialog} fullWidth maxWidth="xs">
-        <DialogTitle>{pendingAction === 'delete' ? 'Delete Company' : 'Confirm Changes'}</DialogTitle>
-        <DialogContent>
+      <ConfirmationDialog
+        open={confirmationDialog.open}
+        title={pendingAction === 'delete' ? 'Delete Company' : 'Confirm Changes'}
+        confirmLabel={pendingAction === 'delete' ? 'Delete' : 'Confirm'}
+        confirmColor={pendingAction === 'delete' ? 'error' : 'primary'}
+        onConfirm={runPendingAction}
+        onCancel={closePasswordDialog}
+        disabled={!password}
+        loading={saving}
+      >
           {pendingAction === 'delete' && (
             <Alert severity="warning" sx={{ mb: 2 }}>
               This permanently deletes a company with no attached work orders and cannot be undone.
@@ -372,19 +373,7 @@ const ManageCompanies = () => {
             fullWidth
             margin="normal"
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closePasswordDialog}>Cancel</Button>
-          <Button
-            variant="contained"
-            color={pendingAction === 'delete' ? 'error' : 'primary'}
-            disabled={!password || saving}
-            onClick={runPendingAction}
-          >
-            {pendingAction === 'delete' ? 'Delete' : 'Confirm'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      </ConfirmationDialog>
     </Box>
   );
 };

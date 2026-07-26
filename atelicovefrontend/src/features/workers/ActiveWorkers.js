@@ -6,6 +6,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { workerService } from '../../services/workerService';
 import { formatDateTime, normalizeWorker } from '../../model';
+import { EntityEmptyState } from '../../shared/components/tables';
 
 const ActiveWorkers = () => {
   const navigate = useNavigate();
@@ -55,9 +56,7 @@ const ActiveWorkers = () => {
               </TableRow>
             ))}
             {!sortedWorkers.length && (
-              <TableRow>
-                <TableCell colSpan={5}>No workers found.</TableCell>
-              </TableRow>
+              <EntityEmptyState message="No workers found." colSpan={5} />
             )}
           </TableBody>
         </Table>

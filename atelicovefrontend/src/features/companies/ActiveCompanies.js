@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { companyService } from '../../services/companyService';
+import { EntityEmptyState } from '../../shared/components/tables';
 
 const ActiveCompanies = () => {
   const navigate = useNavigate();
@@ -71,9 +72,7 @@ const ActiveCompanies = () => {
               </TableRow>
             ))}
             {!sortedCompanies.length && (
-              <TableRow>
-                <TableCell colSpan={4}>No companies found.</TableCell>
-              </TableRow>
+              <EntityEmptyState message="No companies found." colSpan={4} />
             )}
           </TableBody>
         </Table>

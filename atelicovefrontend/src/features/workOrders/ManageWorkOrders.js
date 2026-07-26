@@ -22,6 +22,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../../model';
+import { EntityEmptyState } from '../../shared/components/tables';
 
 const emptyCreateForm = { workerIDs: [], companyID: '', comment: '' };
 
@@ -181,7 +182,7 @@ const ManageWorkOrders = () => {
           <TableHead><TableRow><TableCell>Work Order</TableCell><TableCell>Status</TableCell><TableCell>Workers</TableCell><TableCell>Company</TableCell><TableCell>Start</TableCell><TableCell>Price</TableCell><TableCell align="right">Actions</TableCell></TableRow></TableHead>
           <TableBody>
             {activeWorkOrders.map(order => <TableRow key={order.workOrderID}><TableCell><Button onClick={() => navigate(`/admin/workorders/${order.workOrderID}`)}>#{order.workOrderID}</Button></TableCell><TableCell><Chip size="small" label={(order.status || 'OPEN').replaceAll('_', ' ')} /></TableCell><TableCell>{getWorkOrderWorkers(order).map(worker => `${worker.firstName} ${worker.lastName}`).join(', ') || 'Unassigned'}</TableCell><TableCell>{order.company?.companyName || 'No company'}</TableCell><TableCell>{formatDateTime(order.startDateTime)}</TableCell><TableCell>{formatMoney(getWorkOrderActualPrice(order))}</TableCell><TableCell align="right">{order.status === 'COMPLETE' && <Button color="warning" onClick={() => archiveWorkOrder(order)}>Archive</Button>}</TableCell></TableRow>)}
-            {!activeWorkOrders.length && <TableRow><TableCell colSpan={7}>No active work orders found.</TableCell></TableRow>}
+            {!activeWorkOrders.length && <EntityEmptyState message="No active work orders found." colSpan={7} />}
           </TableBody>
         </Table>
       </TableContainer>

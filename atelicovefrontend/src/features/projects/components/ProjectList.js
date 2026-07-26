@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Chip, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { formatDateTime, formatMoney } from '../../../model';
+import { EntityEmptyState } from '../../../shared/components/tables';
 
 export default function ProjectList({ projects, canManage, onEdit, onOpen }) {
   return (
@@ -19,7 +20,7 @@ export default function ProjectList({ projects, canManage, onEdit, onOpen }) {
               <TableCell align="right"><Stack direction="row" spacing={1} justifyContent="flex-end"><Button size="small" onClick={() => onOpen(project)}>View</Button>{canManage && <Button size="small" onClick={() => onEdit(project)}>Edit</Button>}</Stack></TableCell>
             </TableRow>
           ))}
-          {!projects.length && <TableRow><TableCell colSpan={7}>No active projects found.</TableCell></TableRow>}
+          {!projects.length && <EntityEmptyState message="No active projects found." colSpan={7} />}
         </TableBody>
       </Table>
     </TableContainer>

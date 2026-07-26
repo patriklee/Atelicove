@@ -33,6 +33,8 @@ import { apiFetch } from '../../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker, workerPayload } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { ConfirmationDialog } from '../../shared/components/dialogs';
+import { useConfirmationDialog } from '../../shared/hooks';
 
 const emptyWorker = {
   firstName: '',
@@ -85,11 +87,11 @@ const ManageWorkers = () => {
   const [createForm, setCreateForm] = useState(emptyWorker);
   const [editForm, setEditForm] = useState(emptyWorker);
   const [password, setPassword] = useState('');
-  const [passwordOpen, setPasswordOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
-  const [pendingWorker, setPendingWorker] = useState(null);
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const confirmationDialog = useConfirmationDialog();
+  const pendingAction = confirmationDialog.target?.action;
+  const pendingWorker = confirmationDialog.target?.worker;
 
   const fetchWorkers = useCallback(async () => {
     const [data, teamData, workOrderData] = await Promise.all([
@@ -225,17 +227,13 @@ const ManageWorkers = () => {
   };
 
   const requestPassword = (action, worker = null) => {
-    setPendingAction(action);
-    setPendingWorker(worker);
     setPassword('');
-    setPasswordOpen(true);
+    confirmationDialog.openDialog({ action, worker });
   };
 
   const closePasswordDialog = () => {
-    setPasswordOpen(false);
     setPassword('');
-    setPendingAction(null);
-    setPendingWorker(null);
+    confirmationDialog.closeDialog();
   };
 
   const verifyPassword = () => apiFetch('/auth/login', {
@@ -645,9 +643,16 @@ const ManageWorkers = () => {
         <Alert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</Alert>
       </Snackbar>
 
-      <Dialog open={passwordOpen} onClose={closePasswordDialog} fullWidth maxWidth="xs">
-        <DialogTitle>{pendingAction === 'delete' ? 'Delete Worker' : 'Confirm Changes'}</DialogTitle>
-        <DialogContent>
+      <ConfirmationDialog
+        open={confirmationDialog.open}
+        title={pendingAction === 'delete' ? 'Delete Worker' : 'Confirm Changes'}
+        confirmLabel={pendingAction === 'delete' ? 'Delete' : 'Confirm'}
+        confirmColor={pendingAction === 'delete' ? 'error' : 'primary'}
+        onConfirm={runPendingAction}
+        onCancel={closePasswordDialog}
+        disabled={!password}
+        loading={saving}
+      >
           {pendingAction === 'delete' && (
             <Alert severity="warning" sx={{ mb: 2 }}>
               This permanently deletes a worker with no attached work orders and cannot be undone.
@@ -661,19 +666,7 @@ const ManageWorkers = () => {
             fullWidth
             margin="normal"
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closePasswordDialog}>Cancel</Button>
-          <Button
-            variant="contained"
-            color={pendingAction === 'delete' ? 'error' : 'primary'}
-            disabled={!password || saving}
-            onClick={runPendingAction}
-          >
-            {pendingAction === 'delete' ? 'Delete' : 'Confirm'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      </ConfirmationDialog>
 
       <Dialog open={Boolean(teamSummary)} onClose={() => setTeamSummary(null)} fullWidth maxWidth="sm">
         <DialogTitle>{teamSummary?.teamName || 'Team Summary'}</DialogTitle>
