@@ -9,11 +9,12 @@ import {
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
+import { authService } from '../../services/authService';
 import { getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
 import WorkOrderDetail from './WorkOrderDetail';
-import WorkOrderDocuments from '../documents/WorkOrderDocuments';
+import { WorkOrderDocuments } from '../documents';
 import { projectPathFor } from '../../shared/routing/rolePaths';
 import MyWorkOrderOverviewSection from './components/MyWorkOrderOverviewSection';
 import WorkOrderCommentsSection from './components/WorkOrderCommentsSection';
@@ -83,10 +84,7 @@ const MyWorkOrderDetail = () => {
     setPasswordOpen(true);
   };
 
-  const verifyPassword = () => apiFetch('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ username: user.username, password }),
-  });
+  const verifyPassword = () => authService.verifyPassword({ username: user.username, password });
 
   const updateItemField = (itemID, field, value) => {
     setEditItems(current => current.map(item => (

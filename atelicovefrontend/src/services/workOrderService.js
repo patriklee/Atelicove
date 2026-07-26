@@ -1,7 +1,7 @@
 import { apiFetch, apiDownload } from '../shared/api';
 
 export const workOrderService = {
-  getAll: () => apiFetch('/workorders/all-with-archived'),
+  getAllIncludingArchived: () => apiFetch('/workorders/all-with-archived'),
   getActive: () => apiFetch('/workorders'),
   getArchived: () => apiFetch('/workorders/archived'),
   getById: (workOrderID) => apiFetch(`/workorders/${workOrderID}`),

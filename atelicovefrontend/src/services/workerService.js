@@ -1,7 +1,7 @@
 import { apiFetch } from '../shared/api';
 
 export const workerService = {
-  getAll: () => apiFetch('/workers/all-with-archived'),
+  getAllIncludingArchived: () => apiFetch('/workers/all-with-archived'),
   getActive: () => apiFetch('/workers'),
   getArchived: () => apiFetch('/workers/archived'),
   getById: (workerID) => apiFetch(`/workers/${workerID}`),

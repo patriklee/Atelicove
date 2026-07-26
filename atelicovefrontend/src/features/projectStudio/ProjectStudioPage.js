@@ -1,4 +1,4 @@
-import ProjectsPage from '../projects/ProjectsPage';
+import { ProjectsPage } from '../projects';
 
 export default function ProjectStudioPage() {
   return (

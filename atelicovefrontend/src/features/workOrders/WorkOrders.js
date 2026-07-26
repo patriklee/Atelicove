@@ -37,7 +37,7 @@ const WorkOrders = ({
     const [error, setError] = useState('');
 
     useEffect(() => {
-        workOrderService.getAll()
+        workOrderService.getAllIncludingArchived()
             .then(setWorkOrders)
             .catch(err => setError(err.message));
     }, []);

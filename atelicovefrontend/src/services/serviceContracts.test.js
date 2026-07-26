@@ -1,5 +1,7 @@
 import { apiFetch } from '../shared/api';
+import { authService } from './authService';
 import { companyService } from './companyService';
+import { projectService } from './projectService';
 import { workerService } from './workerService';
 import { workOrderService } from './workOrderService';
 
@@ -8,26 +10,43 @@ jest.mock('../shared/api', () => ({ apiFetch: jest.fn(), apiDownload: jest.fn() 
 beforeEach(() => jest.clearAllMocks());
 
 test('company service uses the existing company controller routes', async () => {
+  await companyService.getAllIncludingArchived();
   await companyService.getAllActive();
   await companyService.create({ companyName: 'Example' });
   await companyService.archive(3);
   await companyService.restore(3);
 
-  expect(apiFetch).toHaveBeenNthCalledWith(1, '/companies/all');
-  expect(apiFetch).toHaveBeenNthCalledWith(2, '/companies/add', expect.objectContaining({ method: 'POST' }));
-  expect(apiFetch).toHaveBeenNthCalledWith(3, '/companies/3', { method: 'DELETE' });
-  expect(apiFetch).toHaveBeenNthCalledWith(4, '/companies/3/restore', { method: 'PUT' });
+  expect(apiFetch).toHaveBeenNthCalledWith(1, '/companies/all-with-archived');
+  expect(apiFetch).toHaveBeenNthCalledWith(2, '/companies/all');
+  expect(apiFetch).toHaveBeenNthCalledWith(3, '/companies/add', expect.objectContaining({ method: 'POST' }));
+  expect(apiFetch).toHaveBeenNthCalledWith(4, '/companies/3', { method: 'DELETE' });
+  expect(apiFetch).toHaveBeenNthCalledWith(5, '/companies/3/restore', { method: 'PUT' });
 });
 test('worker and work-order services use targeted controller routes', async () => {
+  await workerService.getAllIncludingArchived();
+  await workOrderService.getAllIncludingArchived();
   await workerService.archive(4);
   await workerService.restore(4);
   await workOrderService.addWorker(9, 4);
 
-  expect(apiFetch).toHaveBeenNthCalledWith(1, '/workers/4', { method: 'DELETE' });
-  expect(apiFetch).toHaveBeenNthCalledWith(2, '/workers/4/restore', { method: 'PUT' });
-  expect(apiFetch).toHaveBeenNthCalledWith(3, '/workorders/9/assign', {
+  expect(apiFetch).toHaveBeenNthCalledWith(1, '/workers/all-with-archived');
+  expect(apiFetch).toHaveBeenNthCalledWith(2, '/workorders/all-with-archived');
+  expect(apiFetch).toHaveBeenNthCalledWith(3, '/workers/4', { method: 'DELETE' });
+  expect(apiFetch).toHaveBeenNthCalledWith(4, '/workers/4/restore', { method: 'PUT' });
+  expect(apiFetch).toHaveBeenNthCalledWith(5, '/workorders/9/assign', {
     method: 'PUT',
     body: JSON.stringify({ workerID: 4 }),
+  });
+});
+
+test('project and password-verification methods preserve their existing endpoints', async () => {
+  await projectService.getActive();
+  await authService.verifyPassword({ username: 'admin', password: 'secret' });
+
+  expect(apiFetch).toHaveBeenNthCalledWith(1, '/projects');
+  expect(apiFetch).toHaveBeenNthCalledWith(2, '/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'admin', password: 'secret' }),
   });
 });
 

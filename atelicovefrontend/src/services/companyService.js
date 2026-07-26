@@ -1,7 +1,7 @@
 import { apiFetch } from '../shared/api';
 
 export const companyService = {
-  getAll: () => apiFetch('/companies/all-with-archived'),
+  getAllIncludingArchived: () => apiFetch('/companies/all-with-archived'),
   getAllActive: () => apiFetch('/companies/all'),
   getActive: () => apiFetch('/companies'),
   getArchived: () => apiFetch('/companies/archived'),

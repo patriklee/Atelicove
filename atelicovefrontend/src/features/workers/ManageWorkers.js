@@ -29,6 +29,7 @@ import {
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
+import { authService } from '../../services/authService';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker, workerPayload } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
@@ -241,10 +242,7 @@ const ManageWorkers = () => {
     confirmationDialog.closeDialog();
   };
 
-  const verifyPassword = () => apiFetch('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ username: user.username, password }),
-  });
+  const verifyPassword = () => authService.verifyPassword({ username: user.username, password });
 
   const createWorker = async (event) => {
     event?.preventDefault?.();

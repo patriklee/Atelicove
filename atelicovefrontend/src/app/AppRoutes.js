@@ -8,32 +8,35 @@ import LoginPage from '../Components/LoginPage';
 import UnauthorizedPage from '../Components/UnauthorizedPage';
 
 // Admin pages
-import AdminHomePage from '../features/admin/AdminHomePage';
-import ManageWorkOrders from '../features/workOrders/ManageWorkOrders';
-import ActiveCompanies from '../features/companies/ActiveCompanies';
-import ManageCompanies from '../features/companies/ManageCompanies';
-import CompanySummary from '../features/companies/CompanySummary';
-import ActiveWorkers from '../features/workers/ActiveWorkers';
-import ManageWorkers from '../features/workers/ManageWorkers';
-import WorkerSummary from '../features/workers/WorkerSummary';
-import Settings from '../features/admin/Settings';
-import WorkOrders from '../features/workOrders/WorkOrders';
-import WorkOrderDetail from '../features/workOrders/WorkOrderDetail';
-import MyAssignments from '../features/workOrders/MyAssignments';
-import MyWorkOrderDetail from '../features/workOrders/MyWorkOrderDetail';
-import ArchivedWorkOrders from '../features/workOrders/ArchivedWorkOrders';
-import ArchivedCompanies from '../features/companies/ArchivedCompanies';
-import ArchivedWorkers from '../features/workers/ArchivedWorkers';
-import ArchivedProjects from '../features/projects/ArchivedProjects';
-import Documents from '../features/documents/Documents';
-import ProjectsPage from '../features/projects/ProjectsPage';
-import ProjectStudioPage from '../features/projectStudio/ProjectStudioPage';
-import ProjectSummary from '../features/projects/ProjectSummary';
+import { AdminHomePage, Settings } from '../features/admin';
+import {
+  ActiveCompanies,
+  ArchivedCompanies,
+  CompanySummary,
+  ManageCompanies,
+} from '../features/companies';
+import { Documents } from '../features/documents';
+import { ArchivedProjects, ProjectsPage, ProjectSummary } from '../features/projects';
+import { ProjectStudioPage } from '../features/projectStudio';
+import {
+  ActiveWorkers,
+  ArchivedWorkers,
+  ManageWorkers,
+  WorkerHomePage,
+  WorkerSummary,
+} from '../features/workers';
+import {
+  ArchivedWorkOrders,
+  ManageWorkOrders,
+  MyAssignments,
+  MyWorkOrderDetail,
+  WorkOrderDetail,
+  WorkOrders,
+  WorkerAssignedWork,
+  WorkerBillingPage,
+} from '../features/workOrders';
 
 // Worker pages
-import WorkerHomePage from '../features/workers/WorkerHomePage';
-import WorkerAssignedWork from '../features/workOrders/WorkerAssignedWork';
-import WorkerBillingPage from '../features/workOrders/WorkerBillingPage';
 
 
 function AppRoutes() {

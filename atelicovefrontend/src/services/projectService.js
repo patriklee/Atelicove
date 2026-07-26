@@ -1,7 +1,6 @@
 import { apiFetch, apiDownload } from '../shared/api';
 
 export const projectService = {
-  getAll: () => apiFetch('/projects'),
   getActive: () => apiFetch('/projects'),
   getArchived: () => apiFetch('/projects/archived'),
   getById: (projectID) => apiFetch(`/projects/${projectID}`),

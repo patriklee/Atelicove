@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
+import { authService } from '../../services/authService';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
 import { useConfirmationDialog } from '../../shared/hooks';
@@ -110,10 +111,7 @@ const ManageCompanies = () => {
     confirmationDialog.closeDialog();
   };
 
-  const verifyPassword = () => apiFetch('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ username: user.username, password }),
-  });
+  const verifyPassword = () => authService.verifyPassword({ username: user.username, password });
 
   const createCompany = async (event) => {
     event?.preventDefault?.();

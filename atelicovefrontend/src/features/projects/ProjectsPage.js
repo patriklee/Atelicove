@@ -8,7 +8,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import WorkOrderDocuments from '../documents/WorkOrderDocuments';
+import { WorkOrderDocuments } from '../documents';
 import { useAuth } from '../../Components/AuthContext';
 import { projectPathFor, workOrderPathFor } from '../../shared/routing/rolePaths';
 import ProjectList from './components/ProjectList';
