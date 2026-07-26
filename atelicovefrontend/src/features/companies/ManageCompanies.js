@@ -2,32 +2,18 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
-  Chip,
-  FormControl,
   Grid,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
   Snackbar,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { useAuth } from '../../Components/AuthContext';
-import { formatDateTime } from '../../model';
-import TableTitleRow from '../../Components/TableTitleRow';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
 import { useConfirmationDialog } from '../../shared/hooks';
+import { CompanyCreatePanel, CompanyEditPanel } from './components/CompanyFormPanels';
+import CompanyTable from './components/CompanyTable';
 
 const emptyCompany = {
   companyName: '',
@@ -35,15 +21,6 @@ const emptyCompany = {
   companyPhone: '',
   companyEmail: '',
 };
-
-const CompanyFields = ({ form, onChange, disabled = false }) => (
-  <>
-    <TextField label="Company Name" name="companyName" value={form.companyName} onChange={onChange} fullWidth margin="normal" disabled={disabled} />
-    <TextField label="Address" name="companyAddress" value={form.companyAddress} onChange={onChange} fullWidth margin="normal" disabled={disabled} />
-    <TextField label="Phone Number" name="companyPhone" value={form.companyPhone} onChange={onChange} fullWidth margin="normal" disabled={disabled} />
-    <TextField label="Email" name="companyEmail" value={form.companyEmail} onChange={onChange} fullWidth margin="normal" disabled={disabled} />
-  </>
-);
 
 const ManageCompanies = () => {
   const navigate = useNavigate();
@@ -238,112 +215,27 @@ const ManageCompanies = () => {
       <Typography color="text.secondary" sx={{ mb: 3 }}>Create and edit active companies.</Typography>
 
       <Grid container spacing={3} alignItems="stretch">
-        <Grid item xs={12} md={6}>
-          <Paper component="form" onSubmit={createCompany} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Create Company</Typography>
-
-            <CompanyFields form={createForm} onChange={handleCreateChange} />
-
-            <Button type="submit" variant="contained" disabled={saving || !createForm.companyName.trim()} sx={{ mt: 2 }}>
-              {saving ? 'Creating...' : 'Create'}
-            </Button>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Edit Company</Typography>
-
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Company</InputLabel>
-              <Select value={companyID} label="Company" onChange={event => setCompanyID(event.target.value)}>
-                <MenuItem value="">No company selected</MenuItem>
-                {companies.map(company => (
-                  <MenuItem key={company.companyID} value={company.companyID}>{company.companyName}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <CompanyFields form={editForm} onChange={handleEditChange} disabled={!selectedCompany} />
-
-            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-              <Button
-                variant="contained"
-                disabled={saving || !selectedCompany || !editForm.companyName.trim()}
-                onClick={() => requestPassword('update')}
-              >
-                Save Changes
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                disabled={saving || !canDeleteSelectedCompany}
-                onClick={() => requestPassword('delete')}
-              >
-                Delete
-              </Button>
-            </Stack>
-
-            {selectedCompany && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>Attached Work Orders</Typography>
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                  {attachedWorkOrders.length ? attachedWorkOrders.map(order => (
-                    <Chip
-                      key={order.workOrderID}
-                      label={`#${order.workOrderID} (${order.status?.replaceAll('_', ' ')}${order.archived ? ', archived' : ''})`}
-                      onClick={() => navigate(`/admin/workorders/${order.workOrderID}`)}
-                      clickable
-                    />
-                  )) : <Chip label="No attached work orders" />}
-                </Stack>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} sx={{ mt: 6 }}>
-          <Paper sx={{ p: 3 }}>
-            <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
-              <Table stickyHeader>
-                <TableHead>
-                  <TableTitleRow title="Companies" colSpan={5} />
-                  <TableRow>
-                    <TableCell>Company</TableCell>
-                    <TableCell>Address</TableCell>
-                    <TableCell>Phone</TableCell>
-                    <TableCell>Created</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {companies.map(company => (
-                    <TableRow key={company.companyID}>
-                    <TableCell>
-                        <Button size="small" onClick={() => navigate(`/admin/companies/${company.companyID}`)}>
-                          {company.companyName}
-                        </Button>
-                      </TableCell>
-                      <TableCell>{company.companyAddress || 'Not set'}</TableCell>
-                      <TableCell>{company.companyPhone || 'Not set'}</TableCell>
-                      <TableCell>{formatDateTime(company.createdAt)}</TableCell>
-                      <TableCell align="right">
-                        <Button size="small" color="warning" disabled={saving} onClick={() => archiveCompany(company)}>
-                          Archive
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!companies.length && (
-                    <TableRow>
-                      <TableCell colSpan={5}>No companies found.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-        </Grid>
+        <CompanyCreatePanel form={createForm} saving={saving} onChange={handleCreateChange} onSubmit={createCompany} />
+        <CompanyEditPanel
+          companies={companies}
+          companyID={companyID}
+          form={editForm}
+          selectedCompany={selectedCompany}
+          attachedWorkOrders={attachedWorkOrders}
+          canDelete={canDeleteSelectedCompany}
+          saving={saving}
+          onCompanyChange={setCompanyID}
+          onChange={handleEditChange}
+          onUpdate={() => requestPassword('update')}
+          onDelete={() => requestPassword('delete')}
+          onOpenWorkOrder={order => navigate(`/admin/workorders/${order.workOrderID}`)}
+        />
+        <CompanyTable
+          companies={companies}
+          saving={saving}
+          onView={company => navigate(`/admin/companies/${company.companyID}`)}
+          onArchive={archiveCompany}
+        />
       </Grid>
 
       <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar(current => ({ ...current, open: false }))}>

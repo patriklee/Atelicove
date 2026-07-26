@@ -23,7 +23,6 @@ import {
   TableBody,
   TableCell,
   TableContainer,
-  TableHead,
   TableRow,
   TextField,
   Typography,
@@ -32,9 +31,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker, workerPayload } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
-import TableTitleRow from '../../Components/TableTitleRow';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
 import { useConfirmationDialog } from '../../shared/hooks';
+import WorkerTable from './components/WorkerTable';
+import WorkerTeamSection from './components/WorkerTeamSection';
 
 const emptyWorker = {
   firstName: '',
@@ -204,6 +204,11 @@ const ManageWorkers = () => {
       teamName: team.teamName || '',
       workerIDs: (team.workers || []).map(worker => worker.workerID),
     });
+  };
+
+  const selectTeam = (teamID) => {
+    const team = teams.find(item => item.teamID === Number(teamID));
+    team ? loadTeamIntoForm(team) : resetTeamForm();
   };
 
   const deleteTeam = async (team) => {
@@ -454,189 +459,29 @@ const ManageWorkers = () => {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} sx={{ mt: 6 }}>
-          <Paper sx={{ p: 3 }}>
-            <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
-              <Table stickyHeader>
-                <TableHead>
-                  <TableTitleRow title="Workers" colSpan={7} />
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Username</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell>Role</TableCell>
-                    <TableCell>Created</TableCell>
-                    <TableCell>Last Updated</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {workers.map(worker => (
-                    <TableRow key={worker.workerID}>
-                      <TableCell>
-                        <Button size="small" onClick={() => navigate(`/admin/workers/${worker.workerID}`)}>
-                          {worker.firstName} {worker.lastName}
-                        </Button>
-                      </TableCell>
-                      <TableCell>{worker.username}</TableCell>
-                      <TableCell>{worker.email}</TableCell>
-                      <TableCell>{worker.roleTitle || (worker.isAdmin ? 'Admin' : 'Worker')}</TableCell>
-                      <TableCell>{formatDateTime(worker.createdAt)}</TableCell>
-                      <TableCell>{formatDateTime(worker.lastModifiedAt)}</TableCell>
-                      <TableCell align="right">
-                        <Button size="small" color="warning" disabled={saving} onClick={() => archiveWorker(worker)}>
-                          Archive
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!workers.length && (
-                    <TableRow>
-                      <TableCell colSpan={7}>No workers found.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-        </Grid>
+        <WorkerTable
+          workers={workers}
+          saving={saving}
+          onView={worker => navigate(`/admin/workers/${worker.workerID}`)}
+          onArchive={archiveWorker}
+        />
       </Grid>
       )}
 
       {view === 'teams' && (
-      <Grid container spacing={3} alignItems="stretch">
-        <Grid item xs={12} md={6}>
-          <Paper component="form" onSubmit={saveTeam} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>
-              {teamForm.teamID ? 'Edit Team' : 'Create Team'}
-            </Typography>
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Edit team</InputLabel>
-              <Select
-                value={teamForm.teamID}
-                label="Edit team"
-                onChange={event => {
-                  const team = teams.find(item => item.teamID === Number(event.target.value));
-                  team ? loadTeamIntoForm(team) : resetTeamForm();
-                }}
-              >
-                <MenuItem value="">New team</MenuItem>
-                {teams.map(team => (
-                  <MenuItem key={team.teamID} value={team.teamID}>
-                    {team.teamName || `Team #${team.teamID}`}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Team name"
-              fullWidth
-              margin="normal"
-              value={teamForm.teamName}
-              onChange={event => setTeamForm(current => ({ ...current, teamName: event.target.value }))}
-            />
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Workers</InputLabel>
-              <Select
-                multiple
-                value={teamForm.workerIDs}
-                label="Workers"
-                onChange={event => setTeamForm(current => ({ ...current, workerIDs: event.target.value }))}
-                renderValue={selected => selected.map(workerID => {
-                  const worker = workers.find(item => item.workerID === Number(workerID));
-                  return worker ? `${worker.firstName} ${worker.lastName}` : `Worker #${workerID}`;
-                }).join(', ')}
-              >
-                {workers.map(worker => (
-                  <MenuItem key={worker.workerID} value={worker.workerID}>
-                    {worker.firstName} {worker.lastName}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-              <Button type="submit" variant="contained" disabled={saving || !teamForm.teamName.trim() || !teamForm.workerIDs.length}>
-                Save Team
-              </Button>
-              <Button variant="outlined" disabled={Boolean(teamForm.teamID)} onClick={resetTeamForm}>
-                New
-              </Button>
-              {selectedTeam && (
-                <Button variant="outlined" color="error" disabled={saving} onClick={() => deleteTeam(selectedTeam)}>
-                  Delete
-                </Button>
-              )}
-            </Stack>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Team Preview</Typography>
-            {selectedTeam ? (
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{selectedTeam.teamName}</Typography>
-                <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-                  {(selectedTeam.workers || []).map(worker => {
-                    const normalized = normalizeWorker(worker);
-                    return <Chip key={normalized.workerID} label={`${normalized.firstName} ${normalized.lastName}`} />;
-                  })}
-                </Stack>
-              </Box>
-            ) : (
-              <Typography color="text.secondary">Select a team from the list below to edit it.</Typography>
-            )}
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} sx={{ mt: 6 }}>
-          <Paper sx={{ p: 3 }}>
-            <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
-              <Table stickyHeader>
-                <TableHead>
-                  <TableTitleRow title="Teams" colSpan={4} />
-                  <TableRow>
-                    <TableCell>Team</TableCell>
-                    <TableCell>People</TableCell>
-                    <TableCell>Workers</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {teams.map(team => (
-                    <TableRow key={team.teamID}>
-                      <TableCell>
-                        <Button size="small" onClick={() => setTeamSummary(team)}>
-                          {team.teamName || `Team #${team.teamID}`}
-                        </Button>
-                      </TableCell>
-                      <TableCell>{(team.workers || []).length}</TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
-                          {(team.workers || []).map(worker => {
-                            const normalized = normalizeWorker(worker);
-                            return <Chip key={normalized.workerID} size="small" label={`${normalized.firstName} ${normalized.lastName}`} />;
-                          })}
-                        </Stack>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Button size="small" color="error" disabled={saving} onClick={() => deleteTeam(team)}>
-                          Delete
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!teams.length && (
-                    <TableRow>
-                      <TableCell colSpan={4}>No teams found.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-        </Grid>
-      </Grid>
+        <WorkerTeamSection
+          teams={teams}
+          workers={workers}
+          teamForm={teamForm}
+          selectedTeam={selectedTeam}
+          saving={saving}
+          onSelectTeam={selectTeam}
+          onFormChange={changes => setTeamForm(current => ({ ...current, ...changes }))}
+          onReset={resetTeamForm}
+          onSave={saveTeam}
+          onDelete={deleteTeam}
+          onShowSummary={setTeamSummary}
+        />
       )}
 
       <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar(current => ({ ...current, open: false }))}>
