@@ -33,6 +33,8 @@ public class ProjectActionItem {
 
 	private LocalDateTime completedAt;
 
+	private LocalDateTime dueDate;
+
 	@ManyToOne
 	@JoinColumn(name = "assigned_worker_id")
 	private Worker assignedWorker;
@@ -63,6 +65,10 @@ public class ProjectActionItem {
 		return completedAt;
 	}
 
+	public LocalDateTime getDueDate() {
+		return dueDate;
+	}
+
 	public Worker getAssignedWorker() {
 		return assignedWorker;
 	}
@@ -89,6 +95,10 @@ public class ProjectActionItem {
 
 	public void setCompletedAt(LocalDateTime completedAt) {
 		this.completedAt = completedAt;
+	}
+
+	public void setDueDate(LocalDateTime dueDate) {
+		this.dueDate = dueDate;
 	}
 
 	public void setAssignedWorker(Worker assignedWorker) {

@@ -1,0 +1,84 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { dashboardService } from './dashboardService';
+import {
+  getDashboardDeadlines,
+  getDashboardNotifications,
+  getWorkQueue,
+  groupSearchResults,
+} from './dashboardUtils';
+
+const emptyData = { projects: [], workOrders: [], companies: [], workers: [] };
+
+export default function useAdminDashboard() {
+  const [data, setData] = useState(emptyData);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [savingDeadline, setSavingDeadline] = useState(false);
+  const [deadlineMessage, setDeadlineMessage] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setData(await dashboardService.load());
+    } catch (requestError) {
+      setError(requestError.message || 'Dashboard data could not be loaded.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [query]);
+
+  const saveDeadline = async ({ projectID, actionItem, itemText, dueDate }) => {
+    setSavingDeadline(true);
+    setDeadlineMessage(null);
+    const payload = {
+      itemText: itemText.trim(),
+      dueDate: `${dueDate}T17:00:00`,
+      assignedWorker: actionItem?.assignedWorker || null,
+      assignedTeam: actionItem?.assignedTeam || null,
+    };
+    try {
+      if (actionItem) {
+        await dashboardService.updateDeadline(projectID, actionItem.actionItemID, payload);
+      } else {
+        await dashboardService.createDeadline(projectID, payload);
+      }
+      await load();
+      setDeadlineMessage({ severity: 'success', text: actionItem ? 'Deadline updated.' : 'Deadline created.' });
+      return true;
+    } catch (requestError) {
+      setDeadlineMessage({ severity: 'error', text: requestError.message || 'Deadline could not be saved.' });
+      return false;
+    } finally {
+      setSavingDeadline(false);
+    }
+  };
+
+  return {
+    data,
+    loading,
+    error,
+    query,
+    setQuery,
+    searchResults: useMemo(() => groupSearchResults(data, debouncedQuery), [data, debouncedQuery]),
+    searchReady: debouncedQuery.length >= 2,
+    workQueue: useMemo(() => getWorkQueue(data), [data]),
+    deadlines: useMemo(() => getDashboardDeadlines(data.projects), [data.projects]),
+    notifications: useMemo(() => getDashboardNotifications(data), [data]),
+    savingDeadline,
+    deadlineMessage,
+    saveDeadline,
+    reload: load,
+  };
+}

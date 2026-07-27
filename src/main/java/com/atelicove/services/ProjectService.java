@@ -387,6 +387,7 @@ public class ProjectService {
 		ProjectActionItem actionItem = getRequiredActionItem(project, actionItemID);
 		prepareActionItem(request);
 		actionItem.setItemText(request.getItemText());
+		actionItem.setDueDate(request.getDueDate());
 		actionItem.setAssignedWorker(request.getAssignedWorker());
 		actionItem.setAssignedTeam(request.getAssignedTeam());
 

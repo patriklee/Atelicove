@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../Components/AuthContext';
-import { apiFetch } from '../../api';
+import AdminDashboard from './dashboard/AdminDashboard';
 
 const AdminHomePage = () => {
     const [open, setOpen] = useState(false);
@@ -20,9 +20,6 @@ const AdminHomePage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { logout, user } = useAuth();
-	// Added to usestate area
-	const[workOrderCount, setWorkOrderCount] = useState(0);
-	
     const menuItems = useMemo(() => [
         {
             label: 'Projects',
@@ -125,26 +122,19 @@ const AdminHomePage = () => {
         openOnlyMenu(getParentMenuKey(location.pathname));
     }, [getParentMenuKey, location.pathname, openOnlyMenu]);
 	
-	// Block Test
-	useEffect(() => {
-	    apiFetch('/workorders/count')
-	        .then(setWorkOrderCount)
-	        .catch(err => console.error("Error fetching work orders:", err));
-	}, []);
-
     return (
         <Box sx={{ display: 'flex', height: '100vh' }}>
             <Drawer
                 variant="permanent"
                 sx={{
-                    width: 250,
+                    width: { xs: 104, sm: 250 },
                     flexShrink: 0,
                     '& .MuiDrawer-paper': {
-                        width: 250,
+                        width: { xs: 104, sm: 250 },
                         boxSizing: 'border-box',
                         backgroundColor: '#f4f4f4',
                         textAlign: 'center',
-                        padding: '20px 0',
+                        padding: { xs: '12px 0', sm: '20px 0' },
                     },
                 }}
             >
@@ -153,6 +143,7 @@ const AdminHomePage = () => {
                     sx={{ 
                         fontWeight: 'bold', 
                         marginBottom: 2,
+                        fontSize: { xs: '1rem', sm: '1.5rem' },
                         cursor: 'pointer',
                         '&:hover': {
                             color: '#1976d2',
@@ -164,7 +155,7 @@ const AdminHomePage = () => {
                 </Typography>
                 
                 {user && (
-                    <Typography variant="subtitle1" sx={{ marginBottom: 2 }}>
+                    <Typography variant="subtitle1" sx={{ marginBottom: 2, display: { xs: 'none', sm: 'block' } }}>
                         Welcome, {user.displayName || user.firstName}. What are we creating today?
                     </Typography>
                 )}
@@ -182,7 +173,8 @@ const AdminHomePage = () => {
                                             sx={{
                                                 backgroundColor: childActive ? '#dbeafe' : 'inherit',
                                                 borderRadius: '12px',
-                                                mx: 1,
+                                                mx: { xs: 0.5, sm: 1 },
+                                                px: { xs: 0.75, sm: 2 },
                                                 '&:hover': { backgroundColor: '#e5e7eb' },
                                                 '& .MuiListItemText-primary': {
                                                     fontWeight: childActive ? 700 : 500,
@@ -203,8 +195,8 @@ const AdminHomePage = () => {
                                                             backgroundColor: isActivePath(child.path) ? '#153147' : 'inherit',
                                                             color: isActivePath(child.path) ? '#ffffff' : '#1f2937',
                                                             borderRadius: '12px',
-                                                            mx: 2,
-                                                            pl: 4,
+                                                            mx: { xs: 0.5, sm: 2 },
+                                                            pl: { xs: 1, sm: 4 },
                                                             '&:hover': {
                                                                 backgroundColor: isActivePath(child.path) ? '#1f3b63' : '#e5e7eb',
                                                             },
@@ -232,7 +224,8 @@ const AdminHomePage = () => {
                                         backgroundColor: isActivePath(item.path) ? '#153147' : 'inherit',
                                         color: isActivePath(item.path) ? '#ffffff' : '#1f2937',
                                         borderRadius: '12px',
-                                        mx: 1,
+                                        mx: { xs: 0.5, sm: 1 },
+                                        px: { xs: 0.75, sm: 2 },
                                         '&:hover': {
                                             backgroundColor: isActivePath(item.path) ? '#1f3b63' : '#e5e7eb',
                                         },
@@ -250,39 +243,9 @@ const AdminHomePage = () => {
                 </List>
             </Drawer>
 
-			<Box component="main" sx={{ flexGrow: 1, p: 3, pb: 12 }}>
+			<Box component="main" sx={{ flexGrow: 1, minWidth: 0, overflowX: 'hidden', p: { xs: 1.5, sm: 3 }, pb: 12 }}>
 			    {location.pathname === '/admin' && (
-			        <Box>
-			            <Typography variant="h4" sx={{ mb: 3 }}>
-			                Dashboard
-			            </Typography>
-						
-						{/* Work order summary */}
-			            <Box
-							onClick={() => navigate('/admin/workorders')}
-			                sx={{
-			                    backgroundColor: "#ffffff",
-			                    borderRadius: "12px",
-			                    padding: "24px",
-			                    width: "250px",
-			                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-			                    textAlign: "center",
-								cursor: "pointer",
-								'&:hover': {
-								    backgroundColor: "#f3f4f6",
-								    transform: "scale(1.02)"
-								}
-			                }}
-			            >
-			                <Typography variant="h6">
-			                    Total Work Orders
-			                </Typography>
-
-			                <Typography variant="h3" sx={{ fontWeight: "bold", color: "#153147" }}>
-			                    {workOrderCount}
-			                </Typography>
-			            </Box>
-			        </Box>
+			        <AdminDashboard />
 			    )}
 
 			    <Outlet />

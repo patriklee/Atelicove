@@ -1512,6 +1512,7 @@ const handleProjects = (segments, method, options) => {
       itemText: payload.itemText,
       completed: false,
       completedAt: null,
+      dueDate: payload.dueDate || null,
       assignedWorker: assignee.assignedWorker,
       assignedTeam: assignee.assignedTeam,
     };
@@ -1533,6 +1534,7 @@ const handleProjects = (segments, method, options) => {
       const payload = bodyAsJson(options);
       const assignee = actionItemAssignee(payload);
       actionItem.itemText = payload.itemText || actionItem.itemText;
+      actionItem.dueDate = payload.dueDate ?? actionItem.dueDate ?? null;
       actionItem.assignedWorker = assignee.assignedWorker;
       actionItem.assignedTeam = assignee.assignedTeam;
       touch(project);
