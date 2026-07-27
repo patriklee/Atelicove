@@ -254,7 +254,7 @@ const AdminHomePage = () => {
 			    {location.pathname === '/admin' && (
 			        <Box>
 			            <Typography variant="h4" sx={{ mb: 3 }}>
-			                Project Studio
+			                Dashboard
 			            </Typography>
 						
 						{/* Work order summary */}

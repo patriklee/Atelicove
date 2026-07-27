@@ -55,7 +55,6 @@ function AppRoutes() {
           {/* Admin Routes */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminHomePage />}>
-              <Route index element={<Navigate to="projects/active" replace />} />
               <Route path="manage-workorders" element={<ManageWorkOrders />} />
               <Route path="companies" element={<ActiveCompanies />} />
               <Route path="manage-companies" element={<ManageCompanies />} />
@@ -77,7 +76,7 @@ function AppRoutes() {
               <Route path="projects/:projectID" element={<ProjectSummary />} />
 			  <Route path="workorders" element={<WorkOrders />} />
               <Route path="workorders/:workOrderID" element={<WorkOrderDetail />} />
-              <Route path="*" element={<Navigate to="projects/active" replace />} />
+              <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>
           </Route>
 
