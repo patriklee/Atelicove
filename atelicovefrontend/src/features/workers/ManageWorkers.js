@@ -33,6 +33,7 @@ import { authService } from '../../services/authService';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker, workerPayload } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
+import { BackNavigation } from '../../shared/components/navigation';
 import { useConfirmationDialog } from '../../shared/hooks';
 import WorkerTable from './components/WorkerTable';
 import WorkerTeamSection from './components/WorkerTeamSection';
@@ -360,7 +361,7 @@ const ManageWorkers = () => {
 
   return (
     <Box sx={{ p: 3, pb: 8 }}>
-      <Button onClick={() => navigate(-1)} sx={{ mb: 2 }}>Back</Button>
+      <BackNavigation fallback="/admin/workers" />
       <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Worker</Typography>
       <Typography color="text.secondary">Create and edit active workers and teams.</Typography>
       <ButtonGroup variant="outlined" aria-label="Manage workers view" sx={{ mt: 1, mb: 3 }}>

@@ -19,6 +19,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { BackNavigation } from '../../shared/components/navigation';
 
 const DetailRow = ({ label, value }) => (
   <TableRow>
@@ -62,7 +63,7 @@ const ProjectSummary = () => {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-        <Button onClick={() => navigate(-1)}>Back</Button>
+        <BackNavigation fallback="/admin/projects/active" />
       </Box>
     );
   }
@@ -82,7 +83,7 @@ const ProjectSummary = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Button onClick={() => navigate(-1)} sx={{ mb: 2 }}>Back</Button>
+      <BackNavigation fallback="/admin/projects/active" />
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
         {project.projectName || `Project #${project.projectID}`}
       </Typography>

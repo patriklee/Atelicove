@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   CircularProgress,
   Paper,
   Table,
@@ -14,11 +13,12 @@ import {
   TableSortLabel,
   Typography,
 } from '@mui/material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import WorkOrderDocuments from '../documents/WorkOrderDocuments';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { BackNavigation } from '../../shared/components/navigation';
 
 const money = (value) => Number(value || 0).toLocaleString(undefined, {
   style: 'currency',
@@ -34,7 +34,6 @@ const DetailRow = ({ label, value }) => (
 
 const WorkOrderDetail = ({ canManageDocuments = false }) => {
   const { workOrderID } = useParams();
-  const navigate = useNavigate();
   const [workOrder, setWorkOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -56,7 +55,7 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-        <Button onClick={() => navigate(-1)}>Back</Button>
+        <BackNavigation fallback="/admin/workorders" />
       </Box>
     );
   }
@@ -90,7 +89,7 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Button onClick={() => navigate(-1)} sx={{ mb: 2 }}>Back</Button>
+      <BackNavigation fallback="/admin/workorders" />
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
         Work Order #{workOrder.workOrderID}
       </Typography>

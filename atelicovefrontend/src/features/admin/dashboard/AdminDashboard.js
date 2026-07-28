@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  IconButton,
   InputAdornment,
   LinearProgress,
   List,
@@ -33,18 +34,25 @@ import {
   AssignmentOutlined,
   BusinessOutlined,
   CalendarMonthOutlined,
+  ChevronLeft,
   ChevronRight,
   EngineeringOutlined,
   FolderOutlined,
-  NotificationsNoneOutlined,
   PersonAddAltOutlined,
   Search,
   WarningAmberOutlined,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { formatDateTime, formatMoney } from '../../../model';
+import { formatMoney } from '../../../model';
 import useAdminDashboard from './useAdminDashboard';
-import { DASHBOARD_SEVERITY, getBudgetHealth, getProjectHealth } from './dashboardUtils';
+import {
+  DASHBOARD_SEVERITY,
+  dateKey,
+  getBudgetHealth,
+  getProjectHealth,
+  groupDeadlinesByDate,
+  isDeadlineToday,
+} from './dashboardUtils';
 
 const cardSx = {
   border: '1px solid',
@@ -52,6 +60,16 @@ const cardSx = {
   borderRadius: 3,
   boxShadow: '0 8px 24px rgba(21, 49, 71, 0.05)',
   bgcolor: 'background.paper',
+};
+
+const dashboardContentGridSx = {
+  display: 'grid',
+  gridTemplateColumns: {
+    xs: 'minmax(0, 1fr)',
+    lg: 'minmax(0, 1.65fr) minmax(300px, 1fr)',
+  },
+  gap: 3,
+  alignItems: 'start',
 };
 
 const formatDueDate = value => new Intl.DateTimeFormat('en-US', {
@@ -258,30 +276,38 @@ function ProjectOverviewTable({ projects, onNavigate }) {
               <TableCell>Status</TableCell>
               <TableCell>Project Health</TableCell>
               <TableCell>Budget Health</TableCell>
-              <TableCell>Updated</TableCell>
-              <TableCell align="right">Action</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {projects.slice(0, 8).map(project => (
               <TableRow key={project.projectID} hover>
-                <TableCell sx={{ minWidth: 180, fontWeight: 600 }}>
-                  {project.projectName || `Project #${project.projectID}`}
+                <TableCell sx={{ minWidth: 180 }}>
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => onNavigate(`/admin/projects/${project.projectID}`)}
+                    sx={{
+                      p: 0,
+                      minWidth: 0,
+                      justifyContent: 'flex-start',
+                      textAlign: 'left',
+                      fontWeight: 650,
+                      textTransform: 'none',
+                    }}
+                  >
+                    {project.projectName || `Project #${project.projectID}`}
+                  </Button>
                 </TableCell>
                 <TableCell>
                   <Chip size="small" label={(project.projectStatus || 'OPEN').replaceAll('_', ' ')} />
                 </TableCell>
                 <TableCell><HealthProgress health={getProjectHealth(project)} /></TableCell>
                 <TableCell><BudgetHealth health={getBudgetHealth(project)} /></TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(project.lastModifiedAt)}</TableCell>
-                <TableCell align="right">
-                  <Button size="small" onClick={() => onNavigate(`/admin/projects/${project.projectID}`)}>View</Button>
-                </TableCell>
               </TableRow>
             ))}
             {!projects.length && (
               <TableRow>
-                <TableCell colSpan={6}>
+                <TableCell colSpan={4}>
                   <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
                     No active projects yet. Create a project to begin tracking operations.
                   </Typography>
@@ -297,7 +323,7 @@ function ProjectOverviewTable({ projects, onNavigate }) {
 
 function WorkQueue({ items, onNavigate }) {
   return (
-    <Paper sx={{ ...cardSx, p: 2.5 }}>
+    <Paper sx={{ ...cardSx, p: 2 }}>
       <SectionHeading icon={<WarningAmberOutlined color="warning" />} title="Needs Attention" subtitle="Actionable operational exceptions" />
       {items.length ? (
         <List disablePadding>
@@ -305,7 +331,7 @@ function WorkQueue({ items, onNavigate }) {
             <React.Fragment key={item.id}>
               {index > 0 && <Divider />}
               <ListItem disablePadding>
-                <ListItemButton onClick={() => onNavigate(item.path)} sx={{ px: 0.5, borderRadius: 2 }}>
+                <ListItemButton onClick={() => onNavigate(item.path)} sx={{ px: 0.5, py: 0.35, borderRadius: 2 }}>
                   <ListItemText primary={item.label} secondary={DASHBOARD_SEVERITY[item.severity].label} />
                   <Chip label={item.count} size="small" color={DASHBOARD_SEVERITY[item.severity].color} />
                   <ChevronRight fontSize="small" color="action" sx={{ ml: 0.5 }} />
@@ -331,7 +357,7 @@ function QuickActions({ onNavigate }) {
     { label: 'Add Worker', icon: <PersonAddAltOutlined />, path: '/admin/manage-workers' },
   ];
   return (
-    <Paper sx={{ ...cardSx, p: 2.5 }}>
+    <Paper sx={{ ...cardSx, p: 2 }}>
       <SectionHeading title="Quick Actions" subtitle="Start common administrative work" />
       <Stack spacing={1}>
         {actions.map(action => (
@@ -350,21 +376,54 @@ function QuickActions({ onNavigate }) {
   );
 }
 
-function DeadlineDialog({ open, projects, saving, onClose, onSave }) {
+function DeadlineDialog({ open, projects, saving, initialSelection, onClose, onSave }) {
   const [project, setProject] = useState(null);
   const [actionItem, setActionItem] = useState(null);
   const [itemText, setItemText] = useState('');
   const [dueDate, setDueDate] = useState('');
   const availableItems = useMemo(() => (project?.actionItems || []).filter(item => !item.completed), [project]);
+  const selectedDayDeadlines = initialSelection?.deadlines || [];
+
+  const selectDeadline = deadline => {
+    const selectedProject = projects.find(item => item.projectID === deadline.projectID) || null;
+    const selectedActionItem = selectedProject
+      ? (selectedProject.actionItems || []).find(
+        item => item.actionItemID === deadline.actionItemID
+      ) || deadline
+      : deadline;
+    setProject(selectedProject);
+    setActionItem(selectedActionItem);
+    setItemText(selectedActionItem?.itemText || '');
+    setDueDate(dateKey(selectedActionItem?.dueDate));
+  };
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      if (initialSelection?.deadline) {
+        const deadline = initialSelection.deadline;
+        const selectedProject = projects.find(item => item.projectID === deadline.projectID) || null;
+        const selectedActionItem = selectedProject
+          ? (selectedProject.actionItems || []).find(
+            item => item.actionItemID === deadline.actionItemID
+          ) || deadline
+          : deadline;
+        setProject(selectedProject);
+        setActionItem(selectedActionItem);
+        setItemText(selectedActionItem?.itemText || '');
+        setDueDate(dateKey(selectedActionItem?.dueDate));
+      } else {
+        setProject(null);
+        setActionItem(null);
+        setItemText('');
+        setDueDate(dateKey(initialSelection?.date));
+      }
+    } else {
       setProject(null);
       setActionItem(null);
       setItemText('');
       setDueDate('');
     }
-  }, [open]);
+  }, [initialSelection, open, projects]);
 
   const selectActionItem = item => {
     setActionItem(item);
@@ -374,11 +433,31 @@ function DeadlineDialog({ open, projects, saving, onClose, onSave }) {
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Create or edit a project deadline</DialogTitle>
+      <DialogTitle>{actionItem ? 'Edit project deadline' : 'Create project deadline'}</DialogTitle>
       <DialogContent>
         <Alert severity="info" sx={{ mb: 2 }}>
           Community Edition deadlines are stored on project action items.
         </Alert>
+        {selectedDayDeadlines.length > 0 && !actionItem && (
+          <Box sx={{ mb: 1.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Deadlines on {formatDueDate(initialSelection.date)}
+            </Typography>
+            <List dense disablePadding aria-label="Deadlines on selected date">
+              {selectedDayDeadlines.map(deadline => (
+                <ListItem key={`${deadline.projectID}-${deadline.actionItemID}`} disablePadding>
+                  <ListItemButton onClick={() => selectDeadline(deadline)} sx={{ borderRadius: 1.5 }}>
+                    <ListItemText primary={deadline.itemText} secondary={deadline.projectName} />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+            <Divider sx={{ mt: 1 }} />
+            <Typography variant="caption" color="text.secondary">
+              Select a deadline to edit it, or complete the form below to add another.
+            </Typography>
+          </Box>
+        )}
         <Autocomplete
           options={projects.filter(item => item.projectStatus !== 'COMPLETE')}
           getOptionLabel={option => option.projectName || `Project #${option.projectID}`}
@@ -432,69 +511,181 @@ function DeadlineDialog({ open, projects, saving, onClose, onSave }) {
   );
 }
 
-function UpcomingDeadlines({ deadlines, onNavigate, onAdd }) {
+function DeadlineCalendar({ deadlines, onSelectDate }) {
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const deadlinesByDate = useMemo(() => groupDeadlinesByDate(deadlines), [deadlines]);
+  const calendarDays = useMemo(() => {
+    const first = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
+    const start = new Date(first);
+    start.setDate(first.getDate() - first.getDay());
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      return date;
+    });
+  }, [selectedMonth]);
+  const monthValue = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`;
+  const moveMonth = amount => {
+    setSelectedMonth(current => new Date(current.getFullYear(), current.getMonth() + amount, 1));
+  };
+
   return (
-    <Paper sx={{ ...cardSx, p: 2.5 }}>
+    <Paper sx={{ ...cardSx, p: 1.5, overflowX: 'auto', height: '100%' }}>
       <SectionHeading
         icon={<CalendarMonthOutlined color="primary" />}
-        title="Upcoming Deadlines"
-        subtitle="Project action items ordered by due date"
-        action={<Button size="small" onClick={onAdd}>Manage</Button>}
+        title="Deadline Calendar"
+        subtitle="Select a date to view or add deadlines"
       />
-      {deadlines.length ? (
-        <List disablePadding>
-          {deadlines.slice(0, 6).map((deadline, index) => (
-            <React.Fragment key={`${deadline.projectID}-${deadline.actionItemID}`}>
-              {index > 0 && <Divider />}
-              <ListItem disablePadding>
-                <ListItemButton onClick={() => onNavigate(deadline.path)} sx={{ px: 0.5, borderRadius: 2 }}>
-                  <ListItemText
-                    primary={deadline.itemText}
-                    secondary={`${deadline.projectName} • ${formatDueDate(deadline.dueDate)}`}
-                  />
-                  <Chip
-                    size="small"
-                    color={deadline.overdue ? 'error' : deadline.daysUntil <= 7 ? 'warning' : 'default'}
-                    label={deadline.overdue ? 'Overdue' : deadline.daysUntil === 0 ? 'Due today' : `${deadline.daysUntil} days`}
-                  />
-                </ListItemButton>
-              </ListItem>
-            </React.Fragment>
-          ))}
-        </List>
-      ) : (
-        <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
-          No upcoming project deadlines are configured.
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 0.5 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+          {selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         </Typography>
-      )}
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <IconButton aria-label="Previous month" onClick={() => moveMonth(-1)}><ChevronLeft /></IconButton>
+          <TextField
+            label="Month and year"
+            type="month"
+            size="small"
+            value={monthValue}
+            onChange={event => {
+              const [year, month] = event.target.value.split('-').map(Number);
+              if (year && month) setSelectedMonth(new Date(year, month - 1, 1));
+            }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 155, display: { xs: 'none', sm: 'block' } }}
+          />
+          <IconButton aria-label="Next month" onClick={() => moveMonth(1)}><ChevronRight /></IconButton>
+        </Stack>
+      </Stack>
+      <Box sx={{ minWidth: { xs: 520, md: 0 } }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <Typography key={day} variant="caption" color="text.secondary" align="center" sx={{ py: 0.25, fontWeight: 700 }}>
+              {day}
+            </Typography>
+          ))}
+          {calendarDays.map(date => {
+            const key = dateKey(date);
+            const entries = deadlinesByDate[key] || [];
+            const inMonth = date.getMonth() === selectedMonth.getMonth();
+            const today = isDeadlineToday(date);
+            return (
+              <Box
+                key={key}
+                sx={{
+                  position: 'relative',
+                  minHeight: { xs: 38, sm: 40 },
+                  minWidth: 0,
+                  p: 0.25,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: inMonth ? 'background.paper' : 'action.hover',
+                  color: inMonth ? 'text.primary' : 'text.disabled',
+                  textAlign: 'left',
+                  overflow: 'hidden',
+                }}
+              >
+                <Box
+                  component="button"
+                  type="button"
+                  aria-label={`${entries.length ? `View ${entries.length} deadline${entries.length === 1 ? '' : 's'} or ` : ''}create deadline on ${date.toLocaleDateString()}`}
+                  onClick={() => onSelectDate(date, entries)}
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 0,
+                    width: '100%',
+                    border: 0,
+                    bgcolor: 'transparent',
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'action.selected' },
+                    '&:focus-visible': {
+                      outline: '3px solid',
+                      outlineColor: 'primary.main',
+                      outlineOffset: -3,
+                    },
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: 'relative',
+                    zIndex: 1,
+                    pointerEvents: 'none',
+                    width: 22,
+                    height: 22,
+                    display: 'grid',
+                    placeItems: 'center',
+                    borderRadius: '50%',
+                    bgcolor: today ? 'primary.main' : 'transparent',
+                    color: today ? 'primary.contrastText' : 'inherit',
+                    fontWeight: today ? 700 : 500,
+                  }}
+                >
+                  {date.getDate()}
+                </Box>
+                <Stack
+                  direction="row"
+                  justifyContent="center"
+                  spacing={0.35}
+                  aria-hidden="true"
+                  sx={{ position: 'relative', zIndex: 1, mt: 0.25, pointerEvents: 'none' }}
+                >
+                  {entries.slice(0, 3).map(deadline => (
+                    <Box
+                      key={`${deadline.projectID}-${deadline.actionItemID}`}
+                      sx={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: '50%',
+                        bgcolor: deadline.overdue ? 'error.main' : 'primary.main',
+                      }}
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
     </Paper>
   );
 }
 
-function Notifications({ notifications, onNavigate }) {
+function UpcomingDeadlinesTable({ deadlines, onSelectDeadline }) {
   return (
-    <Paper sx={{ ...cardSx, p: 2.5 }}>
+    <Paper sx={{ ...cardSx, p: 1.5, height: '100%', minWidth: 0 }}>
       <SectionHeading
-        icon={<NotificationsNoneOutlined color="primary" />}
-        title="Notifications"
-        subtitle="Deadline and budget alerts"
+        icon={<CalendarMonthOutlined color="primary" />}
+        title="Upcoming Deadlines"
+        subtitle="Remainder of this month and the next two"
       />
-      {notifications.length ? (
-        <List disablePadding>
-          {notifications.map((notification, index) => (
-            <React.Fragment key={notification.id}>
+      {deadlines.length ? (
+        <List disablePadding aria-label="Upcoming deadlines" sx={{ maxHeight: 300, overflowY: 'auto' }}>
+          {deadlines.map((deadline, index) => (
+            <React.Fragment key={`${deadline.projectID}-${deadline.actionItemID}`}>
               {index > 0 && <Divider />}
               <ListItem disablePadding>
-                <ListItemButton onClick={() => onNavigate(notification.path)} sx={{ px: 0.5, borderRadius: 2 }}>
+                <ListItemButton
+                  onClick={() => onSelectDeadline(deadline)}
+                  sx={{ px: 0.5, py: 1.15, borderRadius: 1.5, alignItems: 'flex-start' }}
+                >
+                  <Box sx={{ minWidth: 52, mr: 1.25, textAlign: 'center' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textTransform: 'uppercase' }}>
+                      {deadline.dueDate.toLocaleDateString('en-US', { month: 'short' })}
+                    </Typography>
+                    <Typography variant="h6" sx={{ lineHeight: 1.05, fontWeight: 750 }}>
+                      {deadline.dueDate.getDate()}
+                    </Typography>
+                  </Box>
                   <ListItemText
-                    primary={notification.message}
-                    secondary={`${notification.entity}${notification.date ? ` • ${formatDueDate(notification.date)}` : ''}`}
-                  />
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    color={DASHBOARD_SEVERITY[notification.severity].color}
-                    label={DASHBOARD_SEVERITY[notification.severity].label}
+                    primary={deadline.itemText}
+                    secondary={deadline.workOrderName || deadline.projectName}
+                    primaryTypographyProps={{ fontWeight: 650, noWrap: true }}
+                    secondaryTypographyProps={{ noWrap: true }}
+                    sx={{ minWidth: 0, my: 0 }}
                   />
                 </ListItemButton>
               </ListItem>
@@ -502,9 +693,14 @@ function Notifications({ notifications, onNavigate }) {
           ))}
         </List>
       ) : (
-        <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
-          No urgent operational notifications.
-        </Typography>
+        <Box sx={{ minHeight: 220, display: 'grid', placeItems: 'center', textAlign: 'center', px: 2 }}>
+          <Box>
+            <CalendarMonthOutlined color="disabled" sx={{ fontSize: 38, mb: 1 }} />
+            <Typography color="text.secondary">
+              No upcoming deadlines for this month or the next two.
+            </Typography>
+          </Box>
+        </Box>
       )}
     </Paper>
   );
@@ -512,7 +708,7 @@ function Notifications({ notifications, onNavigate }) {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [deadlineDialogOpen, setDeadlineDialogOpen] = useState(false);
+  const [deadlineSelection, setDeadlineSelection] = useState(null);
   const {
     data,
     loading,
@@ -523,7 +719,7 @@ export default function AdminDashboard() {
     searchReady,
     workQueue,
     deadlines,
-    notifications,
+    upcomingDeadlines,
     savingDeadline,
     deadlineMessage,
     saveDeadline,
@@ -532,26 +728,13 @@ export default function AdminDashboard() {
 
   return (
     <Box sx={{ maxWidth: 1500, mx: 'auto', pb: 8 }}>
-      <Stack
-        direction={{ xs: 'column', lg: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'stretch', lg: 'flex-end' }}
-        spacing={2}
-        sx={{ mb: 3 }}
-      >
+      <Stack spacing={2} sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h4" component="h1" sx={{ fontWeight: 750, color: '#153147' }}>Dashboard</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
             Monitor active work, surface risks, and keep operations moving.
           </Typography>
         </Box>
-        <DashboardSearch
-          query={query}
-          onQueryChange={setQuery}
-          groups={searchResults}
-          searchReady={searchReady}
-          onNavigate={navigate}
-        />
       </Stack>
 
       {error && (
@@ -560,6 +743,16 @@ export default function AdminDashboard() {
         </Alert>
       )}
       {deadlineMessage && <Alert severity={deadlineMessage.severity} sx={{ mb: 3 }}>{deadlineMessage.text}</Alert>}
+
+      <Box sx={{ mb: 3 }}>
+        <DashboardSearch
+          query={query}
+          onQueryChange={setQuery}
+          groups={searchResults}
+          searchReady={searchReady}
+          onNavigate={navigate}
+        />
+      </Box>
 
       {loading ? (
         <Paper sx={{ ...cardSx, minHeight: 300, display: 'grid', placeItems: 'center' }}>
@@ -571,25 +764,32 @@ export default function AdminDashboard() {
       ) : (
         <Stack spacing={3}>
           <OperationsOverview data={data} onNavigate={navigate} />
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', xl: 'minmax(0, 2fr) minmax(300px, 1fr)' }, gap: 3 }}>
+          <Box sx={dashboardContentGridSx}>
             <ProjectOverviewTable projects={data.projects} onNavigate={navigate} />
             <Stack spacing={3}>
-              <WorkQueue items={workQueue} onNavigate={navigate} />
               <QuickActions onNavigate={navigate} />
+              <WorkQueue items={workQueue} onNavigate={navigate} />
             </Stack>
           </Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 3 }}>
-            <UpcomingDeadlines deadlines={deadlines} onNavigate={navigate} onAdd={() => setDeadlineDialogOpen(true)} />
-            <Notifications notifications={notifications} onNavigate={navigate} />
+          <Box sx={{ ...dashboardContentGridSx, alignItems: 'stretch' }}>
+            <DeadlineCalendar
+              deadlines={deadlines}
+              onSelectDate={(date, dayDeadlines) => setDeadlineSelection({ date, deadlines: dayDeadlines })}
+            />
+            <UpcomingDeadlinesTable
+              deadlines={upcomingDeadlines}
+              onSelectDeadline={deadline => setDeadlineSelection({ deadline })}
+            />
           </Box>
         </Stack>
       )}
 
       <DeadlineDialog
-        open={deadlineDialogOpen}
+        open={Boolean(deadlineSelection)}
         projects={data.projects}
         saving={savingDeadline}
-        onClose={() => setDeadlineDialogOpen(false)}
+        initialSelection={deadlineSelection}
+        onClose={() => setDeadlineSelection(null)}
         onSave={saveDeadline}
       />
     </Box>

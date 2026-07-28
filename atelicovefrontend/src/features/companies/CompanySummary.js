@@ -17,6 +17,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { BackNavigation } from '../../shared/components/navigation';
 
 const CompanySummary = () => {
   const { companyID } = useParams();
@@ -55,7 +56,7 @@ const CompanySummary = () => {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-        <Button onClick={() => navigate(-1)}>Back</Button>
+        <BackNavigation fallback="/admin/companies" />
       </Box>
     );
   }
@@ -64,7 +65,7 @@ const CompanySummary = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Button onClick={() => navigate(-1)} sx={{ mb: 2 }}>Back</Button>
+      <BackNavigation fallback="/admin/companies" />
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>{company.companyName}</Typography>
 
       <TableContainer component={Paper} sx={{ mb: 4 }}>

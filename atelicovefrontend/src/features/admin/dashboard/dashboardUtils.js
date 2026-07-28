@@ -12,6 +12,78 @@ const finiteNumber = value => {
   return Number.isFinite(number) ? number : null;
 };
 
+export function normalizeDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+
+  const dateOnly = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (dateOnly) {
+    const [, year, month, day] = dateOnly;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    return date.getFullYear() === Number(year)
+      && date.getMonth() === Number(month) - 1
+      && date.getDate() === Number(day)
+      ? date
+      : null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? null
+    : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+}
+
+export function dateKey(value) {
+  const date = normalizeDate(value);
+  if (!date) return '';
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+export function isDeadlineOverdue(deadline, now = new Date()) {
+  const dueDate = normalizeDate(deadline?.dueDate ?? deadline);
+  const today = normalizeDate(now);
+  return Boolean(dueDate && today && dueDate < today);
+}
+
+export function isDeadlineToday(deadline, now = new Date()) {
+  return dateKey(deadline?.dueDate ?? deadline) === dateKey(now);
+}
+
+export function getUpcomingDeadlines(deadlines = [], now = new Date()) {
+  const today = normalizeDate(now);
+  if (!today) return [];
+  const through = new Date(today.getFullYear(), today.getMonth() + 3, 0);
+  const seen = new Set();
+
+  return deadlines
+    .filter(deadline => {
+      const dueDate = normalizeDate(deadline.dueDate);
+      return !deadline.completed && dueDate && dueDate >= today && dueDate <= through;
+    })
+    .sort((a, b) => normalizeDate(a.dueDate) - normalizeDate(b.dueDate))
+    .filter(deadline => {
+      const key = `${deadline.projectID}-${deadline.actionItemID ?? dateKey(deadline.dueDate)}-${deadline.itemText}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+export function groupDeadlinesByDate(deadlines = []) {
+  return deadlines.reduce((groups, deadline) => {
+    const key = dateKey(deadline.dueDate);
+    if (!key) return groups;
+    return { ...groups, [key]: [...(groups[key] || []), deadline] };
+  }, {});
+}
+
 export function getProjectHealth(project = {}) {
   const explicit = finiteNumber(
     project.completionPercentage ?? project.progressPercentage ?? project.progress
@@ -124,26 +196,37 @@ export function getDashboardDeadlines(projects = [], now = new Date()) {
   return projects.flatMap(project => (project.actionItems || [])
     .filter(item => !item.completed && item.dueDate)
     .map(item => {
-      const dueDate = new Date(item.dueDate);
-      const daysUntil = Math.ceil((dueDate.getTime() - now.getTime()) / 86400000);
+      const dueDate = normalizeDate(item.dueDate);
+      const today = normalizeDate(now);
+      const daysUntil = dueDate && today
+        ? Math.round((dueDate.getTime() - today.getTime()) / 86400000)
+        : null;
       return {
         ...item,
         projectID: project.projectID,
         projectName: project.projectName || `Project #${project.projectID}`,
         dueDate,
         daysUntil,
-        overdue: daysUntil < 0,
+        overdue: isDeadlineOverdue(dueDate, today),
         path: `/admin/projects/${project.projectID}`,
       };
     }))
-    .filter(item => !Number.isNaN(item.dueDate.getTime()))
+    .filter(item => item.dueDate)
     .sort((a, b) => a.dueDate - b.dueDate);
 }
 
-export function getWorkQueue(data = {}) {
+export function getWorkQueue(data = {}, now = new Date()) {
   const projects = data.projects || [];
   const workOrders = data.workOrders || [];
+  const overdueDeadlines = getDashboardDeadlines(projects, now).filter(deadline => deadline.overdue);
   const entries = [
+    {
+      id: 'overdue-deadlines',
+      label: 'Overdue project deadlines',
+      count: overdueDeadlines.length,
+      severity: 'error',
+      path: overdueDeadlines[0]?.path || '/admin',
+    },
     {
       id: 'work-order-review',
       label: 'Work orders awaiting review',

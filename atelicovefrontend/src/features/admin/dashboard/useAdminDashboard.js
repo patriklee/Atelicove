@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { dashboardService } from './dashboardService';
 import {
   getDashboardDeadlines,
-  getDashboardNotifications,
+  getUpcomingDeadlines,
   getWorkQueue,
   groupSearchResults,
 } from './dashboardUtils';
@@ -39,6 +39,8 @@ export default function useAdminDashboard() {
     return () => window.clearTimeout(timeout);
   }, [query]);
 
+  const deadlines = useMemo(() => getDashboardDeadlines(data.projects), [data.projects]);
+
   const saveDeadline = async ({ projectID, actionItem, itemText, dueDate }) => {
     setSavingDeadline(true);
     setDeadlineMessage(null);
@@ -74,8 +76,8 @@ export default function useAdminDashboard() {
     searchResults: useMemo(() => groupSearchResults(data, debouncedQuery), [data, debouncedQuery]),
     searchReady: debouncedQuery.length >= 2,
     workQueue: useMemo(() => getWorkQueue(data), [data]),
-    deadlines: useMemo(() => getDashboardDeadlines(data.projects), [data.projects]),
-    notifications: useMemo(() => getDashboardNotifications(data), [data]),
+    deadlines,
+    upcomingDeadlines: useMemo(() => getUpcomingDeadlines(deadlines), [deadlines]),
     savingDeadline,
     deadlineMessage,
     saveDeadline,

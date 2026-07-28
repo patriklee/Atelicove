@@ -13,6 +13,7 @@ import { authService } from '../../services/authService';
 import { getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
+import { BackNavigation } from '../../shared/components/navigation';
 import WorkOrderDetail from './WorkOrderDetail';
 import { WorkOrderDocuments } from '../documents';
 import { projectPathFor } from '../../shared/routing/rolePaths';
@@ -209,7 +210,7 @@ const MyWorkOrderDetail = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Button onClick={() => navigate(-1)} sx={{ mb: 2 }}>Back</Button>
+      <BackNavigation fallback={user?.isAdmin || user?.admin ? '/admin/my-assignments' : '/worker/my-assignments'} />
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
         Work Order #{workOrder.workOrderID}
       </Typography>
