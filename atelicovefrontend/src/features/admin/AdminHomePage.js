@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import {
     Box, Dialog, DialogTitle, DialogContent, DialogActions, Button,
-    IconButton, useMediaQuery
+    useMediaQuery
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { Menu } from 'iconoir-react';
 import { useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../Components/AuthContext';
+import { AppIconButton, icons } from '../../shared/icons';
 import AdminDashboard from './dashboard/AdminDashboard';
 import AdminSidebar from './AdminSidebar';
 
@@ -43,8 +43,10 @@ const AdminHomePage = () => {
             />
 
             {mobile && (
-                <IconButton
-                    aria-label="Open navigation"
+                <AppIconButton
+                    icon={icons.menu}
+                    iconSize={20}
+                    label="Open navigation"
                     onClick={() => setMobileSidebarOpen(true)}
                     sx={theme => ({
                         bgcolor: theme.palette.background.paper,
@@ -54,9 +56,7 @@ const AdminHomePage = () => {
                         top: 12,
                         zIndex: theme.zIndex.appBar,
                     })}
-                >
-                    <Menu aria-hidden height={20} width={20} />
-                </IconButton>
+                />
             )}
 
 			<Box

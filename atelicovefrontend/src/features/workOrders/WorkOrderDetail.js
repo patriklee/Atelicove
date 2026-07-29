@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Box,
   CircularProgress,
   Paper,
@@ -10,7 +9,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TableSortLabel,
   Typography,
 } from '@mui/material';
 import { useParams } from 'react-router-dom';
@@ -19,6 +17,7 @@ import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import WorkOrderDocuments from '../documents/WorkOrderDocuments';
 import TableTitleRow from '../../Components/TableTitleRow';
 import { BackNavigation } from '../../shared/components/navigation';
+import { AppAlert, AppTableSortLabel } from '../../shared/icons';
 
 const money = (value) => Number(value || 0).toLocaleString(undefined, {
   style: 'currency',
@@ -54,14 +53,14 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>
         <BackNavigation fallback="/admin/workorders" />
       </Box>
     );
   }
 
   if (!workOrder) {
-    return <Alert severity="warning">Work order not found.</Alert>;
+    return <AppAlert severity="warning">Work order not found.</AppAlert>;
   }
 
   const workers = getWorkOrderWorkers(workOrder);
@@ -126,49 +125,49 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
             <TableTitleRow title="Items" colSpan={7} />
             <TableRow>
               <TableCell>
-                <TableSortLabel
+                <AppTableSortLabel
                   active={itemOrderBy === 'itemType'}
                   direction={itemOrderBy === 'itemType' ? itemOrder : 'asc'}
                   onClick={() => handleItemSort('itemType')}
                 >
                   Item Type
-                </TableSortLabel>
+                </AppTableSortLabel>
               </TableCell>
               <TableCell>
-                <TableSortLabel
+                <AppTableSortLabel
                   active={itemOrderBy === 'itemName'}
                   direction={itemOrderBy === 'itemName' ? itemOrder : 'asc'}
                   onClick={() => handleItemSort('itemName')}
                 >
                   Item Name
-                </TableSortLabel>
+                </AppTableSortLabel>
               </TableCell>
               <TableCell align="right">
-                <TableSortLabel
+                <AppTableSortLabel
                   active={itemOrderBy === 'quantity'}
                   direction={itemOrderBy === 'quantity' ? itemOrder : 'asc'}
                   onClick={() => handleItemSort('quantity')}
                 >
                   Quantity
-                </TableSortLabel>
+                </AppTableSortLabel>
               </TableCell>
               <TableCell align="right">
-                <TableSortLabel
+                <AppTableSortLabel
                   active={itemOrderBy === 'price'}
                   direction={itemOrderBy === 'price' ? itemOrder : 'asc'}
                   onClick={() => handleItemSort('price')}
                 >
                   Price
-                </TableSortLabel>
+                </AppTableSortLabel>
               </TableCell>
               <TableCell align="right">
-                <TableSortLabel
+                <AppTableSortLabel
                   active={itemOrderBy === 'lineTotal'}
                   direction={itemOrderBy === 'lineTotal' ? itemOrder : 'asc'}
                   onClick={() => handleItemSort('lineTotal')}
                 >
                   Line Total
-                </TableSortLabel>
+                </AppTableSortLabel>
               </TableCell>
               <TableCell>Added</TableCell>
               <TableCell>Last Updated</TableCell>

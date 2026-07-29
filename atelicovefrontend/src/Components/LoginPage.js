@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Container, TextField, Button, Typography, Box, IconButton, InputAdornment, CircularProgress } from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { Container, TextField, Button, Typography, Box, InputAdornment, CircularProgress } from '@mui/material';
 import { useAuth } from './AuthContext';
 import { authService } from '../services/authService';
+import { AppIconButton, icons } from '../shared/icons';
 
 const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
@@ -83,13 +83,13 @@ const LoginPage = () => {
                     InputProps={{
                         endAdornment: (
                             <InputAdornment position="end">
-                                <IconButton 
+                                <AppIconButton
+                                    icon={showPassword ? icons.hide : icons.view}
+                                    label={showPassword ? "hide password" : "show password"}
                                     onClick={togglePasswordVisibility} 
                                     edge="end"
-                                    aria-label={showPassword ? "hide password" : "show password"}
-                                >
-                                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                                </IconButton>
+                                    tooltip={false}
+                                />
                             </InputAdornment>
                         ),
                         'data-testid': 'password-input'

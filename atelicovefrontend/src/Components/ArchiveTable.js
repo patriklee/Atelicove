@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
   Box,
   Button,
   Paper,
@@ -16,6 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../model';
+import { AppAlert } from '../shared/icons';
 
 const archiveConfig = {
   projects: {
@@ -183,7 +183,7 @@ const ArchiveTable = ({ type }) => {
         <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{config.title}</Typography>
       </Stack>
       <Typography color="text.secondary" sx={{ mb: 3 }}>{config.subtitle}</Typography>
-      {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
+      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
 
       <TableContainer component={Paper}>
         <Table>

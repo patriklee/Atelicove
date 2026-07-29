@@ -1,13 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Box,
   Button,
   FormControl,
   InputLabel,
   MenuItem,
   Paper,
-  Select,
   Table,
   TableBody,
   TableCell,
@@ -18,6 +16,7 @@ import {
 import { apiDownload, apiFetch } from '../../api';
 import { formatDateTime } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { AppAlert, AppSelect } from '../../shared/icons';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = '.pdf,.jpg,.jpeg,.png,.docx,.xlsx,.txt';
@@ -155,7 +154,7 @@ const WorkOrderDocuments = ({
 
   return (
     <Box sx={{ mt: 4 }}>
-      {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
+      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
 
       <TableContainer component={Paper}>
         <Table>
@@ -196,7 +195,7 @@ const WorkOrderDocuments = ({
                 <TableCell>
                   <FormControl size="small" fullWidth>
                     <InputLabel>Document Type</InputLabel>
-                    <Select
+                    <AppSelect
                       value={document.documentType}
                       label="Document Type"
                       onChange={event => updatePendingDocumentType(document.localID, event.target.value)}
@@ -204,7 +203,7 @@ const WorkOrderDocuments = ({
                       {DOCUMENT_TYPES.map(type => (
                         <MenuItem key={type} value={type}>{type.replaceAll('_', ' ')}</MenuItem>
                       ))}
-                    </Select>
+                    </AppSelect>
                   </FormControl>
                 </TableCell>
                 <TableCell>{formatFileSize(document.file.size)}</TableCell>

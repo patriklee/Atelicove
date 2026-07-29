@@ -29,6 +29,8 @@ test('keeps an empty dashboard useful and stable', () => {
   expect(screen.getByText('No active projects yet. Create a project to begin tracking operations.')).toBeTruthy();
   expect(screen.getByText('No operational exceptions require attention.')).toBeTruthy();
   expect(screen.getByText('No upcoming deadlines for this month or the next two.')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Previous month' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Next month' })).toBeTruthy();
 });
 
 test('selecting a calendar date opens one create dialog', () => {

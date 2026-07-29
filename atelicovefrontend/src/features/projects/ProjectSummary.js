@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Box,
   Button,
   Chip,
@@ -20,6 +19,7 @@ import { apiFetch } from '../../api';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
 import { BackNavigation } from '../../shared/components/navigation';
+import { AppAlert } from '../../shared/icons';
 
 const DetailRow = ({ label, value }) => (
   <TableRow>
@@ -62,13 +62,13 @@ const ProjectSummary = () => {
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>
         <BackNavigation fallback="/admin/projects/active" />
       </Box>
     );
   }
 
-  if (!project) return <Alert severity="warning">Project not found.</Alert>;
+  if (!project) return <AppAlert severity="warning">Project not found.</AppAlert>;
 
   const workOrders = Array.isArray(project.workOrders) ? project.workOrders : [];
   const teams = Array.isArray(project.teams) ? project.teams : [];

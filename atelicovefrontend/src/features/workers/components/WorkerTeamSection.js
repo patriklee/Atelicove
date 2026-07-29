@@ -8,7 +8,6 @@ import {
   InputLabel,
   MenuItem,
   Paper,
-  Select,
   Stack,
   Table,
   TableBody,
@@ -22,6 +21,7 @@ import {
 import { normalizeWorker } from '../../../model';
 import TableTitleRow from '../../../Components/TableTitleRow';
 import { EntityEmptyState } from '../../../shared/components/tables';
+import { AppSelect } from '../../../shared/icons';
 
 const WorkerTeamSection = ({
   teams,
@@ -44,12 +44,12 @@ const WorkerTeamSection = ({
         </Typography>
         <FormControl fullWidth margin="normal">
           <InputLabel>Edit team</InputLabel>
-          <Select value={teamForm.teamID} label="Edit team" onChange={event => onSelectTeam(event.target.value)}>
+          <AppSelect value={teamForm.teamID} label="Edit team" onChange={event => onSelectTeam(event.target.value)}>
             <MenuItem value="">New team</MenuItem>
             {teams.map(team => (
               <MenuItem key={team.teamID} value={team.teamID}>{team.teamName || `Team #${team.teamID}`}</MenuItem>
             ))}
-          </Select>
+          </AppSelect>
         </FormControl>
         <TextField
           label="Team name"
@@ -60,7 +60,7 @@ const WorkerTeamSection = ({
         />
         <FormControl fullWidth margin="normal">
           <InputLabel>Workers</InputLabel>
-          <Select
+          <AppSelect
             multiple
             value={teamForm.workerIDs}
             label="Workers"
@@ -73,7 +73,7 @@ const WorkerTeamSection = ({
             {workers.map(worker => (
               <MenuItem key={worker.workerID} value={worker.workerID}>{worker.firstName} {worker.lastName}</MenuItem>
             ))}
-          </Select>
+          </AppSelect>
         </FormControl>
         <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
           <Button type="submit" variant="contained" disabled={saving || !teamForm.teamName.trim() || !teamForm.workerIDs.length}>

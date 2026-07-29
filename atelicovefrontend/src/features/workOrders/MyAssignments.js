@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Box,
   Button,
   ButtonGroup,
@@ -21,6 +20,7 @@ import { apiFetch } from '../../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { projectPathFor, workOrderPathFor } from '../../shared/routing/rolePaths';
+import { AppAlert } from '../../shared/icons';
 
 const formatStatus = (status = '') => status.replaceAll('_', ' ');
 
@@ -88,9 +88,9 @@ const MyAssignments = () => {
           Work Orders
         </Button>
       </ButtonGroup>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {view === 'projects' && !activeProjects.length && <Alert severity="info">No active projects are assigned to you.</Alert>}
-      {view === 'workOrders' && !workOrders.length && <Alert severity="info">No work orders are assigned to you.</Alert>}
+      {error && <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>}
+      {view === 'projects' && !activeProjects.length && <AppAlert severity="info">No active projects are assigned to you.</AppAlert>}
+      {view === 'workOrders' && !workOrders.length && <AppAlert severity="info">No work orders are assigned to you.</AppAlert>}
 
       {view === 'projects' && (
       <TableContainer component={Paper}>

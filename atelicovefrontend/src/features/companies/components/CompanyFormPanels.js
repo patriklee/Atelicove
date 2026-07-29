@@ -8,11 +8,11 @@ import {
   InputLabel,
   MenuItem,
   Paper,
-  Select,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
+import { AppSelect } from '../../../shared/icons';
 
 const CompanyFields = ({ form, onChange, disabled = false }) => (
   <>
@@ -54,12 +54,12 @@ export const CompanyEditPanel = ({
       <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Edit Company</Typography>
       <FormControl fullWidth margin="normal">
         <InputLabel>Company</InputLabel>
-        <Select value={companyID} label="Company" onChange={event => onCompanyChange(event.target.value)}>
+        <AppSelect value={companyID} label="Company" onChange={event => onCompanyChange(event.target.value)}>
           <MenuItem value="">No company selected</MenuItem>
           {companies.map(company => (
             <MenuItem key={company.companyID} value={company.companyID}>{company.companyName}</MenuItem>
           ))}
-        </Select>
+        </AppSelect>
       </FormControl>
       <CompanyFields form={form} onChange={onChange} disabled={!selectedCompany} />
       <Stack direction="row" spacing={2} sx={{ mt: 2 }}>

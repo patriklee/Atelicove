@@ -1,7 +1,7 @@
 import React from 'react';
-import { ArrowBack } from '@mui/icons-material';
 import { Button } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { AppIcon, icons } from '../../icons';
 
 export default function BackNavigation({ fallback = '/admin', label = 'Back', sx }) {
   const location = useLocation();
@@ -17,7 +17,7 @@ export default function BackNavigation({ fallback = '/admin', label = 'Back', sx
 
   return (
     <Button
-      startIcon={<ArrowBack />}
+      startIcon={<AppIcon icon={icons.back} />}
       onClick={handleBack}
       aria-label={label}
       sx={{ mb: 2, alignSelf: 'flex-start', ...sx }}

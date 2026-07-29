@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Autocomplete,
   Box,
   Button,
@@ -11,7 +10,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  IconButton,
   InputAdornment,
   LinearProgress,
   List,
@@ -29,21 +27,15 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import {
-  AddBusinessOutlined,
-  AssignmentOutlined,
-  BusinessOutlined,
-  CalendarMonthOutlined,
-  ChevronLeft,
-  ChevronRight,
-  EngineeringOutlined,
-  FolderOutlined,
-  PersonAddAltOutlined,
-  Search,
-  WarningAmberOutlined,
-} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { formatMoney } from '../../../model';
+import {
+  AppAlert,
+  AppIcon,
+  AppIconButton,
+  ICON_SIZES,
+  icons,
+} from '../../../shared/icons';
 import useAdminDashboard from './useAdminDashboard';
 import {
   DASHBOARD_SEVERITY,
@@ -78,12 +70,21 @@ const formatDueDate = value => new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 }).format(new Date(value));
 
-function SectionHeading({ icon, title, subtitle, action }) {
+const autocompleteIconProps = {
+  clearIcon: <AppIcon icon={icons.close} size={ICON_SIZES.compact} />,
+  popupIcon: <AppIcon icon={icons.expand} size={ICON_SIZES.compact} />,
+};
+
+function SectionHeading({ icon, iconColor = 'primary.main', title, subtitle, action }) {
   return (
     <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2 }}>
       <Box>
         <Stack direction="row" spacing={1} alignItems="center">
-          {icon}
+          {icon && (
+            <Box component="span" sx={{ color: iconColor, display: 'inline-flex' }}>
+              <AppIcon icon={icon} />
+            </Box>
+          )}
           <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>{title}</Typography>
         </Stack>
         {subtitle && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{subtitle}</Typography>}
@@ -112,7 +113,11 @@ function DashboardSearch({ query, onQueryChange, groups, searchReady, onNavigate
         fullWidth
         inputProps={{ 'aria-controls': open ? 'dashboard-search-results' : undefined }}
         InputProps={{
-          startAdornment: <InputAdornment position="start"><Search color="action" /></InputAdornment>,
+          startAdornment: (
+            <InputAdornment position="start" sx={{ color: 'action.active' }}>
+              <AppIcon icon={icons.search} />
+            </InputAdornment>
+          ),
         }}
         sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'background.paper', borderRadius: 3 } }}
       />
@@ -146,7 +151,9 @@ function DashboardSearch({ query, onQueryChange, groups, searchReady, onNavigate
                 {group.items.map(item => (
                   <ListItemButton key={`${group.type}-${item.id}`} onMouseDown={() => onNavigate(item.path)}>
                     <ListItemText primary={item.primary} secondary={item.secondary} />
-                    <ChevronRight fontSize="small" color="action" />
+                    <Box component="span" sx={{ color: 'action.active', display: 'inline-flex' }}>
+                      <AppIcon icon={icons.disclosure} size={ICON_SIZES.compact} />
+                    </Box>
                   </ListItemButton>
                 ))}
               </List>
@@ -165,28 +172,28 @@ function OperationsOverview({ data, onNavigate }) {
       label: 'Projects',
       value: data.projects.length,
       detail: `${data.projects.filter(item => item.projectStatus === 'IN_REVIEW').length} awaiting review`,
-      icon: <FolderOutlined />,
+      icon: icons.projects,
       path: '/admin/projects/active',
     },
     {
       label: 'Work Orders',
       value: data.workOrders.length,
       detail: `${data.workOrders.filter(item => item.status === 'IN_PROCESS').length} in process`,
-      icon: <AssignmentOutlined />,
+      icon: icons.workOrders,
       path: '/admin/workorders',
     },
     {
       label: 'Companies',
       value: data.companies.length,
       detail: 'Active companies',
-      icon: <BusinessOutlined />,
+      icon: icons.companies,
       path: '/admin/companies',
     },
     {
       label: 'Workers',
       value: data.workers.length,
       detail: `${data.workers.filter(worker => !worker.archived).length} active`,
-      icon: <EngineeringOutlined />,
+      icon: icons.workers,
       path: '/admin/workers',
     },
   ];
@@ -216,7 +223,9 @@ function OperationsOverview({ data, onNavigate }) {
               <Typography variant="h4" sx={{ mt: 0.5, fontWeight: 750, color: '#153147' }}>{card.value}</Typography>
               <Typography variant="caption" color="text.secondary">{card.detail}</Typography>
             </Box>
-            <Box sx={{ p: 1, borderRadius: 2, color: '#153147', bgcolor: '#e8f0f5', display: 'flex' }}>{card.icon}</Box>
+            <Box sx={{ p: 1, borderRadius: 2, color: '#153147', bgcolor: '#e8f0f5', display: 'flex' }}>
+              <AppIcon icon={card.icon} size={22} />
+            </Box>
           </Stack>
         </Paper>
       ))}
@@ -263,7 +272,7 @@ function ProjectOverviewTable({ projects, onNavigate }) {
   return (
     <Paper sx={{ ...cardSx, p: { xs: 2, md: 2.5 }, overflow: 'hidden' }}>
       <SectionHeading
-        icon={<FolderOutlined color="primary" />}
+        icon={icons.projects}
         title="Project Overview"
         subtitle="Completion and budget signals for active projects"
         action={<Button size="small" onClick={() => onNavigate('/admin/projects/active')}>View all</Button>}
@@ -324,7 +333,7 @@ function ProjectOverviewTable({ projects, onNavigate }) {
 function WorkQueue({ items, onNavigate }) {
   return (
     <Paper sx={{ ...cardSx, p: 2 }}>
-      <SectionHeading icon={<WarningAmberOutlined color="warning" />} title="Needs Attention" subtitle="Actionable operational exceptions" />
+      <SectionHeading icon={icons.warning} iconColor="warning.main" title="Needs Attention" subtitle="Actionable operational exceptions" />
       {items.length ? (
         <List disablePadding>
           {items.map((item, index) => (
@@ -334,7 +343,9 @@ function WorkQueue({ items, onNavigate }) {
                 <ListItemButton onClick={() => onNavigate(item.path)} sx={{ px: 0.5, py: 0.35, borderRadius: 2 }}>
                   <ListItemText primary={item.label} secondary={DASHBOARD_SEVERITY[item.severity].label} />
                   <Chip label={item.count} size="small" color={DASHBOARD_SEVERITY[item.severity].color} />
-                  <ChevronRight fontSize="small" color="action" sx={{ ml: 0.5 }} />
+                  <Box component="span" sx={{ color: 'action.active', display: 'inline-flex', ml: 0.5 }}>
+                    <AppIcon icon={icons.disclosure} size={ICON_SIZES.compact} />
+                  </Box>
                 </ListItemButton>
               </ListItem>
             </React.Fragment>
@@ -351,10 +362,10 @@ function WorkQueue({ items, onNavigate }) {
 
 function QuickActions({ onNavigate }) {
   const actions = [
-    { label: 'Create Project', icon: <FolderOutlined />, path: '/admin/projects/active', primary: true },
-    { label: 'Create Work Order', icon: <AssignmentOutlined />, path: '/admin/manage-workorders' },
-    { label: 'Add Company', icon: <AddBusinessOutlined />, path: '/admin/manage-companies' },
-    { label: 'Add Worker', icon: <PersonAddAltOutlined />, path: '/admin/manage-workers' },
+    { label: 'Create Project', icon: icons.projects, path: '/admin/projects/active', primary: true },
+    { label: 'Create Work Order', icon: icons.workOrders, path: '/admin/manage-workorders' },
+    { label: 'Add Company', icon: icons.companies, path: '/admin/manage-companies' },
+    { label: 'Add Worker', icon: icons.addWorker, path: '/admin/manage-workers' },
   ];
   return (
     <Paper sx={{ ...cardSx, p: 2 }}>
@@ -364,7 +375,7 @@ function QuickActions({ onNavigate }) {
           <Button
             key={action.label}
             variant={action.primary ? 'contained' : 'outlined'}
-            startIcon={action.icon}
+            startIcon={<AppIcon icon={action.icon} />}
             onClick={() => onNavigate(action.path)}
             sx={{ justifyContent: 'flex-start' }}
           >
@@ -435,9 +446,9 @@ function DeadlineDialog({ open, projects, saving, initialSelection, onClose, onS
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>{actionItem ? 'Edit project deadline' : 'Create project deadline'}</DialogTitle>
       <DialogContent>
-        <Alert severity="info" sx={{ mb: 2 }}>
+        <AppAlert severity="info" sx={{ mb: 2 }}>
           Community Edition deadlines are stored on project action items.
-        </Alert>
+        </AppAlert>
         {selectedDayDeadlines.length > 0 && !actionItem && (
           <Box sx={{ mb: 1.5 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -459,6 +470,7 @@ function DeadlineDialog({ open, projects, saving, initialSelection, onClose, onS
           </Box>
         )}
         <Autocomplete
+          {...autocompleteIconProps}
           options={projects.filter(item => item.projectStatus !== 'COMPLETE')}
           getOptionLabel={option => option.projectName || `Project #${option.projectID}`}
           value={project}
@@ -466,6 +478,7 @@ function DeadlineDialog({ open, projects, saving, initialSelection, onClose, onS
           renderInput={params => <TextField {...params} label="Project" margin="normal" required />}
         />
         <Autocomplete
+          {...autocompleteIconProps}
           options={availableItems}
           getOptionLabel={option => option.itemText}
           value={actionItem}
@@ -535,7 +548,7 @@ function DeadlineCalendar({ deadlines, onSelectDate }) {
   return (
     <Paper sx={{ ...cardSx, p: 1.5, overflowX: 'auto', height: '100%' }}>
       <SectionHeading
-        icon={<CalendarMonthOutlined color="primary" />}
+        icon={icons.calendar}
         title="Deadline Calendar"
         subtitle="Select a date to view or add deadlines"
       />
@@ -544,7 +557,12 @@ function DeadlineCalendar({ deadlines, onSelectDate }) {
           {selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         </Typography>
         <Stack direction="row" alignItems="center" spacing={1}>
-          <IconButton aria-label="Previous month" onClick={() => moveMonth(-1)}><ChevronLeft /></IconButton>
+          <AppIconButton
+            icon={icons.previous}
+            label="Previous month"
+            onClick={() => moveMonth(-1)}
+            tooltip={false}
+          />
           <TextField
             label="Month and year"
             type="month"
@@ -557,7 +575,12 @@ function DeadlineCalendar({ deadlines, onSelectDate }) {
             InputLabelProps={{ shrink: true }}
             sx={{ width: 155, display: { xs: 'none', sm: 'block' } }}
           />
-          <IconButton aria-label="Next month" onClick={() => moveMonth(1)}><ChevronRight /></IconButton>
+          <AppIconButton
+            icon={icons.next}
+            label="Next month"
+            onClick={() => moveMonth(1)}
+            tooltip={false}
+          />
         </Stack>
       </Stack>
       <Box sx={{ minWidth: { xs: 520, md: 0 } }}>
@@ -658,7 +681,7 @@ function UpcomingDeadlinesTable({ deadlines, onSelectDeadline }) {
   return (
     <Paper sx={{ ...cardSx, p: 1.5, height: '100%', minWidth: 0 }}>
       <SectionHeading
-        icon={<CalendarMonthOutlined color="primary" />}
+        icon={icons.calendar}
         title="Upcoming Deadlines"
         subtitle="Remainder of this month and the next two"
       />
@@ -695,7 +718,9 @@ function UpcomingDeadlinesTable({ deadlines, onSelectDeadline }) {
       ) : (
         <Box sx={{ minHeight: 220, display: 'grid', placeItems: 'center', textAlign: 'center', px: 2 }}>
           <Box>
-            <CalendarMonthOutlined color="disabled" sx={{ fontSize: 38, mb: 1 }} />
+            <Box sx={{ color: 'text.disabled', display: 'flex', justifyContent: 'center', mb: 1 }}>
+              <AppIcon icon={icons.calendar} size={38} />
+            </Box>
             <Typography color="text.secondary">
               No upcoming deadlines for this month or the next two.
             </Typography>
@@ -738,11 +763,11 @@ export default function AdminDashboard() {
       </Stack>
 
       {error && (
-        <Alert severity="error" action={<Button color="inherit" size="small" onClick={reload}>Retry</Button>} sx={{ mb: 3 }}>
+        <AppAlert severity="error" action={<Button color="inherit" size="small" onClick={reload}>Retry</Button>} sx={{ mb: 3 }}>
           {error}
-        </Alert>
+        </AppAlert>
       )}
-      {deadlineMessage && <Alert severity={deadlineMessage.severity} sx={{ mb: 3 }}>{deadlineMessage.text}</Alert>}
+      {deadlineMessage && <AppAlert severity={deadlineMessage.severity} sx={{ mb: 3 }}>{deadlineMessage.text}</AppAlert>}
 
       <Box sx={{ mb: 3 }}>
         <DashboardSearch

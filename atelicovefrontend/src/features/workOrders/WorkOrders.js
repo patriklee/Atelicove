@@ -8,9 +8,7 @@ import {
     TableHead,
     TableRow,
     Paper,
-    TableSortLabel,
     Chip,
-    Alert,
     Button,
     Dialog,
     DialogActions,
@@ -22,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
+import { AppAlert, AppTableSortLabel } from '../../shared/icons';
 
 const WorkOrders = ({
     title = 'Work Orders',
@@ -85,62 +84,62 @@ const WorkOrders = ({
         <Box sx={{ p: 3 }}>
             <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{title}</Typography>
             <Typography color="text.secondary">{subtitle}</Typography>
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {error && <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>}
 
             <TableContainer component={Paper}>
                 <Table>
                     <TableHead>
                         <TableRow>
                             <TableCell>
-                                <TableSortLabel
+                                <AppTableSortLabel
                                     active={orderBy === 'workOrderID'}
                                     direction={orderBy === 'workOrderID' ? order : 'asc'}
                                     onClick={() => handleSort('workOrderID')}
                                 >
                                     Work Order ID
-                                </TableSortLabel>
+                                </AppTableSortLabel>
                             </TableCell>
 
                             <TableCell>
-                                <TableSortLabel
+                                <AppTableSortLabel
                                     active={orderBy === 'workers'}
                                     direction={orderBy === 'workers' ? order : 'asc'}
                                     onClick={() => handleSort('workers')}
                                 >
                                     Assigned Workers
-                                </TableSortLabel>
+                                </AppTableSortLabel>
                             </TableCell>
 
                             <TableCell>
-                                <TableSortLabel
+                                <AppTableSortLabel
                                     active={orderBy === 'company'}
                                     direction={orderBy === 'company' ? order : 'asc'}
                                     onClick={() => handleSort('company')}
                                 >
                                     Company
-                                </TableSortLabel>
+                                </AppTableSortLabel>
                             </TableCell>
 
                             <TableCell>
-                                <TableSortLabel
+                                <AppTableSortLabel
                                     active={orderBy === 'status'}
                                     direction={orderBy === 'status' ? order : 'asc'}
                                     onClick={() => handleSort('status')}
                                 >
                                     Status
-                                </TableSortLabel>
+                                </AppTableSortLabel>
                             </TableCell>
                             <TableCell>Start</TableCell>
                             <TableCell>Close</TableCell>
                             <TableCell>Items</TableCell>
                             <TableCell>
-                                <TableSortLabel
+                                <AppTableSortLabel
                                     active={orderBy === 'actualPrice'}
                                     direction={orderBy === 'actualPrice' ? order : 'asc'}
                                     onClick={() => handleSort('actualPrice')}
                                 >
                                     Price
-                                </TableSortLabel>
+                                </AppTableSortLabel>
                             </TableCell>
                             <TableCell>Files</TableCell>
                         </TableRow>

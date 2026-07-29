@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Card, CardActions, CardContent,
+  Box, Button, Card, CardActions, CardContent,
   Chip, CircularProgress, Grid, Typography
 } from '@mui/material';
 import { apiFetch } from '../../api';
 import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
+import { AppAlert } from '../../shared/icons';
 
 const WorkerAssignedWork = () => {
   const { user } = useAuth();
@@ -37,8 +38,8 @@ const WorkerAssignedWork = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>Assigned Work</Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {!workOrders.length && <Alert severity="info">You have no assigned work orders.</Alert>}
+      {error && <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>}
+      {!workOrders.length && <AppAlert severity="info">You have no assigned work orders.</AppAlert>}
       <Grid container spacing={2}>
         {workOrders.map(order => (
           <Grid item xs={12} md={6} lg={4} key={order.workOrderID}>

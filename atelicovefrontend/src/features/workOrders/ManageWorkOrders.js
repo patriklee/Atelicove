@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Box,
   Typography,
 } from '@mui/material';
@@ -11,6 +10,7 @@ import WorkOrderAssignmentPanel from './components/WorkOrderAssignmentPanel';
 import WorkOrderCreateForm from './components/WorkOrderCreateForm';
 import WorkOrderReviewQueue from './components/WorkOrderReviewQueue';
 import WorkOrderTable from './components/WorkOrderTable';
+import { AppAlert } from '../../shared/icons';
 
 const emptyCreateForm = { workerIDs: [], companyID: '', comment: '' };
 
@@ -114,7 +114,7 @@ const ManageWorkOrders = () => {
     <Box sx={{ p: 3, pb: 8 }}>
       <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Manage Work Orders</Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>Create and maintain live work orders.</Typography>
-      {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
+      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
 
       <WorkOrderCreateForm
         form={createForm}

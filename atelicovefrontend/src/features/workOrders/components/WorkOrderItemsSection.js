@@ -6,7 +6,6 @@ import {
   InputLabel,
   MenuItem,
   Paper,
-  Select,
   Table,
   TableBody,
   TableCell,
@@ -16,6 +15,7 @@ import {
   TextField,
 } from '@mui/material';
 import TableTitleRow from '../../../Components/TableTitleRow';
+import { AppSelect } from '../../../shared/icons';
 
 const ITEM_TYPES = ['LABOR', 'MATERIAL', 'OTHER'];
 
@@ -78,13 +78,13 @@ const WorkOrderItemsSection = ({
             <TableCell>
               <FormControl fullWidth size="small">
                 <InputLabel>Item Type</InputLabel>
-                <Select
+                <AppSelect
                   value={item.itemType || 'OTHER'}
                   label="Item Type"
                   onChange={event => onFieldChange(getItemID(item), 'itemType', event.target.value)}
                 >
                   {ITEM_TYPES.map(type => <MenuItem key={type} value={type}>{type}</MenuItem>)}
-                </Select>
+                </AppSelect>
               </FormControl>
             </TableCell>
             <TableCell>

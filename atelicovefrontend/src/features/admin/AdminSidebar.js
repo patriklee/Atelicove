@@ -13,103 +13,82 @@ import {
   Typography,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import {
-  Archive,
-  Building,
-  ClipboardCheck,
-  Dashboard,
-  DesignNib,
-  Folder,
-  Group,
-  Hexagon,
-  LogOut,
-  MultiplePages,
-  NavArrowRight,
-  Settings,
-  TaskList,
-} from 'iconoir-react';
 import { Link as RouterLink } from 'react-router-dom';
+import { AppIcon, ICON_SIZES, icons } from '../../shared/icons';
 
 export const ADMIN_SIDEBAR_WIDTH = 256;
 
 const navigationItems = [
   {
     label: 'Dashboard',
-    icon: Dashboard,
+    icon: icons.dashboard,
     path: '/admin',
     exact: true,
   },
   {
     label: 'Projects',
-    icon: Folder,
+    icon: icons.projects,
     key: 'projects',
     routePrefixes: ['/admin/projects/', '/admin/my-assignments'],
     children: [
-      { label: 'Project Studio', icon: DesignNib, path: '/admin/projects/active' },
-      { label: 'My Assignments', icon: TaskList, path: '/admin/my-assignments' },
+      { label: 'Project Studio', icon: icons.projectStudio, path: '/admin/projects/active' },
+      { label: 'My Assignments', icon: icons.assignments, path: '/admin/my-assignments' },
     ],
   },
   {
     label: 'Work Orders',
-    icon: ClipboardCheck,
+    icon: icons.workOrders,
     key: 'workOrders',
     routePrefixes: ['/admin/workorders', '/admin/manage-workorders'],
     children: [
-      { label: 'Active Work Orders', icon: ClipboardCheck, path: '/admin/workorders' },
-      { label: 'Manage Work Orders', icon: TaskList, path: '/admin/manage-workorders' },
+      { label: 'Active Work Orders', icon: icons.workOrders, path: '/admin/workorders' },
+      { label: 'Manage Work Orders', icon: icons.assignments, path: '/admin/manage-workorders' },
     ],
   },
   {
     label: 'Workers',
-    icon: Group,
+    icon: icons.workers,
     key: 'workers',
     routePrefixes: ['/admin/workers', '/admin/manage-workers'],
     children: [
-      { label: 'Active Workers', icon: Group, path: '/admin/workers' },
-      { label: 'Manage Workers', icon: TaskList, path: '/admin/manage-workers' },
+      { label: 'Active Workers', icon: icons.workers, path: '/admin/workers' },
+      { label: 'Manage Workers', icon: icons.assignments, path: '/admin/manage-workers' },
     ],
   },
   {
     label: 'Companies',
-    icon: Building,
+    icon: icons.companies,
     key: 'companies',
     routePrefixes: ['/admin/companies', '/admin/manage-companies'],
     children: [
-      { label: 'Active Companies', icon: Building, path: '/admin/companies' },
-      { label: 'Manage Companies', icon: TaskList, path: '/admin/manage-companies' },
+      { label: 'Active Companies', icon: icons.companies, path: '/admin/companies' },
+      { label: 'Manage Companies', icon: icons.assignments, path: '/admin/manage-companies' },
     ],
   },
   {
     label: 'Documents',
-    icon: MultiplePages,
+    icon: icons.documents,
     path: '/admin/documents',
   },
   {
     label: 'Archive',
-    icon: Archive,
+    icon: icons.archive,
     key: 'archive',
     routePrefixes: ['/admin/archive/'],
     children: [
-      { label: 'Work Orders', icon: ClipboardCheck, path: '/admin/archive/workorders' },
-      { label: 'Projects', icon: Folder, path: '/admin/archive/projects' },
-      { label: 'Companies', icon: Building, path: '/admin/archive/companies' },
-      { label: 'Workers', icon: Group, path: '/admin/archive/workers' },
+      { label: 'Work Orders', icon: icons.workOrders, path: '/admin/archive/workorders' },
+      { label: 'Projects', icon: icons.projects, path: '/admin/archive/projects' },
+      { label: 'Companies', icon: icons.companies, path: '/admin/archive/companies' },
+      { label: 'Workers', icon: icons.workers, path: '/admin/archive/workers' },
     ],
   },
   {
     label: 'Settings',
-    icon: Settings,
+    icon: icons.settings,
     path: '/admin/settings',
     separated: true,
   },
 ];
-
-const iconProps = {
-  'aria-hidden': true,
-  height: 19,
-  strokeWidth: 1.7,
-  width: 19,
-};
 
 const isPathActive = (pathname, path, exact = false) => (
   exact ? pathname === path : pathname === path || pathname.startsWith(`${path}/`)
@@ -163,7 +142,7 @@ function SidebarNavItem({ item, pathname, onNavigate, child = false }) {
         to={item.path}
       >
         <ListItemIcon sx={{ minWidth: child ? 29 : 32 }}>
-          <Icon {...iconProps} height={child ? 17 : 19} width={child ? 17 : 19} />
+          <AppIcon icon={Icon} size={child ? ICON_SIZES.compact : ICON_SIZES.standard} />
         </ListItemIcon>
         <ListItemText
           primary={item.label}
@@ -191,7 +170,7 @@ function SidebarNavGroup({ item, pathname, onNavigate, expanded, onToggle }) {
           sx={navButtonStyles(active)}
         >
           <ListItemIcon sx={{ minWidth: 32 }}>
-            <Icon {...iconProps} />
+            <AppIcon icon={Icon} />
           </ListItemIcon>
           <ListItemText
             primary={item.label}
@@ -201,10 +180,9 @@ function SidebarNavGroup({ item, pathname, onNavigate, expanded, onToggle }) {
               lineHeight: 1.25,
             }}
           />
-          <NavArrowRight
-            {...iconProps}
-            height={16}
-            width={16}
+          <AppIcon
+            icon={icons.disclosure}
+            size={16}
             style={{
               transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
               transition: 'transform 140ms ease',
@@ -264,7 +242,7 @@ function SidebarBrand({ onNavigate }) {
           width: 30,
         })}
       >
-        <Hexagon aria-hidden height={18} strokeWidth={1.8} width={18} />
+        <AppIcon icon={icons.brandMark} size={18} strokeWidth={1.8} />
       </Box>
       <Box>
         <Typography color="text.primary" fontSize="0.94rem" fontWeight={700} lineHeight={1.15}>
@@ -340,7 +318,7 @@ function SidebarAccount({ user, onLogout }) {
         })}
       >
         <ListItemIcon sx={{ color: 'inherit', minWidth: 30 }}>
-          <LogOut {...iconProps} height={17} width={17} />
+          <AppIcon icon={icons.logout} size={ICON_SIZES.compact} />
         </ListItemIcon>
         <ListItemText
           primary="Log out"

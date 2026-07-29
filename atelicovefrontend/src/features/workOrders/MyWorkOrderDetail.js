@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Box,
   Button,
   CircularProgress,
@@ -20,6 +19,7 @@ import { projectPathFor } from '../../shared/routing/rolePaths';
 import MyWorkOrderOverviewSection from './components/MyWorkOrderOverviewSection';
 import WorkOrderCommentsSection from './components/WorkOrderCommentsSection';
 import WorkOrderItemsSection from './components/WorkOrderItemsSection';
+import { AppAlert } from '../../shared/icons';
 
 const MyWorkOrderDetail = () => {
   const { workOrderID } = useParams();
@@ -53,8 +53,8 @@ const MyWorkOrderDetail = () => {
   useEffect(load, [workOrderID]);
 
   if (loading) return <Box sx={{ textAlign: 'center', mt: 8 }}><CircularProgress /></Box>;
-  if (!workOrder) return <Alert severity="warning">Work order not found.</Alert>;
-  if (workOrder.archived) return <Alert severity="warning">This work order is archived and no longer appears in My Assignments.</Alert>;
+  if (!workOrder) return <AppAlert severity="warning">Work order not found.</AppAlert>;
+  if (workOrder.archived) return <AppAlert severity="warning">This work order is archived and no longer appears in My Assignments.</AppAlert>;
 
   if (['IN_REVIEW', 'COMPLETE'].includes(workOrder.status)) {
     return <WorkOrderDetail canManageDocuments={workOrder.status !== 'COMPLETE'} />;
@@ -214,7 +214,7 @@ const MyWorkOrderDetail = () => {
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
         Work Order #{workOrder.workOrderID}
       </Typography>
-      {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
+      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
 
       <MyWorkOrderOverviewSection
         workOrder={workOrder}

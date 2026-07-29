@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   Box,
   Button,
   CircularProgress,
@@ -11,6 +10,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { WorkOrderDocuments } from '../documents';
 import { useAuth } from '../../Components/AuthContext';
 import { projectPathFor, workOrderPathFor } from '../../shared/routing/rolePaths';
+import { AppAlert } from '../../shared/icons';
 import ProjectList from './components/ProjectList';
 import ProjectForm from './components/ProjectForm';
 import ProjectWorkOrders from './components/ProjectWorkOrders';
@@ -64,7 +64,7 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
     <Box sx={{ p: 3, pb: 8 }}>
       <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{title}</Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>{subtitle}</Typography>
-      {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
+      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
 
       {!routeProjectID && (
         <ProjectList

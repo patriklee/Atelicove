@@ -5,11 +5,11 @@ import {
   InputLabel,
   MenuItem,
   Paper,
-  Select,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
+import { AppSelect } from '../../../shared/icons';
 
 const WorkOrderCreateForm = ({ form, workers, companies, saving, onChange, onSubmit }) => (
   <Paper component="form" onSubmit={onSubmit} sx={{ p: 3, mb: 4 }}>
@@ -17,16 +17,16 @@ const WorkOrderCreateForm = ({ form, workers, companies, saving, onChange, onSub
     <Stack spacing={2}>
       <FormControl>
         <InputLabel>Workers</InputLabel>
-        <Select multiple value={form.workerIDs} label="Workers" onChange={event => onChange({ workerIDs: event.target.value })}>
+        <AppSelect multiple value={form.workerIDs} label="Workers" onChange={event => onChange({ workerIDs: event.target.value })}>
           {workers.map(worker => <MenuItem key={worker.workerID} value={worker.workerID}>{worker.firstName} {worker.lastName}</MenuItem>)}
-        </Select>
+        </AppSelect>
       </FormControl>
       <FormControl>
         <InputLabel>Company</InputLabel>
-        <Select value={form.companyID} label="Company" onChange={event => onChange({ companyID: event.target.value })}>
+        <AppSelect value={form.companyID} label="Company" onChange={event => onChange({ companyID: event.target.value })}>
           <MenuItem value="">No company</MenuItem>
           {companies.map(company => <MenuItem key={company.companyID} value={company.companyID}>{company.companyName}</MenuItem>)}
-        </Select>
+        </AppSelect>
       </FormControl>
       <TextField label="Work order note" value={form.comment} onChange={event => onChange({ comment: event.target.value })} multiline minRows={2} />
       <Button type="submit" variant="contained" disabled={saving}>Create</Button>
