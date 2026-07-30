@@ -39,7 +39,7 @@ const ProjectReviewArchivePanel = ({
     <Grid item xs={12} lg={6}>
       <Paper sx={{ p: 3, height: '100%' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Review Projects</Typography>
+          <Typography variant="h5">Review Projects</Typography>
           <Chip label={`${reviewProjects.length} waiting`} />
         </Stack>
         <TableContainer>
@@ -85,7 +85,7 @@ const ProjectReviewArchivePanel = ({
 
     <Grid item xs={12} lg={6}>
       <Paper sx={{ p: 3, height: '100%' }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Projects</Typography>
+        <Typography variant="h5" sx={{ mb: 2 }}>Projects</Typography>
         <TableContainer>
           <Table size="small">
             <TableHead>

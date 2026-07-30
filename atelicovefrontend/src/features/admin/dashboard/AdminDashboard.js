@@ -85,7 +85,7 @@ function SectionHeading({ icon, iconColor = 'primary.main', title, subtitle, act
               <AppIcon icon={icon} />
             </Box>
           )}
-          <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>{title}</Typography>
+          <Typography variant="h6" component="h2">{title}</Typography>
         </Stack>
         {subtitle && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{subtitle}</Typography>}
       </Box>
@@ -220,7 +220,7 @@ function OperationsOverview({ data, onNavigate }) {
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Box>
               <Typography color="text.secondary" variant="body2">{card.label}</Typography>
-              <Typography variant="h4" sx={{ mt: 0.5, fontWeight: 750, color: '#153147' }}>{card.value}</Typography>
+              <Typography variant="h4" sx={{ mt: 0.5, color: '#153147' }}>{card.value}</Typography>
               <Typography variant="caption" color="text.secondary">{card.detail}</Typography>
             </Box>
             <Box sx={{ p: 1, borderRadius: 2, color: '#153147', bgcolor: '#e8f0f5', display: 'flex' }}>
@@ -300,7 +300,7 @@ function ProjectOverviewTable({ projects, onNavigate }) {
                       minWidth: 0,
                       justifyContent: 'flex-start',
                       textAlign: 'left',
-                      fontWeight: 650,
+                      fontWeight: 600,
                       textTransform: 'none',
                     }}
                   >
@@ -451,7 +451,7 @@ function DeadlineDialog({ open, projects, saving, initialSelection, onClose, onS
         </AppAlert>
         {selectedDayDeadlines.length > 0 && !actionItem && (
           <Box sx={{ mb: 1.5 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
               Deadlines on {formatDueDate(initialSelection.date)}
             </Typography>
             <List dense disablePadding aria-label="Deadlines on selected date">
@@ -553,7 +553,7 @@ function DeadlineCalendar({ deadlines, onSelectDate }) {
         subtitle="Select a date to view or add deadlines"
       />
       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 0.5 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+        <Typography variant="h6">
           {selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         </Typography>
         <Stack direction="row" alignItems="center" spacing={1}>
@@ -586,7 +586,7 @@ function DeadlineCalendar({ deadlines, onSelectDate }) {
       <Box sx={{ minWidth: { xs: 520, md: 0 } }}>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <Typography key={day} variant="caption" color="text.secondary" align="center" sx={{ py: 0.25, fontWeight: 700 }}>
+            <Typography key={day} variant="caption" color="text.secondary" align="center" sx={{ py: 0.25, fontWeight: 500 }}>
               {day}
             </Typography>
           ))}
@@ -699,14 +699,14 @@ function UpcomingDeadlinesTable({ deadlines, onSelectDeadline }) {
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textTransform: 'uppercase' }}>
                       {deadline.dueDate.toLocaleDateString('en-US', { month: 'short' })}
                     </Typography>
-                    <Typography variant="h6" sx={{ lineHeight: 1.05, fontWeight: 750 }}>
+                    <Typography variant="h6" sx={{ lineHeight: 1.05 }}>
                       {deadline.dueDate.getDate()}
                     </Typography>
                   </Box>
                   <ListItemText
                     primary={deadline.itemText}
                     secondary={deadline.workOrderName || deadline.projectName}
-                    primaryTypographyProps={{ fontWeight: 650, noWrap: true }}
+                    primaryTypographyProps={{ fontWeight: 600, noWrap: true }}
                     secondaryTypographyProps={{ noWrap: true }}
                     sx={{ minWidth: 0, my: 0 }}
                   />
@@ -755,7 +755,7 @@ export default function AdminDashboard() {
     <Box sx={{ maxWidth: 1500, mx: 'auto', pb: 8 }}>
       <Stack spacing={2} sx={{ mb: 3 }}>
         <Box>
-          <Typography variant="h4" component="h1" sx={{ fontWeight: 750, color: '#153147' }}>Dashboard</Typography>
+          <Typography variant="h4" component="h1" sx={{ color: '#153147' }}>Dashboard</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
             Monitor active work, surface risks, and keep operations moving.
           </Typography>

@@ -17,7 +17,7 @@ const TableTitleRow = ({ title, colSpan }) => (
         },
       }}
     >
-      <Typography variant="h6" sx={{ fontWeight: 700, textAlign: 'left' }}>
+      <Typography variant="h6" sx={{ textAlign: 'left' }}>
         {title}
       </Typography>
     </TableCell>

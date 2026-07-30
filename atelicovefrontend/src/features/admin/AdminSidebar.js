@@ -148,7 +148,7 @@ function SidebarNavItem({ item, pathname, onNavigate, child = false }) {
           primary={item.label}
           primaryTypographyProps={{
             fontSize: child ? '0.79rem' : '0.84rem',
-            fontWeight: active ? 650 : child ? 450 : 500,
+            fontWeight: active ? 600 : 500,
             lineHeight: 1.25,
           }}
         />
@@ -176,7 +176,7 @@ function SidebarNavGroup({ item, pathname, onNavigate, expanded, onToggle }) {
             primary={item.label}
             primaryTypographyProps={{
               fontSize: '0.84rem',
-              fontWeight: active ? 650 : 500,
+              fontWeight: active ? 600 : 500,
               lineHeight: 1.25,
             }}
           />

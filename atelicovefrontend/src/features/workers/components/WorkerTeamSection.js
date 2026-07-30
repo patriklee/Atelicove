@@ -94,7 +94,7 @@ const WorkerTeamSection = ({
         <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Team Preview</Typography>
         {selectedTeam ? (
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{selectedTeam.teamName}</Typography>
+            <Typography variant="subtitle1">{selectedTeam.teamName}</Typography>
             <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
               {(selectedTeam.workers || []).map(worker => {
                 const normalized = normalizeWorker(worker);
