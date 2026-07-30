@@ -180,17 +180,9 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
       return { ...counts, [status]: (counts[status] || 0) + 1 };
     }, { ALL: visibleProjects.length });
 
-    const startNewProject = () => {
-      resetProjectForm();
-      plannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-
     return (
       <Box sx={{ maxWidth: 1500, mx: 'auto', pb: 8 }}>
         <Stack
-          direction={{ xs: 'column', lg: 'row' }}
-          justifyContent="space-between"
-          alignItems={{ xs: 'stretch', lg: 'flex-end' }}
           spacing={2}
           sx={{ mb: 3 }}
         >
@@ -198,16 +190,6 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
             <Typography variant="h4" component="h1" color="text.primary">{title}</Typography>
             <Typography color="text.secondary" sx={{ mt: 0.5 }}>{subtitle}</Typography>
           </Box>
-          {canManage && (
-            <Button
-              variant="contained"
-              startIcon={<AppIcon icon={icons.add} />}
-              onClick={startNewProject}
-              sx={{ alignSelf: { xs: 'flex-start', lg: 'auto' } }}
-            >
-              New Project
-            </Button>
-          )}
         </Stack>
 
         {message && <AppAlert severity={message.severity} sx={{ mb: 3 }}>{message.text}</AppAlert>}
