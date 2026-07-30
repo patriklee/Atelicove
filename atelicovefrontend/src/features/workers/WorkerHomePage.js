@@ -55,7 +55,10 @@ const WorkerHomePage = () => {
           '& .MuiDrawer-paper': {
             width: 250,
             boxSizing: 'border-box',
-            backgroundColor: '#f4f4f4',
+            backgroundColor: 'navigation.background',
+            borderRight: '1px solid',
+            borderColor: 'navigation.border',
+            color: 'navigation.text',
             textAlign: 'center',
             padding: '20px 0',
           },
@@ -68,7 +71,7 @@ const WorkerHomePage = () => {
             marginBottom: 2,
             cursor: 'pointer',
             '&:hover': {
-              color: '#1976d2',
+              color: 'navigation.muted',
             },
           }}
           onClick={handleTitleClick}
@@ -88,7 +91,14 @@ const WorkerHomePage = () => {
               <ListItemButton
                 onClick={() => handleItemClick(item.path, item.label)}
                 sx={{
-                  backgroundColor: location.pathname === item.path ? '#bbdefb' : 'inherit'
+                  color: location.pathname === item.path ? 'navigation.text' : 'navigation.muted',
+                  backgroundColor: location.pathname === item.path ? 'navigation.active' : 'transparent',
+                  '&:hover': {
+                    backgroundColor: location.pathname === item.path
+                      ? 'navigation.active'
+                      : 'navigation.hover',
+                    color: 'navigation.text',
+                  },
                 }}
               >
                 <ListItemText primary={item.label} />

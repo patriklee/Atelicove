@@ -12,7 +12,6 @@ import {
   ListItemText,
   Typography,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import { Link as RouterLink } from 'react-router-dom';
 import { AppIcon, ICON_SIZES, icons } from '../../shared/icons';
 
@@ -108,19 +107,18 @@ const navButtonStyles = (active, child = false) => theme => ({
   pl: child ? 4.5 : 1.5,
   pr: 1.25,
   borderRadius: 1.5,
-  color: active ? theme.palette.primary.dark : theme.palette.text.secondary,
-  backgroundColor: active ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+  color: active ? theme.palette.navigation.text : theme.palette.navigation.muted,
+  backgroundColor: active ? theme.palette.navigation.active : 'transparent',
   transition: theme.transitions.create(['background-color', 'color'], {
     duration: theme.transitions.duration.shortest,
   }),
   '&:hover': {
-    backgroundColor: active
-      ? alpha(theme.palette.primary.main, 0.14)
-      : alpha(theme.palette.text.primary, 0.055),
+    backgroundColor: active ? theme.palette.navigation.active : theme.palette.navigation.hover,
+    color: theme.palette.navigation.text,
   },
   '&.Mui-focusVisible': {
-    backgroundColor: alpha(theme.palette.primary.main, 0.1),
-    boxShadow: `inset 0 0 0 2px ${alpha(theme.palette.primary.main, 0.42)}`,
+    backgroundColor: active ? theme.palette.navigation.active : theme.palette.navigation.hover,
+    boxShadow: `inset 0 0 0 2px ${theme.palette.navigation.focus}`,
   },
   '& .MuiListItemIcon-root': {
     color: 'inherit',
@@ -224,7 +222,7 @@ function SidebarBrand({ onNavigate }) {
         py: 0.85,
         textAlign: 'left',
         '&.Mui-focusVisible': {
-          boxShadow: `inset 0 0 0 2px ${alpha(theme.palette.primary.main, 0.42)}`,
+          boxShadow: `inset 0 0 0 2px ${theme.palette.navigation.focus}`,
         },
       })}
       to="/admin"
@@ -232,9 +230,9 @@ function SidebarBrand({ onNavigate }) {
       <Box
         sx={theme => ({
           alignItems: 'center',
-          backgroundColor: theme.palette.primary.main,
+          backgroundColor: theme.palette.brand.soft,
           borderRadius: 1.25,
-          color: theme.palette.primary.contrastText,
+          color: theme.palette.navigation.background,
           display: 'flex',
           height: 30,
           justifyContent: 'center',
@@ -245,10 +243,10 @@ function SidebarBrand({ onNavigate }) {
         <AppIcon icon={icons.brandMark} size={18} strokeWidth={1.8} />
       </Box>
       <Box>
-        <Typography color="text.primary" fontSize="0.94rem" fontWeight={700} lineHeight={1.15}>
+        <Typography color="navigation.text" fontSize="0.94rem" fontWeight={700} lineHeight={1.15}>
           Atelicove
         </Typography>
-        <Typography color="text.secondary" fontSize="0.69rem" lineHeight={1.35}>
+        <Typography color="navigation.muted" fontSize="0.69rem" lineHeight={1.35}>
           Community Edition
         </Typography>
       </Box>
@@ -272,7 +270,7 @@ function SidebarAccount({ user, onLogout }) {
   return (
     <Box
       sx={theme => ({
-        borderTop: `1px solid ${theme.palette.divider}`,
+        borderTop: `1px solid ${theme.palette.navigation.border}`,
         flexShrink: 0,
         p: 1.25,
       })}
@@ -280,8 +278,8 @@ function SidebarAccount({ user, onLogout }) {
       <Box sx={{ alignItems: 'center', display: 'flex', px: 0.75, py: 0.6 }}>
         <Avatar
           sx={theme => ({
-            bgcolor: alpha(theme.palette.primary.main, 0.12),
-            color: theme.palette.primary.dark,
+            bgcolor: theme.palette.navigation.active,
+            color: theme.palette.navigation.text,
             fontSize: '0.72rem',
             fontWeight: 700,
             height: 30,
@@ -292,10 +290,10 @@ function SidebarAccount({ user, onLogout }) {
           {initials}
         </Avatar>
         <Box sx={{ minWidth: 0 }}>
-          <Typography color="text.primary" fontSize="0.8rem" fontWeight={600} noWrap>
+          <Typography color="navigation.text" fontSize="0.8rem" fontWeight={600} noWrap>
             {displayName}
           </Typography>
-          <Typography color="text.secondary" fontSize="0.69rem" noWrap>
+          <Typography color="navigation.muted" fontSize="0.69rem" noWrap>
             Administrator
           </Typography>
         </Box>
@@ -304,16 +302,16 @@ function SidebarAccount({ user, onLogout }) {
         onClick={onLogout}
         sx={theme => ({
           borderRadius: 1.5,
-          color: theme.palette.text.secondary,
+          color: theme.palette.navigation.muted,
           minHeight: 34,
           mt: 0.35,
           px: 1.25,
           '&:hover': {
-            backgroundColor: alpha(theme.palette.text.primary, 0.055),
-            color: theme.palette.text.primary,
+            backgroundColor: theme.palette.navigation.hover,
+            color: theme.palette.navigation.text,
           },
           '&.Mui-focusVisible': {
-            boxShadow: `inset 0 0 0 2px ${alpha(theme.palette.primary.main, 0.42)}`,
+            boxShadow: `inset 0 0 0 2px ${theme.palette.navigation.focus}`,
           },
         })}
       >
@@ -412,8 +410,8 @@ export default function AdminSidebar({
         flexShrink: 0,
         width: mobile ? 0 : ADMIN_SIDEBAR_WIDTH,
         '& .MuiDrawer-paper': {
-          backgroundColor: alpha(theme.palette.common.black, 0.018),
-          borderRight: `1px solid ${theme.palette.divider}`,
+          backgroundColor: theme.palette.navigation.background,
+          borderRight: `1px solid ${theme.palette.navigation.border}`,
           boxSizing: 'border-box',
           width: mobile ? 'min(86vw, 280px)' : ADMIN_SIDEBAR_WIDTH,
         },

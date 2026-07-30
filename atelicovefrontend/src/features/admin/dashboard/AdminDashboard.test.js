@@ -1,9 +1,17 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { ThemeProvider } from '@mui/material/styles';
+import theme from '../../../theme';
 import AdminDashboard from './AdminDashboard';
 import useAdminDashboard from './useAdminDashboard';
 
 jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }));
 jest.mock('./useAdminDashboard');
+
+const renderDashboard = () => render(
+  <ThemeProvider theme={theme}>
+    <AdminDashboard />
+  </ThemeProvider>
+);
 
 test('keeps an empty dashboard useful and stable', () => {
   useAdminDashboard.mockReturnValue({
@@ -23,7 +31,7 @@ test('keeps an empty dashboard useful and stable', () => {
     reload: jest.fn(),
   });
 
-  render(<AdminDashboard />);
+  renderDashboard();
 
   expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy();
   expect(screen.getByText('No active projects yet. Create a project to begin tracking operations.')).toBeTruthy();
@@ -51,7 +59,7 @@ test('selecting a calendar date opens one create dialog', () => {
     reload: jest.fn(),
   });
 
-  render(<AdminDashboard />);
+  renderDashboard();
   fireEvent.click(screen.getAllByRole('button', { name: /Create deadline on/i })[10]);
 
   expect(screen.getAllByRole('dialog')).toHaveLength(1);
@@ -102,7 +110,7 @@ test('selecting a day with a deadline offers the existing item in the create/edi
     reload: jest.fn(),
   });
 
-  render(<AdminDashboard />);
+  renderDashboard();
   fireEvent.click(screen.getByRole('button', {
     name: `View 1 deadline or create deadline on ${dueDate.toLocaleDateString()}`,
   }));

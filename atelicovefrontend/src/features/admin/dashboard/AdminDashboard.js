@@ -50,7 +50,7 @@ const cardSx = {
   border: '1px solid',
   borderColor: 'divider',
   borderRadius: 3,
-  boxShadow: '0 8px 24px rgba(21, 49, 71, 0.05)',
+  boxShadow: theme => theme.customShadows.soft,
   bgcolor: 'background.paper',
 };
 
@@ -213,17 +213,17 @@ function OperationsOverview({ data, onNavigate }) {
             font: 'inherit',
             cursor: 'pointer',
             transition: 'transform 150ms ease, box-shadow 150ms ease',
-            '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 12px 28px rgba(21, 49, 71, 0.1)' },
+            '&:hover': { transform: 'translateY(-2px)', boxShadow: theme => theme.customShadows.floating },
             '&:focus-visible': { outline: '3px solid', outlineColor: 'primary.light', outlineOffset: 2 },
           }}
         >
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Box>
               <Typography color="text.secondary" variant="body2">{card.label}</Typography>
-              <Typography variant="h4" sx={{ mt: 0.5, color: '#153147' }}>{card.value}</Typography>
+              <Typography variant="h4" sx={{ mt: 0.5, color: 'text.primary' }}>{card.value}</Typography>
               <Typography variant="caption" color="text.secondary">{card.detail}</Typography>
             </Box>
-            <Box sx={{ p: 1, borderRadius: 2, color: '#153147', bgcolor: '#e8f0f5', display: 'flex' }}>
+            <Box sx={{ p: 1, borderRadius: 2, color: 'brand.secondary', bgcolor: 'brand.soft', display: 'flex' }}>
               <AppIcon icon={card.icon} size={22} />
             </Box>
           </Stack>
@@ -755,7 +755,7 @@ export default function AdminDashboard() {
     <Box sx={{ maxWidth: 1500, mx: 'auto', pb: 8 }}>
       <Stack spacing={2} sx={{ mb: 3 }}>
         <Box>
-          <Typography variant="h4" component="h1" sx={{ color: '#153147' }}>Dashboard</Typography>
+          <Typography variant="h4" component="h1" color="text.primary">Dashboard</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
             Monitor active work, surface risks, and keep operations moving.
           </Typography>

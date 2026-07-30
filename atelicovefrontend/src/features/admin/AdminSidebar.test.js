@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { ThemeProvider } from '@mui/material/styles';
+import theme from '../../theme';
 import AdminSidebar from './AdminSidebar';
 
 jest.mock('react-router-dom', () => {
@@ -38,7 +40,11 @@ const renderSidebar = (pathname = '/admin/projects/active', overrides = {}) => {
     ...overrides,
   };
 
-  render(<AdminSidebar {...props} />);
+  render(
+    <ThemeProvider theme={theme}>
+      <AdminSidebar {...props} />
+    </ThemeProvider>
+  );
 
   return props;
 };
