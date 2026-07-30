@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Box,
   Button,
   Grid,
@@ -18,6 +17,7 @@ import { apiFetch } from '../../api';
 import { useAuth } from '../../Components/AuthContext';
 import { normalizeWorker } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { AppAlert } from '../../shared/icons';
 
 const Settings = () => {
   const { user, updateUser } = useAuth();
@@ -87,7 +87,7 @@ const Settings = () => {
       <Typography variant="h6">{user?.displayName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim()}</Typography>
       <Typography color="text.secondary">{user?.username}</Typography>
       <Typography sx={{ mb: 3 }}>{user?.isAdmin ? 'Administrator' : 'Worker'}</Typography>
-      {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
+      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
 
       <Grid container spacing={3} alignItems="flex-start">
         <Grid item xs={12} md={6}>
@@ -166,9 +166,9 @@ const Settings = () => {
                 </Table>
               </TableContainer>
             ) : (
-              <Alert severity="info">
+              <AppAlert severity="info">
                 Ask an administrator to reset your password.
-              </Alert>
+              </AppAlert>
             )}
             {user?.isAdmin && (
               <Button variant="contained" sx={{ mt: 2 }} disabled={password.length < 8} onClick={resetPassword}>

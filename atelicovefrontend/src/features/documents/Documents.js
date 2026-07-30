@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Box,
   Button,
   Paper,
@@ -14,6 +13,7 @@ import {
 } from '@mui/material';
 import { apiDownload, apiFetch } from '../../api';
 import { formatDateTime } from '../../model';
+import { AppAlert } from '../../shared/icons';
 
 const formatFileSize = (bytes = 0) => {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -61,7 +61,7 @@ const Documents = () => {
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Documents</Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>Browse uploaded work order and project documents.</Typography>
-      {message && <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>}
+      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
 
       <TableContainer component={Paper}>
         <Table>

@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
-import { Search } from 'iconoir-react';
 import AppIcon, { DEFAULT_ICON_STROKE_WIDTH, ICON_SIZES } from './AppIcon';
+import icons from './iconMap';
 
 test('renders decorative icons with shared visual defaults', () => {
-  render(<AppIcon data-testid="decorative-icon" icon={Search} />);
+  render(<AppIcon data-testid="decorative-icon" icon={icons.search} />);
   const icon = screen.getByTestId('decorative-icon');
 
   expect(icon.getAttribute('aria-hidden')).toBe('true');
@@ -17,7 +17,7 @@ test('supports accessible standalone icons and contextual sizing', () => {
   render(
     <AppIcon
       className="status-icon"
-      icon={Search}
+      icon={icons.search}
       label="Search status"
       size={ICON_SIZES.large}
       strokeWidth={2}

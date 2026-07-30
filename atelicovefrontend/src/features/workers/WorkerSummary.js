@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Box,
   Button,
   CircularProgress,
@@ -18,6 +17,7 @@ import { apiFetch } from '../../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
 import { BackNavigation } from '../../shared/components/navigation';
+import { AppAlert } from '../../shared/icons';
 
 const WorkerSummary = () => {
   const { workerID } = useParams();
@@ -57,13 +57,13 @@ const WorkerSummary = () => {
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>
         <BackNavigation fallback="/admin/workers" />
       </Box>
     );
   }
 
-  if (!worker) return <Alert severity="warning">Worker not found.</Alert>;
+  if (!worker) return <AppAlert severity="warning">Worker not found.</AppAlert>;
 
   return (
     <Box sx={{ p: 3 }}>

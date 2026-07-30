@@ -719,7 +719,7 @@ function UpcomingDeadlinesTable({ deadlines, onSelectDeadline }) {
         <Box sx={{ minHeight: 220, display: 'grid', placeItems: 'center', textAlign: 'center', px: 2 }}>
           <Box>
             <Box sx={{ color: 'text.disabled', display: 'flex', justifyContent: 'center', mb: 1 }}>
-              <AppIcon icon={icons.calendar} size={38} />
+              <AppIcon icon={icons.calendar} size={ICON_SIZES.large} />
             </Box>
             <Typography color="text.secondary">
               No upcoming deadlines for this month or the next two.

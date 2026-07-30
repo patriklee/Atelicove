@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Box,
   Grid,
   Snackbar,
@@ -15,6 +14,7 @@ import { ConfirmationDialog } from '../../shared/components/dialogs';
 import { useConfirmationDialog } from '../../shared/hooks';
 import { CompanyCreatePanel, CompanyEditPanel } from './components/CompanyFormPanels';
 import CompanyTable from './components/CompanyTable';
+import { AppAlert } from '../../shared/icons';
 
 const emptyCompany = {
   companyName: '',
@@ -237,7 +237,7 @@ const ManageCompanies = () => {
       </Grid>
 
       <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar(current => ({ ...current, open: false }))}>
-        <Alert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</Alert>
+        <AppAlert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</AppAlert>
       </Snackbar>
 
       <ConfirmationDialog
@@ -251,9 +251,9 @@ const ManageCompanies = () => {
         loading={saving}
       >
           {pendingAction === 'delete' && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
+            <AppAlert severity="warning" sx={{ mb: 2 }}>
               This permanently deletes a company with no attached work orders and cannot be undone.
-            </Alert>
+            </AppAlert>
           )}
           <TextField
             label="Enter your password"

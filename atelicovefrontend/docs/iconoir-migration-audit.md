@@ -2,16 +2,17 @@
 
 Audit date: 2026-07-29
 
-Scope: `atelicovefrontend` only. The inventory is maintained as each frontend feature migration is completed.
+Scope: `atelicovefrontend` only. Final frontend-wide verification completed on 2026-07-29.
 
 ## Summary
 
-- `iconoir-react` is already installed at `7.11.1` (`package.json` requests `^7.11.1`).
-- `@mui/icons-material` is also installed at `6.4.8` and is the only directly imported non-Iconoir icon library.
+- **Migration status: complete.** Iconoir is the standard UI icon system throughout frontend source.
+- `iconoir-react` is installed at `7.11.1` (`package.json` requests `^7.11.1`).
+- The unused `@mui/icons-material` dependency was removed from `package.json` and `package-lock.json` after a full frontend search confirmed there were no imports.
 - No Font Awesome, Lucide, Heroicons, React Icons, inline SVG components, CSS-generated icons, or emoji UI icons were found.
 - No unused direct icon imports were found.
 - There are **no remaining direct non-Iconoir icon imports** in frontend source.
-- There are approximately **15 remaining page-specific MUI-generated glyph locations**, plus **2 intentionally retained browser-native picker indicators**, for approximately **17 remaining review locations total**.
+- There are **no remaining non-Iconoir UI glyph locations**. The **2 browser-native picker indicators** are intentionally retained.
 - Shared Iconoir usage is centralized in `src/shared/icons` and is consumed by global navigation, authentication, shared alerts, reusable forms, shared archive/document components, and shared back navigation.
 
 ## 1. Icon systems in use
@@ -19,8 +20,8 @@ Scope: `atelicovefrontend` only. The inventory is maintained as each frontend fe
 | System | Status | Where |
 | --- | --- | --- |
 | `iconoir-react` 7.11.1 | Installed and in use | `src/shared/icons/iconMap.js`, consumed through `src/shared/icons` |
-| `@mui/icons-material` 6.4.8 | Installed but no longer imported by frontend source | Dependency removal can be considered after all feature passes |
-| MUI component default glyphs | In use indirectly through `@mui/material` | Remaining page-specific alerts, one select, and sort labels listed below |
+| `@mui/icons-material` | Removed | No source, mock, configuration, or test imports remain |
+| MUI component default glyphs | Replaced in icon-bearing controls | Shared adapters provide Iconoir icons for alerts, selects, sort labels, and icon buttons |
 | Browser-native form indicators | In use | Date and month inputs in `AdminDashboard.js` |
 | Raster/PWA icons | In use outside page UI | `public/favicon.ico`, `public/logo192.png`, `public/logo512.png` |
 
@@ -46,49 +47,37 @@ The shared foundation now contains:
 - `src/Components/ArchiveTable.js` and `src/features/documents/WorkOrderDocuments.js` use `AppAlert`.
 - Projects pages and summary states use `AppAlert`; Project Studio and reusable project forms are free of non-Iconoir utility glyphs.
 - Work Orders pages use `AppAlert` and `AppTableSortLabel`; reusable forms, assignment actions, archive views, and document controls use the shared Iconoir foundation.
+- Workers pages use `AppAlert` and `AppSelect`; Companies pages use `AppAlert` and `AppTableSortLabel`.
+- Documents use `AppAlert` and `AppSelect`; all Archive routes use the shared Iconoir-ready `ArchiveTable`.
+- Settings uses `AppAlert`; authentication uses `AppIconButton` for password visibility and otherwise contains no icon controls.
 - Reusable company, project, worker, work-order, and document forms use `AppSelect`.
 - `src/shared/components/navigation/BackNavigation.js` uses `AppIcon` with semantic `back`.
 
 ## 3. Direct non-Iconoir icon migration
 
-All proposed names in this document were verified in the installed `iconoir-react/dist/index.d.ts`.
+All 40 exports imported by the semantic map were verified against the installed `iconoir-react` runtime; no invalid exports remain.
 
 Direct source migration is complete. `AdminDashboard.js` now uses the shared semantic map for projects, work orders, companies, workers, search, warnings, add-worker actions, disclosure arrows, calendar navigation, and deadline status. Theme-token color inheritance is applied through MUI containers around `AppIcon`.
 
+`@mui/icons-material` was the only old icon dependency present. Font Awesome, Lucide, Heroicons, React Icons, and other custom icon libraries were not installed or referenced, so no other packages required removal.
+
 ## 4. MUI-generated non-Iconoir glyphs
 
-These files do not import `@mui/icons-material` directly, but the MUI controls render their own Material SVG glyphs. A complete visual migration needs explicit Iconoir slots or centralized theme/component adapters.
+MUI controls previously rendered implicit Material SVG glyphs. Shared Iconoir adapters now supply the relevant icon slots while preserving MUI behavior.
 
-### Remaining alert severity icons — 13 locations in 8 page-specific files
+### Alert severity icons — migration complete
 
 Suggested mapping: success → `CheckCircle`, info → `InfoCircle`, warning → `WarningTriangle`, error → `WarningCircle`.
 
-| File | Locations |
-| --- | ---: |
-| `src/features/admin/Settings.js` | 2 |
-| `src/features/companies/ActiveCompanies.js` | 1 |
-| `src/features/companies/CompanySummary.js` | 2 |
-| `src/features/companies/ManageCompanies.js` | 2 |
-| `src/features/documents/Documents.js` | 1 |
-| `src/features/workers/ActiveWorkers.js` | 1 |
-| `src/features/workers/ManageWorkers.js` | 2 |
-| `src/features/workers/WorkerSummary.js` | 2 |
-Use the established `AppAlert` adapter when migrating these page-specific call sites.
+All frontend alerts now use the established `AppAlert` adapter.
 
-### Remaining select dropdown indicator — 1 page-specific location
+### Select dropdown indicators — migration complete
 
-Suggested replacement: `NavArrowDown`.
+Worker management and all reusable forms now use `AppSelect` with the verified Iconoir `NavArrowDown` indicator.
 
-`src/features/workers/ManageWorkers.js` contains the remaining direct MUI `Select`. Migrate it to the established `AppSelect` adapter during the worker-page pass.
+### Table sort indicators — migration complete
 
-### Table sort indicators — 1 location in 1 file
-
-Suggested replacement: `SortUp` / `SortDown`, driven by the existing direction state.
-
-| File | Locations |
-| --- | ---: |
-| `src/features/companies/ActiveCompanies.js` | 1 |
-Work Orders now use `AppTableSortLabel`, which preserves MUI's active direction and inactive hover/focus behavior while supplying the verified Iconoir `SortDown` export.
+Work Orders and Companies now use `AppTableSortLabel`, which preserves MUI's active direction and inactive hover/focus behavior while supplying the verified Iconoir `SortDown` export.
 
 ### Autocomplete indicators — Dashboard migration complete
 
@@ -123,16 +112,19 @@ Recommendation: keep these indicators native unless the project intentionally re
 - `public/logo512.png`
 - References in `public/index.html` and `public/manifest.json`
 
-The PNG files are the default React logo. These should remain custom raster/multi-size product assets and eventually be replaced by an Atelicove favicon/PWA icon set. Iconoir has no role as a generic substitute for product identity.
+No custom in-page utility icons remain. The PNG files are the default React logo and are retained only as raster/multi-size product-identity assets; they should eventually be replaced by an Atelicove favicon/PWA icon set. Iconoir is not an appropriate substitute for product branding.
 
-## 7. Repeated patterns to centralize
+## 7. Shared conventions and future contributor guidance
 
-1. Use the new shared icon sizing/accessibility convention rather than adding local wrappers. Keep semantic labels and event handlers in their owning controls.
-2. Use the centralized `AppAlert` severity-to-Iconoir mapping.
-3. Use the centralized `AppSelect` dropdown icon behavior.
-4. Centralize table sort direction icons rather than configuring all 11 headers independently.
-5. Configure common autocomplete popup/clear icons once where practical.
-6. Keep dashboard icon selection in its existing data/config patterns (`OperationsOverview`, `QuickActions`, and `SectionHeading`) rather than scattering repeated JSX.
+1. Add verified Iconoir exports only to `src/shared/icons/iconMap.js`; feature code should import the semantic `icons` map and shared adapters from `src/shared/icons`.
+2. Use `AppIcon` defaults for `currentColor`, a `1.7` stroke width, and the shared `compact` (17px), `standard` (19px), and `large` (36px) sizes. Use a custom size only when the existing visual context materially requires it.
+3. Use `AppIconButton` for icon-only actions. Its accessible `label` is required; keep tooltips unless the surrounding control already provides sufficient visible context.
+4. Keep decorative icons hidden from assistive technology. Provide an `AppIcon` label only when the icon itself carries standalone meaning.
+5. Use `AppAlert`, `AppSelect`, and `AppTableSortLabel` instead of raw MUI controls that would restore Material glyphs.
+6. Preserve theme-driven `currentColor` behavior for active, hover, focus, disabled, warning, error, success, and information states.
+7. Configure common autocomplete popup/clear icons through the shared semantic map.
+8. Keep dashboard icon selection in its existing data/config patterns (`OperationsOverview`, `QuickActions`, and `SectionHeading`) rather than scattering repeated JSX.
+9. Keep product branding as purpose-built raster/vector artwork rather than substituting a generic Iconoir glyph.
 
 There are no duplicated local icon wrapper components to delete.
 
@@ -146,17 +138,24 @@ There are no duplicated local icon wrapper components to delete.
 - **Dynamic alert severity:** several alerts use runtime severity. The icon map must cover all four MUI severities.
 - **Product icons:** favicon and PWA assets require brand artwork and multiple raster sizes; a generic Iconoir glyph would weaken product identity.
 
-## 9. Recommended migration order
+## 9. Post-migration follow-ups
 
-1. Extend the established shared Iconoir convention only when a repeated requirement appears; avoid parallel wrappers.
-2. Continue top-down with Workers.
-3. Continue with Companies, Documents, Archive, then Settings and Authentication.
-4. Use `AppAlert` for remaining page-specific alerts and `AppSelect` for the worker-page select.
-5. Use the established shared sort-label adapter for the remaining company sort control.
-6. Run focused component tests for each migrated feature.
-7. Handle favicon/PWA brand assets as a separate branding task. Keep native date/month indicators unless a picker redesign is explicitly approved.
+1. Keep new icon-bearing controls on the established shared adapters and semantic map.
+2. Handle favicon/PWA brand assets as a separate branding task.
+3. Keep native date/month indicators unless a picker redesign is explicitly approved.
+4. Include focused accessibility coverage whenever a new icon-only action is introduced.
 
 ## Ambiguous mappings and blockers
 
 - Dashboard ambiguities were resolved consistently with the sidebar: work orders use `ClipboardCheck`, worker totals use `Group`, and company creation uses `Building` with its visible action label.
-- No technical blocker prevents the migration. The main constraint is that this frontend currently has no centralized MUI theme override file, so implicit MUI glyph migration needs a deliberate shared adapter/theme location rather than scattered overrides.
+- No technical blockers or unresolved UI-icon mappings remain.
+
+## 10. Final verification
+
+- All 122 files under `src` were included in the final search.
+- `src/shared/icons/iconMap.js` is the only source file that imports `iconoir-react` directly.
+- Raw MUI `Alert`, `IconButton`, `Select`, and `TableSortLabel` icon-bearing controls appear only inside their shared Iconoir adapters.
+- All 40 Iconoir exports used by the semantic map exist in the installed runtime.
+- No legacy icon-library imports, inline utility SVGs, CSS-generated icons, emoji controls, Unicode navigation controls, text chevrons, or raw replacement characters remain.
+- Every icon-only application control uses `AppIconButton` with an accessible label. Decorative icons inherit `aria-hidden`, `focusable="false"`, `currentColor`, and the shared stroke width.
+- The remaining exceptions are the two browser-native date/month picker indicators and the public favicon/PWA raster assets described above.

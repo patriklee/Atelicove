@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Box,
   Button,
   ButtonGroup,
@@ -16,7 +15,6 @@ import {
   InputLabel,
   MenuItem,
   Paper,
-  Select,
   Snackbar,
   Stack,
   Table,
@@ -37,6 +35,7 @@ import { BackNavigation } from '../../shared/components/navigation';
 import { useConfirmationDialog } from '../../shared/hooks';
 import WorkerTable from './components/WorkerTable';
 import WorkerTeamSection from './components/WorkerTeamSection';
+import { AppAlert, AppSelect } from '../../shared/icons';
 
 const emptyWorker = {
   firstName: '',
@@ -409,14 +408,14 @@ const ManageWorkers = () => {
 
             <FormControl fullWidth margin="normal">
               <InputLabel>Worker</InputLabel>
-              <Select value={workerID} label="Worker" onChange={event => setWorkerID(event.target.value)}>
+              <AppSelect value={workerID} label="Worker" onChange={event => setWorkerID(event.target.value)}>
                 <MenuItem value="">No worker selected</MenuItem>
                 {workers.filter(worker => !worker.isAdmin).map(worker => (
                   <MenuItem key={worker.workerID} value={worker.workerID}>
                     {worker.firstName} {worker.lastName}{worker.isAdmin ? ' (Admin)' : ''}
                   </MenuItem>
                 ))}
-              </Select>
+              </AppSelect>
             </FormControl>
 
             <WorkerFields form={editForm} onChange={handleEditChange} mode="edit" />
@@ -484,7 +483,7 @@ const ManageWorkers = () => {
       )}
 
       <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar(current => ({ ...current, open: false }))}>
-        <Alert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</Alert>
+        <AppAlert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</AppAlert>
       </Snackbar>
 
       <ConfirmationDialog
@@ -498,9 +497,9 @@ const ManageWorkers = () => {
         loading={saving}
       >
           {pendingAction === 'delete' && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
+            <AppAlert severity="warning" sx={{ mb: 2 }}>
               This permanently deletes a worker with no attached work orders and cannot be undone.
-            </Alert>
+            </AppAlert>
           )}
           <TextField
             label="Enter your password"

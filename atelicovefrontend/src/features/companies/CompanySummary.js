@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Box,
   Button,
   CircularProgress,
@@ -18,6 +17,7 @@ import { apiFetch } from '../../api';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
 import { BackNavigation } from '../../shared/components/navigation';
+import { AppAlert } from '../../shared/icons';
 
 const CompanySummary = () => {
   const { companyID } = useParams();
@@ -55,13 +55,13 @@ const CompanySummary = () => {
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>
         <BackNavigation fallback="/admin/companies" />
       </Box>
     );
   }
 
-  if (!company) return <Alert severity="warning">Company not found.</Alert>;
+  if (!company) return <AppAlert severity="warning">Company not found.</AppAlert>;
 
   return (
     <Box sx={{ p: 3 }}>

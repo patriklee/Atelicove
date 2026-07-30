@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, TableSortLabel, Typography
+  Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Typography
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { companyService } from '../../services/companyService';
 import { EntityEmptyState } from '../../shared/components/tables';
+import { AppAlert, AppTableSortLabel } from '../../shared/icons';
 
 const ActiveCompanies = () => {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ const ActiveCompanies = () => {
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Companies</Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>Browse currently active companies</Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>}
 
       <TableContainer component={Paper}>
         <Table>
@@ -51,9 +52,9 @@ const ActiveCompanies = () => {
                 ['companyEmail', 'Email'],
               ].map(([column, label]) => (
                 <TableCell key={column}>
-                  <TableSortLabel active={orderBy === column} direction={orderBy === column ? order : 'asc'} onClick={() => handleSort(column)}>
+                  <AppTableSortLabel active={orderBy === column} direction={orderBy === column ? order : 'asc'} onClick={() => handleSort(column)}>
                     {label}
-                  </TableSortLabel>
+                  </AppTableSortLabel>
                 </TableCell>
               ))}
             </TableRow>

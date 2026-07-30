@@ -182,7 +182,7 @@ function SidebarNavGroup({ item, pathname, onNavigate, expanded, onToggle }) {
           />
           <AppIcon
             icon={icons.disclosure}
-            size={16}
+            size={ICON_SIZES.compact}
             style={{
               transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
               transition: 'transform 140ms ease',

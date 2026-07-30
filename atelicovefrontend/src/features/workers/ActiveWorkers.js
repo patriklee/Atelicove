@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
+  Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Typography
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { workerService } from '../../services/workerService';
 import { formatDateTime, normalizeWorker } from '../../model';
 import { EntityEmptyState } from '../../shared/components/tables';
+import { AppAlert } from '../../shared/icons';
 
 const ActiveWorkers = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ const ActiveWorkers = () => {
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Worker</Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>Browse currently active workers.</Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>}
 
       <TableContainer component={Paper}>
         <Table>

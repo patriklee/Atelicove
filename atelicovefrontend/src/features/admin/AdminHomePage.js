@@ -45,7 +45,6 @@ const AdminHomePage = () => {
             {mobile && (
                 <AppIconButton
                     icon={icons.menu}
-                    iconSize={20}
                     label="Open navigation"
                     onClick={() => setMobileSidebarOpen(true)}
                     sx={theme => ({
