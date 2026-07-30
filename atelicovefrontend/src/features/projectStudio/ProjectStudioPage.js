@@ -5,7 +5,7 @@ export default function ProjectStudioPage() {
     <ProjectsPage
       mode="active"
       title="Project Studio"
-      subtitle="Manage active projects, work orders, teams, and action items."
+      subtitle="Plan, build, and manage projects from concept to completion."
     />
   );
 }
