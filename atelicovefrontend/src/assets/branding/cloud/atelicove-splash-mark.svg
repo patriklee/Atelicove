@@ -1,20 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 180" role="img">
   <title>Atelicove</title>
   <g id="atelicove-mark" fill="none">
-    <g id="petal-upper-left" style="transform-box:view-box;transform-origin:80px 158px">
+    <g id="petal-upper-left" style="transform-box:fill-box;transform-origin:100% 100%">
       <path d="M80 158C45 145 14 109 10 63C47 64 75 99 80 158Z" fill="#EDEAE4" fill-opacity=".88"/>
     </g>
-    <g id="petal-upper-right" style="transform-box:view-box;transform-origin:80px 158px">
+    <g id="petal-upper-right" style="transform-box:fill-box;transform-origin:0 100%">
       <path d="M80 158C115 145 146 109 150 63C113 64 85 99 80 158Z" fill="#EDEAE4" fill-opacity=".76"/>
     </g>
-    <g id="petal-center" style="transform-box:view-box;transform-origin:80px 158px">
+    <g id="petal-center" style="transform-box:fill-box;transform-origin:50% 100%">
       <path d="M80 158C48 131 47 76 80 20C113 76 112 131 80 158Z" fill="#416F8F" fill-opacity=".90"/>
       <path d="M80 158C70 126 72 83 97 52C109 91 101 132 80 158Z" fill="#274F6B" fill-opacity=".28"/>
     </g>
-    <g id="petal-lower-left" style="transform-box:view-box;transform-origin:80px 158px">
+    <g id="petal-lower-left" style="transform-box:fill-box;transform-origin:100% 100%">
       <path d="M80 158C48 161 20 145 12 108C46 105 71 130 80 158Z" fill="#ADB8BB" fill-opacity=".78"/>
     </g>
-    <g id="petal-lower-right" style="transform-box:view-box;transform-origin:80px 158px">
+    <g id="petal-lower-right" style="transform-box:fill-box;transform-origin:0 100%">
       <path d="M80 158C112 161 140 145 148 108C114 105 89 130 80 158Z" fill="#8FA7B4" fill-opacity=".72"/>
     </g>
   </g>

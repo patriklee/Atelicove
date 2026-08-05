@@ -15,7 +15,7 @@ REACT_APP_USE_MOCK_API=true
 REACT_APP_MOCK_START_LOGGED_OUT=true
 ```
 
-The logged-out option removes only `atelicoveMockAuthenticatedWorkerID` once when the mock application initializes. It preserves all mock business data and allows login to persist normally until the next full page load. Remove the option or set it to any value other than exactly `true` to restore the existing persisted-session behavior.
+The logged-out option removes only `atelicoveMockAuthenticatedWorkerID` once when the mock application initializes. It preserves all mock business data and allows login to persist normally until the next full page load. In development, this setting also enables the 2.4-second Atelicove startup sequence before the login route mounts. Remove the option or set it to any value other than exactly `true` to restore the existing persisted-session behavior and skip the development splash.
 
 ### `npm start`
 
