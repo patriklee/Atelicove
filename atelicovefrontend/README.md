@@ -6,6 +6,17 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 
 In the project directory, you can run:
 
+### Mock startup authentication
+
+Mock mode normally restores the worker session saved in local storage. To review the startup, login, or splash-screen flow from a reliably logged-out state, set:
+
+```dotenv
+REACT_APP_USE_MOCK_API=true
+REACT_APP_MOCK_START_LOGGED_OUT=true
+```
+
+The logged-out option removes only `atelicoveMockAuthenticatedWorkerID` once when the mock application initializes. It preserves all mock business data and allows login to persist normally until the next full page load. Remove the option or set it to any value other than exactly `true` to restore the existing persisted-session behavior.
+
 ### `npm start`
 
 Runs the app in the development mode.\

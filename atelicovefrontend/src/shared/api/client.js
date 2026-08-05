@@ -1,14 +1,16 @@
-import { mockApiFetch } from '../../mocks/mockApi';
+import { initializeMockSession, mockApiFetch } from '../../mocks/mockApi';
 import { clearStoredAuth } from '../auth';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
 const USE_MOCK_API = String(process.env.REACT_APP_USE_MOCK_API || '').toLowerCase() === 'true';
+const MOCK_START_LOGGED_OUT = process.env.REACT_APP_MOCK_START_LOGGED_OUT === 'true';
 export const AUTH_UNAUTHORIZED_EVENT = 'atelicove:auth-unauthorized';
 const CSRF_COOKIE_NAME = 'XSRF-TOKEN';
 const CSRF_HEADER_NAME = 'X-XSRF-TOKEN';
 const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 if (USE_MOCK_API) {
+  initializeMockSession({ startLoggedOut: MOCK_START_LOGGED_OUT });
   console.info('[Atelicove API] Mock API mode is ON');
 }
 

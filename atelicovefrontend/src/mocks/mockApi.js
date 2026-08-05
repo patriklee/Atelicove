@@ -4,6 +4,17 @@ import { mockCompanies, mockWorkers, mockWorkOrders, mockTeams, mockProjects } f
 // sessions receive the new records instead of retaining an older localStorage copy.
 const STORAGE_KEY = 'atelicoveMockApiStateV4';
 const AUTHENTICATED_WORKER_KEY = 'atelicoveMockAuthenticatedWorkerID';
+let mockSessionInitialized = false;
+
+export const initializeMockSession = ({ startLoggedOut = false } = {}) => {
+  if (mockSessionInitialized) return;
+  mockSessionInitialized = true;
+
+  if (startLoggedOut && typeof localStorage !== 'undefined') {
+    // Development-only reset for reviewing startup, login, and splash behavior.
+    localStorage.removeItem(AUTHENTICATED_WORKER_KEY);
+  }
+};
 
 class MockApiError extends Error {
   constructor(message, status = 400, data = null) {

@@ -1,4 +1,4 @@
-import { mockApiFetch, resetMockApiState } from './mockApi';
+import { initializeMockSession, mockApiFetch, resetMockApiState } from './mockApi';
 
 const login = (username = 'patricia', password = 'Admin@123') => mockApiFetch('/auth/login', {
   method: 'POST',
@@ -8,6 +8,38 @@ const login = (username = 'patricia', password = 'Admin@123') => mockApiFetch('/
 beforeEach(() => {
   localStorage.clear();
   resetMockApiState();
+});
+
+test('one-time logged-out initialization preserves mock data and allows a new session', async () => {
+  const mockStateBefore = localStorage.getItem('atelicoveMockApiStateV4');
+  localStorage.setItem('atelicoveMockAuthenticatedWorkerID', '1');
+  localStorage.setItem('unrelatedPreference', 'preserved');
+
+  initializeMockSession({ startLoggedOut: true });
+
+  expect(localStorage.getItem('atelicoveMockAuthenticatedWorkerID')).toBeNull();
+  expect(localStorage.getItem('atelicoveMockApiStateV4')).toBe(mockStateBefore);
+  expect(localStorage.getItem('unrelatedPreference')).toBe('preserved');
+  await expect(mockApiFetch('/auth/me')).rejects.toMatchObject({ status: 401 });
+
+  await expect(login('patricia', 'wrong')).rejects.toMatchObject({ status: 401 });
+  expect(localStorage.getItem('atelicoveMockAuthenticatedWorkerID')).toBeNull();
+  await login();
+  expect(localStorage.getItem('atelicoveMockAuthenticatedWorkerID')).toBe('1');
+  initializeMockSession({ startLoggedOut: true });
+  expect(localStorage.getItem('atelicoveMockAuthenticatedWorkerID')).toBe('1');
+  await expect(mockApiFetch('/auth/me')).resolves.toMatchObject({ workerID: 1 });
+});
+
+test('mock startup preserves a persisted session when logged-out initialization is disabled', () => {
+  localStorage.setItem('atelicoveMockAuthenticatedWorkerID', '1');
+
+  jest.isolateModules(() => {
+    const { initializeMockSession: initializeIsolatedMockSession } = require('./mockApi');
+    initializeIsolatedMockSession({ startLoggedOut: false });
+  });
+
+  expect(localStorage.getItem('atelicoveMockAuthenticatedWorkerID')).toBe('1');
 });
 
 test('mock authentication returns the canonical backend login shape', async () => {
