@@ -10,7 +10,16 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(SHOW_DEVELOPMENT_SPLASH);
   const completeSplash = useCallback(() => setShowSplash(false), []);
 
-  return showSplash
-    ? <StartupSplash onComplete={completeSplash} />
-    : <AppRoutes />;
+  return (
+    <>
+      <div
+        aria-hidden={showSplash || undefined}
+        inert={showSplash ? '' : undefined}
+        style={{ visibility: showSplash ? 'hidden' : 'visible' }}
+      >
+        <AppRoutes />
+      </div>
+      {showSplash && <StartupSplash onComplete={completeSplash} />}
+    </>
+  );
 }

@@ -11,7 +11,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-test('progresses from preparation to launch and completes at 2.4 seconds', () => {
+test('progresses from preparation to launch and completes at 5 seconds', () => {
   const onComplete = jest.fn();
   render(
     <ThemeProvider theme={theme}>
@@ -22,10 +22,10 @@ test('progresses from preparation to launch and completes at 2.4 seconds', () =>
   expect(screen.getByText('Preparing workspace…')).toBeTruthy();
   expect(screen.getByText('ATELICOVE')).toBeTruthy();
 
-  act(() => jest.advanceTimersByTime(1900));
+  act(() => jest.advanceTimersByTime(4000));
   expect(screen.getByText('Launching…')).toBeTruthy();
   expect(onComplete).not.toHaveBeenCalled();
 
-  act(() => jest.advanceTimersByTime(500));
+  act(() => jest.advanceTimersByTime(1000));
   expect(onComplete).toHaveBeenCalledTimes(1);
 });

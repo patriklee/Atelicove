@@ -43,12 +43,22 @@ const LoginPage = () => {
     };
 
     return (
-        <Container maxWidth="xs" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <Container
+            maxWidth="xs"
+            sx={{
+                alignItems: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                minHeight: '100dvh',
+                py: { xs: 3, sm: 4 },
+            }}
+        >
             <Box
                 alt="Atelicove — Organize. Build. Grow."
                 component="img"
                 src={communityLogo}
-                sx={{ mt: 3, width: '100%', maxWidth: 240 }}
+                sx={{ width: '100%', maxWidth: 240 }}
             />
             <Box 
                 component="form" 

@@ -3,8 +3,8 @@ import { keyframes } from '@emotion/react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { ReactComponent as SplashMark } from '../assets/branding/community/atelicove-splash-mark.svg';
 
-const SPLASH_DURATION_MS = 2400;
-const LAUNCHING_AT_MS = 1900;
+const SPLASH_DURATION_MS = 5000;
+const LAUNCHING_AT_MS = 4000;
 
 const growPetal = keyframes`
   0% { opacity: 0; transform: translateY(18px) scale(0.12); }
@@ -43,7 +43,7 @@ function FloatingLeaf({ delay, left, top }) {
     <Box
       aria-hidden="true"
       sx={{
-        animation: `${driftLeaf} 1.7s ease-in-out ${delay}ms both`,
+        animation: `${driftLeaf} 3.5s ease-in-out ${delay}ms both`,
         backgroundColor: 'brand.secondary',
         borderRadius: '100% 0 100% 0',
         filter: 'blur(1px)',
@@ -82,7 +82,7 @@ export default function StartupSplash({ onComplete }) {
       role="status"
       sx={{
         alignItems: 'center',
-        animation: `${exitSplash} 240ms ease 2160ms forwards`,
+        animation: `${exitSplash} 500ms ease 4500ms forwards`,
         background: theme => `radial-gradient(circle at 50% 43%, ${theme.palette.brand.soft} 0%, ${theme.palette.background.default} 44%, ${theme.palette.background.subtle} 100%)`,
         display: 'flex',
         flexDirection: 'column',
@@ -93,50 +93,59 @@ export default function StartupSplash({ onComplete }) {
         zIndex: theme => theme.zIndex.modal + 1,
       }}
     >
-      <FloatingLeaf delay={80} left="18%" top="26%" />
-      <FloatingLeaf delay={420} left="82%" top="18%" />
-      <FloatingLeaf delay={920} left="12%" top="72%" />
-      <FloatingLeaf delay={1220} left="88%" top="64%" />
+      <FloatingLeaf delay={170} left="18%" top="26%" />
+      <FloatingLeaf delay={875} left="82%" top="18%" />
+      <FloatingLeaf delay={1920} left="12%" top="72%" />
+      <FloatingLeaf delay={2540} left="88%" top="64%" />
 
       <Box
         aria-hidden="true"
         sx={{
-          animation: `${breatheGlow} 900ms ease-in-out 80ms both`,
+          animation: `${breatheGlow} 1875ms ease-in-out 170ms both`,
           background: 'radial-gradient(circle, rgba(255, 247, 199, 0.95) 0%, rgba(255, 247, 199, 0) 68%)',
           borderRadius: '50%',
           height: 150,
           left: '50%',
           position: 'absolute',
-          top: '48%',
+          top: 'calc(48% - 1in)',
           width: 230,
         }}
       />
 
       <Box
-        aria-hidden="true"
-        component={SplashMark}
-        focusable="false"
         sx={{
-          height: 'auto',
-          mb: 1.25,
-          overflow: 'visible',
+          alignItems: 'center',
+          display: 'flex',
+          flexDirection: 'column',
           position: 'relative',
-          width: 'clamp(180px, 24vw, 270px)',
-          '& #petal-center': {
-            animation: `${growPetal} 360ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms both`,
-          },
-          '& #petal-upper-left, & #petal-upper-right': {
-            animation: `${growPetal} 370ms cubic-bezier(0.2, 0.8, 0.2, 1) 450ms both`,
-          },
-          '& #petal-lower-left, & #petal-lower-right': {
-            animation: `${growPetal} 370ms cubic-bezier(0.2, 0.8, 0.2, 1) 780ms both`,
-          },
+          transform: 'translateY(-1in)',
         }}
-      />
+      >
+        <Box
+          aria-hidden="true"
+          component={SplashMark}
+          focusable="false"
+          sx={{
+            height: 'auto',
+            mb: 1.25,
+            overflow: 'visible',
+            position: 'relative',
+            width: 'clamp(180px, 24vw, 270px)',
+            '& #petal-center': {
+              animation: `${growPetal} 750ms cubic-bezier(0.2, 0.8, 0.2, 1) 250ms both`,
+            },
+            '& #petal-upper-left, & #petal-upper-right': {
+              animation: `${growPetal} 770ms cubic-bezier(0.2, 0.8, 0.2, 1) 940ms both`,
+            },
+            '& #petal-lower-left, & #petal-lower-right': {
+              animation: `${growPetal} 770ms cubic-bezier(0.2, 0.8, 0.2, 1) 1625ms both`,
+            },
+          }}
+        />
 
       <Box
         sx={{
-          animation: `${revealBrand} 340ms ease 1180ms both`,
+          animation: `${revealBrand} 710ms ease 2460ms both`,
           position: 'relative',
           textAlign: 'center',
         }}
@@ -160,12 +169,15 @@ export default function StartupSplash({ onComplete }) {
         aria-live="polite"
         sx={{
           alignItems: 'center',
-          bottom: '7vh',
           color: 'navigation.background',
           display: 'flex',
           gap: 1.25,
+          left: '50%',
           minHeight: 32,
           position: 'absolute',
+          top: 'calc(100% + 0.5in)',
+          transform: 'translateX(-50%)',
+          whiteSpace: 'nowrap',
         }}
       >
         {launching ? (
@@ -191,7 +203,7 @@ export default function StartupSplash({ onComplete }) {
               <Box
                 key={index}
                 sx={{
-                  animation: `${pulseDot} 720ms ease-in-out ${1500 + index * 120}ms infinite`,
+                  animation: `${pulseDot} 1500ms ease-in-out ${3125 + index * 250}ms infinite`,
                   backgroundColor: 'brand.secondary',
                   borderRadius: '50%',
                   height: 5,
@@ -202,6 +214,7 @@ export default function StartupSplash({ onComplete }) {
             ))}
           </Box>
         )}
+      </Box>
       </Box>
     </Box>
   );
