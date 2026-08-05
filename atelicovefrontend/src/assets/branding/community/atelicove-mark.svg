@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 180" role="img">
+  <title>Atelicove</title>
+  <g fill="none">
+    <path d="M78 164C52 147 25 107 28 51C50 57 72 88 78 164Z" fill="#EDEAE4" fill-opacity=".88"/>
+    <path d="M82 164C108 147 135 107 132 51C110 57 88 88 82 164Z" fill="#ADB8BB" fill-opacity=".34"/>
+    <path d="M78 164C47 162 18 143 10 111C39 106 67 125 78 164Z" fill="#ADB8BB" fill-opacity=".82"/>
+    <path d="M82 164C113 162 142 143 150 111C121 106 93 125 82 164Z" fill="#77997E" fill-opacity=".70"/>
+    <path d="M80 164C61 129 57 77 80 14C103 77 99 129 80 164Z" fill="#6F8F72" fill-opacity=".94"/>
+    <path d="M80 164C72 138 69 102 80 56C91 102 88 138 80 164Z" fill="#526F59" fill-opacity=".30"/>
+  </g>
+</svg>

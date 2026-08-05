@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { AppIcon, ICON_SIZES, icons } from '../../shared/icons';
+import communityMark from '../../assets/branding/community/atelicove-mark.svg';
 
 export const ADMIN_SIDEBAR_WIDTH = 256;
 
@@ -240,7 +241,13 @@ function SidebarBrand({ onNavigate }) {
           width: 30,
         })}
       >
-        <AppIcon icon={icons.brandMark} size={18} strokeWidth={1.8} />
+        <Box
+          alt=""
+          aria-hidden="true"
+          component="img"
+          src={communityMark}
+          sx={{ height: 24, width: 22 }}
+        />
       </Box>
       <Box>
         <Typography color="navigation.text" fontSize="0.94rem" fontWeight={700} lineHeight={1.15}>

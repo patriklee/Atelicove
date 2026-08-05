@@ -3,6 +3,7 @@ import { Container, TextField, Button, Typography, Box, InputAdornment, Circular
 import { useAuth } from './AuthContext';
 import { authService } from '../services/authService';
 import { AppIconButton, icons } from '../shared/icons';
+import communityLogo from '../assets/branding/community/atelicove-logo.svg';
 
 const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
@@ -43,6 +44,12 @@ const LoginPage = () => {
 
     return (
         <Container maxWidth="xs" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Box
+                alt="Atelicove — Organize. Build. Grow."
+                component="img"
+                src={communityLogo}
+                sx={{ mt: 4, width: '100%', maxWidth: 320 }}
+            />
             <Typography variant="h3" align="center" gutterBottom sx={{ fontWeight: 'bold', mt: 4 }}>
                 Steve Ball & Associates
             </Typography>
