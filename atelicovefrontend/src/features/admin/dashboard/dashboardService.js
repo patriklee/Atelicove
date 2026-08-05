@@ -23,4 +23,8 @@ export const dashboardService = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  deleteDeadline: (projectID, actionItemID) =>
+    apiFetch(`/projects/${projectID}/action-items/${actionItemID}`, {
+      method: 'DELETE',
+    }),
 };

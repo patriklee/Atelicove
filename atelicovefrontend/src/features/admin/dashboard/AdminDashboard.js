@@ -17,6 +17,7 @@ import {
   ListItemButton,
   ListItemText,
   Paper,
+  Popover,
   Stack,
   Table,
   TableBody,
@@ -28,7 +29,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { formatMoney } from '../../../model';
+import { alpha } from '@mui/material/styles';
 import {
   AppAlert,
   AppIcon,
@@ -36,6 +37,7 @@ import {
   ICON_SIZES,
   icons,
 } from '../../../shared/icons';
+import { ConfirmationDialog } from '../../../shared/components/dialogs';
 import useAdminDashboard from './useAdminDashboard';
 import {
   DASHBOARD_SEVERITY,
@@ -100,7 +102,13 @@ function DashboardSearch({ query, onQueryChange, groups, searchReady, onNavigate
   const open = focused && query.trim().length >= 2;
 
   return (
-    <Box sx={{ position: 'relative', width: { xs: '100%', md: 520 }, zIndex: 5 }}>
+    <Box sx={{
+      position: 'relative',
+      flex: { xs: '1 1 auto', md: '0 0 auto' },
+      minWidth: 0,
+      width: { xs: 'auto', md: 420 },
+      zIndex: 5,
+    }}>
       <TextField
         value={query}
         onChange={event => onQueryChange(event.target.value)}
@@ -108,8 +116,9 @@ function DashboardSearch({ query, onQueryChange, groups, searchReady, onNavigate
         onBlur={event => {
           if (!event.currentTarget.parentElement?.contains(event.relatedTarget)) setFocused(false);
         }}
-        label="Search projects, work orders, companies, and workers"
-        placeholder="Search by name, ID, email, or description"
+        label="Search"
+        placeholder="Projects, work orders, companies, or workers"
+        size="small"
         fullWidth
         inputProps={{ 'aria-controls': open ? 'dashboard-search-results' : undefined }}
         InputProps={{
@@ -163,6 +172,94 @@ function DashboardSearch({ query, onQueryChange, groups, searchReady, onNavigate
         </Paper>
       )}
     </Box>
+  );
+}
+
+function DashboardAlerts({ items, onNavigate }) {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const alertCount = items.reduce((total, item) => total + item.count, 0);
+  const hasAlerts = alertCount > 0;
+  const open = Boolean(anchorEl);
+
+  return (
+    <>
+      <Button
+        variant="outlined"
+        startIcon={<AppIcon icon={icons.notifications} />}
+        aria-haspopup="dialog"
+        aria-expanded={open || undefined}
+        onClick={event => setAnchorEl(event.currentTarget)}
+        sx={hasAlerts ? {
+          flexShrink: 0,
+          bgcolor: '#F1E0DD',
+          borderColor: '#D7AAA5',
+          color: '#7D433E',
+          '&:hover': {
+            bgcolor: '#EAD2CE',
+            borderColor: '#C9918B',
+          },
+        } : { flexShrink: 0 }}
+      >
+        Alerts{hasAlerts ? ` (${alertCount})` : ''}
+      </Button>
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{
+          paper: {
+            sx: {
+              width: { xs: 'calc(100vw - 32px)', sm: 380 },
+              mt: 1,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 3,
+              boxShadow: theme => theme.customShadows.floating,
+            },
+          },
+        }}
+      >
+        <Box sx={{ px: 2, pt: 2, pb: 1 }}>
+          <Typography variant="h6">Alerts</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Items that need attention
+          </Typography>
+        </Box>
+        {items.length ? (
+          <List disablePadding sx={{ pb: 1 }}>
+            {items.map((item, index) => (
+              <React.Fragment key={item.id}>
+                {index > 0 && <Divider />}
+                <ListItem disablePadding>
+                  <ListItemButton
+                    onClick={() => {
+                      setAnchorEl(null);
+                      onNavigate(item.path);
+                    }}
+                    sx={{ px: 2, py: 1.25 }}
+                  >
+                    <ListItemText
+                      primary={item.label}
+                      secondary={DASHBOARD_SEVERITY[item.severity].label}
+                    />
+                    <Chip label={item.count} size="small" color={DASHBOARD_SEVERITY[item.severity].color} />
+                    <Box component="span" sx={{ color: 'action.active', display: 'inline-flex', ml: 0.75 }}>
+                      <AppIcon icon={icons.disclosure} size={ICON_SIZES.compact} />
+                    </Box>
+                  </ListItemButton>
+                </ListItem>
+              </React.Fragment>
+            ))}
+          </List>
+        ) : (
+          <Typography color="text.secondary" sx={{ px: 2, py: 3, textAlign: 'center' }}>
+            No operational exceptions require attention.
+          </Typography>
+        )}
+      </Popover>
+    </>
   );
 }
 
@@ -233,38 +330,64 @@ function OperationsOverview({ data, onNavigate }) {
   );
 }
 
-function HealthProgress({ health }) {
+const healthProgressSx = percent => theme => ({
+  flex: 1,
+  height: 7,
+  borderRadius: 99,
+  bgcolor: theme.palette.background.subtle,
+  '& .MuiLinearProgress-bar': {
+    borderRadius: 99,
+    backgroundColor: alpha(
+      theme.palette.brand.secondary,
+      0.28 + (Math.min(100, Math.max(0, percent)) / 100) * 0.72
+    ),
+  },
+});
+
+function HealthProgress({ health, label }) {
   if (!health.configured) {
     return <Typography variant="body2" color="text.secondary">{health.label}</Typography>;
   }
   return (
-    <Box sx={{ minWidth: 145 }}>
-      <Stack direction="row" justifyContent="space-between" spacing={1}>
-        <Typography variant="body2">{health.percent}%</Typography>
-        <Typography variant="caption" color="text.secondary">{health.label}</Typography>
-      </Stack>
+    <Stack direction="row" alignItems="center" spacing={1.25} sx={{ minWidth: 145 }}>
+      <Typography variant="body2" sx={{ minWidth: 38 }}>{health.percent}%</Typography>
       <LinearProgress
         variant="determinate"
-        value={health.percent}
-        aria-label={`Project completion ${health.percent} percent, ${health.label}`}
-        sx={{ mt: 0.75, height: 7, borderRadius: 99 }}
+        value={Math.min(100, Math.max(0, health.percent))}
+        aria-label={`${label} ${health.percent} percent`}
+        sx={healthProgressSx(health.percent)}
       />
-    </Box>
+    </Stack>
   );
 }
 
 function BudgetHealth({ health }) {
   if (!health.configured) return <Chip size="small" variant="outlined" label={health.label} />;
+  return <HealthProgress health={health} label="Budget used" />;
+}
+
+const projectStatusSx = {
+  OPEN: {
+    bgcolor: '#EDEAE4',
+    color: '#525D63',
+  },
+  IN_REVIEW: {
+    bgcolor: '#DCE6DC',
+    color: '#526F59',
+  },
+  COMPLETE: {
+    bgcolor: '#77997E',
+    color: '#FFFFFF',
+  },
+};
+
+function ProjectStatus({ status = 'OPEN' }) {
   return (
-    <Box sx={{ minWidth: 150 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-        <Typography variant="body2">{health.percent}% used</Typography>
-        <Chip size="small" color={health.severity} variant="outlined" label={health.label} />
-      </Stack>
-      <Typography variant="caption" color="text.secondary">
-        {formatMoney(health.spent)} of {formatMoney(health.budget)}
-      </Typography>
-    </Box>
+    <Chip
+      size="small"
+      label={status.replaceAll('_', ' ')}
+      sx={projectStatusSx[status] || projectStatusSx.OPEN}
+    />
   );
 }
 
@@ -275,16 +398,15 @@ function ProjectOverviewTable({ projects, onNavigate }) {
         icon={icons.projects}
         title="Project Overview"
         subtitle="Completion and budget signals for active projects"
-        action={<Button size="small" onClick={() => onNavigate('/admin/projects/active')}>View all</Button>}
       />
       <TableContainer sx={{ overflowX: 'auto' }}>
         <Table size="small" aria-label="Project health overview">
           <TableHead>
             <TableRow>
               <TableCell>Project</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Project Health</TableCell>
+              <TableCell>Health</TableCell>
               <TableCell>Budget Health</TableCell>
+              <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -307,11 +429,9 @@ function ProjectOverviewTable({ projects, onNavigate }) {
                     {project.projectName || `Project #${project.projectID}`}
                   </Button>
                 </TableCell>
-                <TableCell>
-                  <Chip size="small" label={(project.projectStatus || 'OPEN').replaceAll('_', ' ')} />
-                </TableCell>
-                <TableCell><HealthProgress health={getProjectHealth(project)} /></TableCell>
+                <TableCell><HealthProgress health={getProjectHealth(project)} label="Project health" /></TableCell>
                 <TableCell><BudgetHealth health={getBudgetHealth(project)} /></TableCell>
+                <TableCell><ProjectStatus status={project.projectStatus} /></TableCell>
               </TableRow>
             ))}
             {!projects.length && (
@@ -330,39 +450,9 @@ function ProjectOverviewTable({ projects, onNavigate }) {
   );
 }
 
-function WorkQueue({ items, onNavigate }) {
-  return (
-    <Paper sx={{ ...cardSx, p: 2 }}>
-      <SectionHeading icon={icons.warning} iconColor="warning.main" title="Needs Attention" subtitle="Actionable operational exceptions" />
-      {items.length ? (
-        <List disablePadding>
-          {items.map((item, index) => (
-            <React.Fragment key={item.id}>
-              {index > 0 && <Divider />}
-              <ListItem disablePadding>
-                <ListItemButton onClick={() => onNavigate(item.path)} sx={{ px: 0.5, py: 0.35, borderRadius: 2 }}>
-                  <ListItemText primary={item.label} secondary={DASHBOARD_SEVERITY[item.severity].label} />
-                  <Chip label={item.count} size="small" color={DASHBOARD_SEVERITY[item.severity].color} />
-                  <Box component="span" sx={{ color: 'action.active', display: 'inline-flex', ml: 0.5 }}>
-                    <AppIcon icon={icons.disclosure} size={ICON_SIZES.compact} />
-                  </Box>
-                </ListItemButton>
-              </ListItem>
-            </React.Fragment>
-          ))}
-        </List>
-      ) : (
-        <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
-          No operational exceptions require attention.
-        </Typography>
-      )}
-    </Paper>
-  );
-}
-
 function QuickActions({ onNavigate }) {
   const actions = [
-    { label: 'Create Project', icon: icons.projects, path: '/admin/projects/active', primary: true },
+    { label: 'Create Project', icon: icons.projects, path: '/admin/projects/active' },
     { label: 'Create Work Order', icon: icons.workOrders, path: '/admin/manage-workorders' },
     { label: 'Add Company', icon: icons.companies, path: '/admin/manage-companies' },
     { label: 'Add Worker', icon: icons.addWorker, path: '/admin/manage-workers' },
@@ -374,7 +464,7 @@ function QuickActions({ onNavigate }) {
         {actions.map(action => (
           <Button
             key={action.label}
-            variant={action.primary ? 'contained' : 'outlined'}
+            variant="outlined"
             startIcon={<AppIcon icon={action.icon} />}
             onClick={() => onNavigate(action.path)}
             sx={{ justifyContent: 'flex-start' }}
@@ -387,11 +477,12 @@ function QuickActions({ onNavigate }) {
   );
 }
 
-function DeadlineDialog({ open, projects, saving, initialSelection, onClose, onSave }) {
+function DeadlineDialog({ open, projects, saving, deleting, initialSelection, onClose, onSave, onDelete }) {
   const [project, setProject] = useState(null);
   const [actionItem, setActionItem] = useState(null);
   const [itemText, setItemText] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [deadlineToDelete, setDeadlineToDelete] = useState(null);
   const availableItems = useMemo(() => (project?.actionItems || []).filter(item => !item.completed), [project]);
   const selectedDayDeadlines = initialSelection?.deadlines || [];
 
@@ -433,6 +524,7 @@ function DeadlineDialog({ open, projects, saving, initialSelection, onClose, onS
       setActionItem(null);
       setItemText('');
       setDueDate('');
+      setDeadlineToDelete(null);
     }
   }, [initialSelection, open, projects]);
 
@@ -456,16 +548,24 @@ function DeadlineDialog({ open, projects, saving, initialSelection, onClose, onS
             </Typography>
             <List dense disablePadding aria-label="Deadlines on selected date">
               {selectedDayDeadlines.map(deadline => (
-                <ListItem key={`${deadline.projectID}-${deadline.actionItemID}`} disablePadding>
-                  <ListItemButton onClick={() => selectDeadline(deadline)} sx={{ borderRadius: 1.5 }}>
-                    <ListItemText primary={deadline.itemText} secondary={deadline.projectName} />
-                  </ListItemButton>
+                <ListItem
+                  key={`${deadline.projectID}-${deadline.actionItemID}`}
+                  disableGutters
+                  secondaryAction={(
+                    <Stack direction="row" spacing={0.5}>
+                      <Button size="small" onClick={() => selectDeadline(deadline)}>Edit</Button>
+                      <Button size="small" color="error" onClick={() => setDeadlineToDelete(deadline)}>Delete</Button>
+                    </Stack>
+                  )}
+                  sx={{ pr: 15 }}
+                >
+                  <ListItemText primary={deadline.itemText} secondary={deadline.projectName} />
                 </ListItem>
               ))}
             </List>
             <Divider sx={{ mt: 1 }} />
             <Typography variant="caption" color="text.secondary">
-              Select a deadline to edit it, or complete the form below to add another.
+              Edit an existing deadline, or complete the form below to add another.
             </Typography>
           </Box>
         )}
@@ -520,6 +620,25 @@ function DeadlineDialog({ open, projects, saving, initialSelection, onClose, onS
           {saving ? 'Saving…' : actionItem ? 'Update deadline' : 'Create deadline'}
         </Button>
       </DialogActions>
+      <ConfirmationDialog
+        open={Boolean(deadlineToDelete)}
+        title="Delete deadline"
+        confirmLabel="Delete"
+        confirmColor="error"
+        loading={deleting}
+        onCancel={() => setDeadlineToDelete(null)}
+        onConfirm={async () => {
+          const deleted = await onDelete({
+            projectID: deadlineToDelete.projectID,
+            actionItemID: deadlineToDelete.actionItemID,
+          });
+          if (deleted) onClose();
+        }}
+      >
+        <Typography>
+          Delete “{deadlineToDelete?.itemText}”? This action cannot be undone.
+        </Typography>
+      </ConfirmationDialog>
     </Dialog>
   );
 }
@@ -549,7 +668,7 @@ function DeadlineCalendar({ deadlines, onSelectDate }) {
     <Paper sx={{ ...cardSx, p: 1.5, overflowX: 'auto', height: '100%' }}>
       <SectionHeading
         icon={icons.calendar}
-        title="Deadline Calendar"
+        title="My Calendar"
         subtitle="Select a date to view or add deadlines"
       />
       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 0.5 }}>
@@ -605,7 +724,7 @@ function DeadlineCalendar({ deadlines, onSelectDate }) {
                   p: 0.25,
                   border: '1px solid',
                   borderColor: 'divider',
-                  bgcolor: inMonth ? 'background.paper' : 'action.hover',
+                  bgcolor: inMonth ? 'background.paper' : 'action.selected',
                   color: inMonth ? 'text.primary' : 'text.disabled',
                   textAlign: 'left',
                   overflow: 'hidden',
@@ -624,7 +743,7 @@ function DeadlineCalendar({ deadlines, onSelectDate }) {
                     border: 0,
                     bgcolor: 'transparent',
                     cursor: 'pointer',
-                    '&:hover': { bgcolor: 'action.selected' },
+                    '&:hover': { bgcolor: 'action.hover' },
                     '&:focus-visible': {
                       outline: '3px solid',
                       outlineColor: 'primary.main',
@@ -746,20 +865,38 @@ export default function AdminDashboard() {
     deadlines,
     upcomingDeadlines,
     savingDeadline,
+    deletingDeadline,
     deadlineMessage,
     saveDeadline,
+    deleteDeadline,
     reload,
   } = useAdminDashboard();
 
   return (
     <Box sx={{ maxWidth: 1500, mx: 'auto', pb: 8 }}>
-      <Stack spacing={2} sx={{ mb: 3 }}>
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', md: 'center' }}
+        spacing={2}
+        sx={{ mb: 3 }}
+      >
         <Box>
           <Typography variant="h4" component="h1" color="text.primary">Dashboard</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
             Monitor active work, surface risks, and keep operations moving.
           </Typography>
         </Box>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ width: { xs: '100%', md: 'auto' } }}>
+          <DashboardSearch
+            query={query}
+            onQueryChange={setQuery}
+            groups={searchResults}
+            searchReady={searchReady}
+            onNavigate={navigate}
+          />
+          <DashboardAlerts items={workQueue} onNavigate={navigate} />
+        </Stack>
       </Stack>
 
       {error && (
@@ -768,16 +905,6 @@ export default function AdminDashboard() {
         </AppAlert>
       )}
       {deadlineMessage && <AppAlert severity={deadlineMessage.severity} sx={{ mb: 3 }}>{deadlineMessage.text}</AppAlert>}
-
-      <Box sx={{ mb: 3 }}>
-        <DashboardSearch
-          query={query}
-          onQueryChange={setQuery}
-          groups={searchResults}
-          searchReady={searchReady}
-          onNavigate={navigate}
-        />
-      </Box>
 
       {loading ? (
         <Paper sx={{ ...cardSx, minHeight: 300, display: 'grid', placeItems: 'center' }}>
@@ -791,10 +918,7 @@ export default function AdminDashboard() {
           <OperationsOverview data={data} onNavigate={navigate} />
           <Box sx={dashboardContentGridSx}>
             <ProjectOverviewTable projects={data.projects} onNavigate={navigate} />
-            <Stack spacing={3}>
-              <QuickActions onNavigate={navigate} />
-              <WorkQueue items={workQueue} onNavigate={navigate} />
-            </Stack>
+            <QuickActions onNavigate={navigate} />
           </Box>
           <Box sx={{ ...dashboardContentGridSx, alignItems: 'stretch' }}>
             <DeadlineCalendar
@@ -813,9 +937,11 @@ export default function AdminDashboard() {
         open={Boolean(deadlineSelection)}
         projects={data.projects}
         saving={savingDeadline}
+        deleting={deletingDeadline}
         initialSelection={deadlineSelection}
         onClose={() => setDeadlineSelection(null)}
         onSave={saveDeadline}
+        onDelete={deleteDeadline}
       />
     </Box>
   );

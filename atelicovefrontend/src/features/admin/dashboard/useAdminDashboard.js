@@ -16,6 +16,7 @@ export default function useAdminDashboard() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [savingDeadline, setSavingDeadline] = useState(false);
+  const [deletingDeadline, setDeletingDeadline] = useState(false);
   const [deadlineMessage, setDeadlineMessage] = useState(null);
 
   const load = useCallback(async () => {
@@ -67,6 +68,22 @@ export default function useAdminDashboard() {
     }
   };
 
+  const deleteDeadline = async ({ projectID, actionItemID }) => {
+    setDeletingDeadline(true);
+    setDeadlineMessage(null);
+    try {
+      await dashboardService.deleteDeadline(projectID, actionItemID);
+      await load();
+      setDeadlineMessage({ severity: 'success', text: 'Deadline deleted.' });
+      return true;
+    } catch (requestError) {
+      setDeadlineMessage({ severity: 'error', text: requestError.message || 'Deadline could not be deleted.' });
+      return false;
+    } finally {
+      setDeletingDeadline(false);
+    }
+  };
+
   return {
     data,
     loading,
@@ -79,8 +96,10 @@ export default function useAdminDashboard() {
     deadlines,
     upcomingDeadlines: useMemo(() => getUpcomingDeadlines(deadlines), [deadlines]),
     savingDeadline,
+    deletingDeadline,
     deadlineMessage,
     saveDeadline,
+    deleteDeadline,
     reload: load,
   };
 }

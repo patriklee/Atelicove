@@ -35,10 +35,12 @@ test('keeps an empty dashboard useful and stable', () => {
 
   expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy();
   expect(screen.getByText('No active projects yet. Create a project to begin tracking operations.')).toBeTruthy();
-  expect(screen.getByText('No operational exceptions require attention.')).toBeTruthy();
   expect(screen.getByText('No upcoming deadlines for this month or the next two.')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Previous month' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Next month' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'My Calendar' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts' }));
+  expect(screen.getByText('No operational exceptions require attention.')).toBeTruthy();
 });
 
 test('selecting a calendar date opens one create dialog', () => {
@@ -117,9 +119,9 @@ test('selecting a day with a deadline offers the existing item in the create/edi
 
   expect(screen.getAllByRole('dialog')).toHaveLength(1);
   expect(screen.getByRole('heading', { name: 'Create project deadline' })).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', {
-    name: 'Confirm inspection Office Renovation',
-  }));
+  expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 
   expect(screen.getByRole('heading', { name: 'Edit project deadline' })).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'Create project deadline' })).toBeNull();
