@@ -29,6 +29,6 @@ The lockup requests the application's existing Plus Jakarta Sans font with syste
 - Prefer ivory or white backgrounds and preserve the transparent background of the SVG assets.
 - Decorative instances may set `aria-hidden="true"`; meaningful instances need an accessible name from their surrounding markup.
 
-The splash assets expose `atelicove-mark`, `petal-center`, `petal-upper-left`, `petal-upper-right`, `petal-lower-left`, and `petal-lower-right`. Every petal group uses the shared lower-center growth point (`80px 164px`) as its transform origin. Timing and animation belong in the consuming CSS or React component.
+The splash assets expose `atelicove-mark`, `petal-center`, `petal-upper-left`, `petal-upper-right`, `petal-lower-left`, and `petal-lower-right`. Every petal group uses the shared lower-center growth point (`80px 158px`) as its transform origin. Timing and animation belong in the consuming CSS or React component.
 
 The favicon PNGs were rendered from `public/favicon.svg`. Apple and PWA icons were rendered from `community/atelicove-mark.svg` onto an Ivory square canvas with safe padding. Exports use exact target pixel dimensions and lossless PNG output. No project dependency or asset-generation script is required; regenerate them with any production SVG renderer while preserving those source files, dimensions, backgrounds, and padding.

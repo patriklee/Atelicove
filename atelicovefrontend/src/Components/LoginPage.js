@@ -48,15 +48,12 @@ const LoginPage = () => {
                 alt="Atelicove — Organize. Build. Grow."
                 component="img"
                 src={communityLogo}
-                sx={{ mt: 4, width: '100%', maxWidth: 320 }}
+                sx={{ mt: 3, width: '100%', maxWidth: 240 }}
             />
-            <Typography variant="h3" align="center" gutterBottom sx={{ fontWeight: 'bold', mt: 4 }}>
-                Steve Ball & Associates
-            </Typography>
             <Box 
                 component="form" 
                 onSubmit={handleLogin}
-                sx={{ mt: 2, p: 4, boxShadow: 3, borderRadius: 2, width: '100%' }}
+                sx={{ mt: 1, p: 4, boxShadow: 3, borderRadius: 2, width: '100%' }}
             >
                 <Typography variant="h4" gutterBottom align="center">Login</Typography>
                 

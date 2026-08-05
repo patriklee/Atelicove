@@ -215,13 +215,14 @@ function SidebarBrand({ onNavigate }) {
         alignItems: 'center',
         borderRadius: 1.5,
         display: 'flex',
-        justifyContent: 'flex-start',
+        flexDirection: 'column',
+        justifyContent: 'center',
         mx: 1.25,
         mt: 1.25,
-        mb: 1.5,
+        mb: 1.75,
         px: 1.25,
-        py: 0.85,
-        textAlign: 'left',
+        py: 1.1,
+        textAlign: 'center',
         '&.Mui-focusVisible': {
           boxShadow: `inset 0 0 0 2px ${theme.palette.navigation.focus}`,
         },
@@ -229,31 +230,24 @@ function SidebarBrand({ onNavigate }) {
       to="/admin"
     >
       <Box
-        sx={theme => ({
-          alignItems: 'center',
-          backgroundColor: theme.palette.brand.soft,
-          borderRadius: 1.25,
-          color: theme.palette.navigation.background,
-          display: 'flex',
-          height: 30,
-          justifyContent: 'center',
-          mr: 1.15,
-          width: 30,
-        })}
-      >
-        <Box
-          alt=""
-          aria-hidden="true"
-          component="img"
-          src={communityMark}
-          sx={{ height: 24, width: 22 }}
-        />
-      </Box>
+        alt=""
+        aria-hidden="true"
+        component="img"
+        src={communityMark}
+        sx={{ height: 58, mb: 0.45, width: 52 }}
+      />
       <Box>
-        <Typography color="navigation.text" fontSize="0.94rem" fontWeight={700} lineHeight={1.15}>
-          Atelicove
+        <Typography
+          color="navigation.text"
+          fontSize="0.78rem"
+          fontWeight={600}
+          letterSpacing="0.3em"
+          lineHeight={1.35}
+          sx={{ pl: '0.3em' }}
+        >
+          ATELICOVE
         </Typography>
-        <Typography color="navigation.muted" fontSize="0.69rem" lineHeight={1.35}>
+        <Typography color="navigation.muted" fontSize="0.62rem" lineHeight={1.45}>
           Community Edition
         </Typography>
       </Box>
