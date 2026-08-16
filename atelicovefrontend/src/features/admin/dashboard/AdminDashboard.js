@@ -1272,14 +1272,13 @@ export default function AdminDashboard({ dashboard, headerActions }) {
           <OperationsOverview data={data} onNavigate={navigate} />
           <Box sx={{ ...dashboardContentGridSx, alignItems: 'stretch' }}>
             <ProjectOverviewTable projects={data.projects} onNavigate={navigate} />
-            <Box sx={{ position: { xs: 'static', lg: 'relative' }, minHeight: 0 }}>
+            <Box sx={{ height: { lg: '100%' }, minHeight: 0 }}>
               <Stack
                 spacing={3}
                 sx={{
-                  position: { xs: 'static', lg: 'absolute' },
-                  inset: { lg: 0 },
                   height: { lg: '100%' },
                   minHeight: 0,
+                  overflow: { lg: 'hidden' },
                 }}
               >
                 <QuickActions onNavigate={navigate} />
