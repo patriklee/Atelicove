@@ -7,8 +7,28 @@ import { useTheme } from '@mui/material/styles';
 import { useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../Components/AuthContext';
 import { AppIconButton, icons } from '../../shared/icons';
-import AdminDashboard from './dashboard/AdminDashboard';
+import AdminDashboard, { AdminGlobalControls } from './dashboard/AdminDashboard';
+import useAdminDashboard from './dashboard/useAdminDashboard';
 import AdminSidebar from './AdminSidebar';
+
+function AdminContent({ dashboardPage }) {
+    const dashboard = useAdminDashboard();
+    const globalControls = (
+        <AdminGlobalControls
+            dashboard={dashboard}
+            sx={{ justifyContent: 'flex-end' }}
+        />
+    );
+
+    return dashboardPage ? (
+        <AdminDashboard dashboard={dashboard} headerActions={globalControls} />
+    ) : (
+        <>
+            <Box sx={{ px: { sm: 3 }, mb: 2 }}>{globalControls}</Box>
+            <Outlet />
+        </>
+    );
+}
 
 const AdminHomePage = () => {
     const [open, setOpen] = useState(false);
@@ -17,6 +37,7 @@ const AdminHomePage = () => {
     const { logout, user } = useAuth();
     const theme = useTheme();
     const mobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const showGlobalControls = !location.pathname.startsWith('/admin/settings');
 
     const handleLogoutClick = () => {
         setOpen(true);
@@ -69,11 +90,9 @@ const AdminHomePage = () => {
                     pb: 12,
                 }}
             >
-			    {location.pathname === '/admin' && (
-			        <AdminDashboard />
-			    )}
-
-			    <Outlet />
+			    {showGlobalControls
+			        ? <AdminContent dashboardPage={location.pathname === '/admin'} />
+			        : <Outlet />}
 			</Box>
 
             <Dialog open={open} onClose={handleCancelLogout}>

@@ -40,7 +40,6 @@ import {
 import { ConfirmationDialog } from '../../../shared/components/dialogs';
 import { useAuth } from '../../../Components/AuthContext';
 import { getWorkOrderWorkers, normalizeWorker } from '../../../model';
-import useAdminDashboard from './useAdminDashboard';
 import {
   DASHBOARD_SEVERITY,
   dateKey,
@@ -102,6 +101,10 @@ function DashboardSearch({ query, onQueryChange, groups, searchReady, onNavigate
   const [focused, setFocused] = useState(false);
   const hasResults = groups.length > 0;
   const open = focused && query.trim().length >= 2;
+  const navigateToResult = path => {
+    setFocused(false);
+    onNavigate(path);
+  };
 
   return (
     <Box sx={{
@@ -160,7 +163,7 @@ function DashboardSearch({ query, onQueryChange, groups, searchReady, onNavigate
               </Typography>
               <List dense disablePadding>
                 {group.items.map(item => (
-                  <ListItemButton key={`${group.type}-${item.id}`} onMouseDown={() => onNavigate(item.path)}>
+                  <ListItemButton key={`${group.type}-${item.id}`} onMouseDown={() => navigateToResult(item.path)}>
                     <ListItemText primary={item.primary} secondary={item.secondary} />
                     <Box component="span" sx={{ color: 'action.active', display: 'inline-flex' }}>
                       <AppIcon icon={icons.disclosure} size={ICON_SIZES.compact} />
@@ -177,7 +180,7 @@ function DashboardSearch({ query, onQueryChange, groups, searchReady, onNavigate
   );
 }
 
-function DashboardAlerts({ items, onNavigate }) {
+function DashboardAlerts({ items, onSelect }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const alertCount = items.reduce((total, item) => total + item.count, 0);
   const hasAlerts = alertCount > 0;
@@ -238,7 +241,7 @@ function DashboardAlerts({ items, onNavigate }) {
                   <ListItemButton
                     onClick={() => {
                       setAnchorEl(null);
-                      onNavigate(item.path);
+                      onSelect(item.id);
                     }}
                     sx={{ px: 2, py: 1.25 }}
                   >
@@ -261,6 +264,212 @@ function DashboardAlerts({ items, onNavigate }) {
           </Typography>
         )}
       </Popover>
+    </>
+  );
+}
+
+const detailLinkSx = {
+  p: 0,
+  minWidth: 0,
+  justifyContent: 'flex-start',
+  textAlign: 'left',
+  fontWeight: 600,
+  textTransform: 'none',
+};
+
+const workOrderName = order => (
+  order.workOrderName || order.title || `Work Order #${order.workOrderID}`
+);
+
+const relatedWork = order => (
+  order.projectName
+  || order.project?.projectName
+  || order.company?.companyName
+  || 'Not available'
+);
+
+const workerName = worker => (
+  worker.displayName
+  || `${worker.firstName || ''} ${worker.lastName || ''}`.trim()
+  || `Worker #${worker.workerID}`
+);
+
+function AlertDetailRows({ alert, onNavigate }) {
+  if (alert.id === 'overdue-deadlines') {
+    return alert.records.map(deadline => (
+      <TableRow key={`${deadline.projectID}-${deadline.actionItemID}`} hover>
+        <TableCell sx={{ minWidth: 180 }}>
+          <Button sx={detailLinkSx} onClick={() => onNavigate(`/admin/projects/${deadline.projectID}`)}>
+            {deadline.projectName}
+          </Button>
+        </TableCell>
+        <TableCell sx={{ minWidth: 220 }}>{deadline.itemText}</TableCell>
+        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDueDate(deadline.dueDate)}</TableCell>
+        <TableCell><Chip size="small" color="error" label="Overdue" /></TableCell>
+      </TableRow>
+    ));
+  }
+
+  if (alert.id === 'work-order-review') {
+    return alert.records.map(order => (
+      <TableRow key={order.workOrderID} hover>
+        <TableCell sx={{ minWidth: 180 }}>
+          <Button sx={detailLinkSx} onClick={() => onNavigate(`/admin/workorders/${order.workOrderID}`)}>
+            {workOrderName(order)}
+          </Button>
+        </TableCell>
+        <TableCell sx={{ minWidth: 180 }}>{relatedWork(order)}</TableCell>
+        <TableCell sx={{ minWidth: 180 }}>
+          {getWorkOrderWorkers(order).map(workerName).join(', ') || 'Unassigned'}
+        </TableCell>
+        <TableCell><Chip size="small" label="IN REVIEW" sx={assignmentStatusSx.IN_REVIEW} /></TableCell>
+      </TableRow>
+    ));
+  }
+
+  if (alert.id === 'project-review') {
+    return alert.records.map(project => (
+      <TableRow key={project.projectID} hover>
+        <TableCell sx={{ minWidth: 180 }}>
+          <Button sx={detailLinkSx} onClick={() => onNavigate(`/admin/projects/${project.projectID}`)}>
+            {project.projectName || `Project #${project.projectID}`}
+          </Button>
+        </TableCell>
+        <TableCell><HealthProgress health={getProjectHealth(project)} label="Project health" /></TableCell>
+        <TableCell><BudgetHealth health={getBudgetHealth(project)} /></TableCell>
+        <TableCell><ProjectStatus status={project.projectStatus} /></TableCell>
+      </TableRow>
+    ));
+  }
+
+  if (alert.id === 'projects-without-work') {
+    return alert.records.map(project => (
+      <TableRow key={project.projectID} hover>
+        <TableCell sx={{ minWidth: 180 }}>
+          <Button sx={detailLinkSx} onClick={() => onNavigate(`/admin/projects/${project.projectID}`)}>
+            {project.projectName || `Project #${project.projectID}`}
+          </Button>
+        </TableCell>
+        <TableCell><HealthProgress health={getProjectHealth(project)} label="Project health" /></TableCell>
+        <TableCell><ProjectStatus status={project.projectStatus} /></TableCell>
+      </TableRow>
+    ));
+  }
+
+  return alert.records.map(order => (
+    <TableRow key={order.workOrderID} hover>
+      <TableCell sx={{ minWidth: 180 }}>
+        <Button sx={detailLinkSx} onClick={() => onNavigate(`/admin/workorders/${order.workOrderID}`)}>
+          {workOrderName(order)}
+        </Button>
+      </TableCell>
+      <TableCell sx={{ minWidth: 180 }}>{relatedWork(order)}</TableCell>
+      <TableCell><Chip size="small" label={(order.status || 'OPEN').replaceAll('_', ' ')} sx={assignmentStatusSx[order.status]} /></TableCell>
+      <TableCell><Chip size="small" variant="outlined" label="Unassigned" /></TableCell>
+    </TableRow>
+  ));
+}
+
+function AlertDetailDialog({ alert, onClose, onNavigate }) {
+  const headings = {
+    'overdue-deadlines': ['Project', 'Action item / deadline', 'Due date', 'Status'],
+    'work-order-review': ['Work Order', 'Project or Company', 'Assigned workers', 'Status'],
+    'project-review': ['Project', 'Health', 'Budget Health', 'Status'],
+    'projects-without-work': ['Project', 'Health', 'Status'],
+    'unassigned-work': ['Work Order', 'Project or Company', 'Status', 'Assignment'],
+  };
+
+  return (
+    <Dialog
+      open={Boolean(alert)}
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
+    >
+      {alert && (
+        <>
+          <DialogTitle sx={{ pr: 7 }}>
+            <Typography variant="h5" component="span">{alert.label}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {alert.count} {alert.count === 1 ? 'record needs' : 'records need'} attention
+            </Typography>
+            <AppIconButton
+              icon={icons.close}
+              label="Close alert details"
+              onClick={onClose}
+              tooltip={false}
+              sx={{ position: 'absolute', right: 16, top: 16 }}
+            />
+          </DialogTitle>
+          <DialogContent dividers sx={{ p: 0, maxHeight: 'min(65vh, 620px)', overflowY: 'auto' }}>
+            {alert.records.length ? (
+              <TableContainer>
+                <Table stickyHeader size="small" aria-label={`${alert.label} records`}>
+                  <TableHead>
+                    <TableRow>
+                      {headings[alert.id].map(heading => <TableCell key={heading}>{heading}</TableCell>)}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    <AlertDetailRows alert={alert} onNavigate={onNavigate} />
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Box sx={{ minHeight: 220, display: 'grid', placeItems: 'center', textAlign: 'center', px: 3 }}>
+                <Box>
+                  <Box sx={{ color: 'text.disabled', display: 'flex', justifyContent: 'center', mb: 1 }}>
+                    <AppIcon icon={icons.success} size={ICON_SIZES.large} />
+                  </Box>
+                  <Typography color="text.secondary">Nothing needs attention here.</Typography>
+                </Box>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={onClose}>Close</Button>
+          </DialogActions>
+        </>
+      )}
+    </Dialog>
+  );
+}
+
+export function AdminGlobalControls({ dashboard, sx }) {
+  const navigate = useNavigate();
+  const [selectedAlertID, setSelectedAlertID] = useState(null);
+  const {
+    query,
+    setQuery,
+    searchResults,
+    searchReady,
+    alertEntries = [],
+    workQueue,
+  } = dashboard;
+  const selectedAlert = alertEntries.find(alert => alert.id === selectedAlertID) || null;
+  const navigateFromAlert = path => {
+    setSelectedAlertID(null);
+    navigate(path);
+  };
+
+  return (
+    <>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ width: { xs: '100%', md: 'auto' }, ...sx }}>
+        <DashboardSearch
+          query={query}
+          onQueryChange={setQuery}
+          groups={searchResults}
+          searchReady={searchReady}
+          onNavigate={navigate}
+        />
+        <DashboardAlerts items={workQueue} onSelect={setSelectedAlertID} />
+      </Stack>
+      <AlertDetailDialog
+        alert={selectedAlert}
+        onClose={() => setSelectedAlertID(null)}
+        onNavigate={navigateFromAlert}
+      />
     </>
   );
 }
@@ -1000,7 +1209,7 @@ function UpcomingDeadlinesTable({ deadlines, onSelectDeadline }) {
   );
 }
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ dashboard, headerActions }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [deadlineSelection, setDeadlineSelection] = useState(null);
@@ -1008,11 +1217,6 @@ export default function AdminDashboard() {
     data,
     loading,
     error,
-    query,
-    setQuery,
-    searchResults,
-    searchReady,
-    workQueue,
     deadlines,
     upcomingDeadlines,
     savingDeadline,
@@ -1021,7 +1225,7 @@ export default function AdminDashboard() {
     saveDeadline,
     deleteDeadline,
     reload,
-  } = useAdminDashboard();
+  } = dashboard;
   const myWorkOrders = useMemo(
     () => getMyWorkOrders(data.workOrders, user?.workerID),
     [data.workOrders, user?.workerID]
@@ -1046,16 +1250,7 @@ export default function AdminDashboard() {
             Monitor active work, surface risks, and keep operations moving.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ width: { xs: '100%', md: 'auto' } }}>
-          <DashboardSearch
-            query={query}
-            onQueryChange={setQuery}
-            groups={searchResults}
-            searchReady={searchReady}
-            onNavigate={navigate}
-          />
-          <DashboardAlerts items={workQueue} onNavigate={navigate} />
-        </Stack>
+        {headerActions}
       </Stack>
 
       {error && (

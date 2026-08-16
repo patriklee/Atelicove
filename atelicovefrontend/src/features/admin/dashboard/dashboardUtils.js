@@ -215,51 +215,48 @@ export function getDashboardDeadlines(projects = [], now = new Date()) {
     .sort((a, b) => a.dueDate - b.dueDate);
 }
 
-export function getWorkQueue(data = {}, now = new Date()) {
+export function getDashboardAlertEntries(data = {}, now = new Date()) {
   const projects = data.projects || [];
   const workOrders = data.workOrders || [];
   const overdueDeadlines = getDashboardDeadlines(projects, now).filter(deadline => deadline.overdue);
-  const entries = [
+  return [
     {
       id: 'overdue-deadlines',
       label: 'Overdue project deadlines',
-      count: overdueDeadlines.length,
       severity: 'error',
-      path: overdueDeadlines[0]?.path || '/admin',
+      records: overdueDeadlines,
     },
     {
       id: 'work-order-review',
       label: 'Work orders awaiting review',
-      count: workOrders.filter(order => order.status === 'IN_REVIEW').length,
       severity: 'warning',
-      path: '/admin/manage-workorders',
+      records: workOrders.filter(order => order.status === 'IN_REVIEW'),
     },
     {
       id: 'project-review',
       label: 'Projects awaiting review',
-      count: projects.filter(project => project.projectStatus === 'IN_REVIEW').length,
       severity: 'warning',
-      path: '/admin/projects/active',
+      records: projects.filter(project => project.projectStatus === 'IN_REVIEW'),
     },
     {
       id: 'projects-without-work',
       label: 'Projects without assigned work',
-      count: projects.filter(project => !(project.workOrders || []).length).length,
       severity: 'warning',
-      path: '/admin/projects/active',
+      records: projects.filter(project => !(project.workOrders || []).length),
     },
     {
       id: 'unassigned-work',
       label: 'Unassigned work orders',
-      count: workOrders.filter(order =>
-        ['OPEN', 'IN_PROCESS'].includes(order.status) && !(order.workers || []).length
-      ).length,
       severity: 'error',
-      path: '/admin/manage-workorders',
+      records: workOrders.filter(order =>
+        ['OPEN', 'IN_PROCESS'].includes(order.status) && !(order.workers || []).length
+      ),
     },
-  ];
+  ].map(entry => ({ ...entry, count: entry.records.length }));
+}
 
-  return entries.filter(entry => entry.count > 0);
+export function getWorkQueue(data = {}, now = new Date()) {
+  return getDashboardAlertEntries(data, now).filter(entry => entry.count > 0);
 }
 
 export function getDashboardNotifications(data = {}, now = new Date()) {

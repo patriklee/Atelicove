@@ -8,8 +8,6 @@ import {
   MenuItem,
   Paper,
   Stack,
-  Tab,
-  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -200,22 +198,12 @@ function UpdatedTime({ value }) {
 
 export default function ProjectList({
   projects,
-  totalProjects = projects.length,
-  statusFilter = 'ALL',
-  statusCounts = { ALL: projects.length },
-  onStatusFilterChange = () => {},
   canManage,
   onEdit,
   onOpen,
 }) {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuProject, setMenuProject] = useState(null);
-  const tabs = [
-    { value: 'ALL', label: 'All' },
-    { value: 'OPEN', label: 'Planning' },
-    { value: 'IN_REVIEW', label: 'Needs Review' },
-    { value: 'COMPLETE', label: 'Complete' },
-  ];
   const closeMenu = () => {
     setMenuAnchor(null);
     setMenuProject(null);
@@ -249,23 +237,6 @@ export default function ProjectList({
             </Typography>
           </Box>
         </Stack>
-        <Tabs
-          value={statusFilter}
-          onChange={(_, value) => onStatusFilterChange(value)}
-          variant="scrollable"
-          scrollButtons="auto"
-          aria-label="Filter project portfolio by status"
-          sx={{ mt: 1.5, minHeight: 42 }}
-        >
-          {tabs.map(tab => (
-            <Tab
-              key={tab.value}
-              value={tab.value}
-              label={`${tab.label} (${statusCounts[tab.value] || 0})`}
-              sx={{ minHeight: 42 }}
-            />
-          ))}
-        </Tabs>
       </Box>
       <TableContainer sx={{ overflowX: 'auto', maxWidth: '100%' }}>
         <Table
@@ -346,7 +317,7 @@ export default function ProjectList({
             })}
             {!projects.length && (
               <EntityEmptyState
-                message={totalProjects ? 'No projects match the current search and filter.' : 'No active projects found.'}
+                message="No active projects found."
                 colSpan={8}
               />
             )}

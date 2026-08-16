@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
 import theme from '../../../theme';
-import AdminDashboard from './AdminDashboard';
+import AdminDashboard, { AdminGlobalControls } from './AdminDashboard';
 import useAdminDashboard from './useAdminDashboard';
 
 const mockNavigate = jest.fn();
@@ -14,9 +14,17 @@ jest.mock('./useAdminDashboard');
 
 beforeEach(() => mockNavigate.mockClear());
 
+const DashboardUnderTest = () => <AdminDashboard dashboard={useAdminDashboard()} />;
+
 const renderDashboard = () => render(
   <ThemeProvider theme={theme}>
-    <AdminDashboard />
+    <DashboardUnderTest />
+  </ThemeProvider>
+);
+
+const renderGlobalControls = dashboard => render(
+  <ThemeProvider theme={theme}>
+    <AdminGlobalControls dashboard={dashboard} />
   </ThemeProvider>
 );
 
@@ -47,8 +55,51 @@ test('keeps an empty dashboard useful and stable', () => {
   expect(screen.getByRole('button', { name: 'Next month' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'My Calendar' })).toBeTruthy();
   expect(screen.getByText('No assignments')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Alerts' }));
-  expect(screen.getByText('No operational exceptions require attention.')).toBeTruthy();
+});
+
+test('opens alert records in a dialog before navigating to a detail page', () => {
+  const reviewOrder = {
+    workOrderID: 42,
+    status: 'IN_REVIEW',
+    company: { companyName: 'Atelicove Manufacturing' },
+    workers: [{ workerID: 7, firstName: 'Alex', lastName: 'Morgan' }],
+  };
+  const reviewAlert = {
+    id: 'work-order-review',
+    label: 'Work orders awaiting review',
+    severity: 'warning',
+    records: [reviewOrder],
+    count: 1,
+  };
+  useAdminDashboard.mockReturnValue({
+    data: { projects: [], workOrders: [reviewOrder], companies: [], workers: [] },
+    loading: false,
+    error: '',
+    query: '',
+    setQuery: jest.fn(),
+    searchResults: [],
+    searchReady: false,
+    alertEntries: [reviewAlert],
+    workQueue: [reviewAlert],
+    deadlines: [],
+    upcomingDeadlines: [],
+    savingDeadline: false,
+    deletingDeadline: false,
+    deadlineMessage: null,
+    saveDeadline: jest.fn(),
+    deleteDeadline: jest.fn(),
+    reload: jest.fn(),
+  });
+
+  renderGlobalControls(useAdminDashboard());
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (1)' }));
+  fireEvent.click(screen.getByRole('button', { name: /Work orders awaiting review/i }));
+
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.getByRole('table', { name: 'Work orders awaiting review records' })).toBeTruthy();
+  expect(screen.getByText('Atelicove Manufacturing')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Work Order #42' }));
+  expect(mockNavigate).toHaveBeenCalledWith('/admin/workorders/42');
 });
 
 test('shows the same assigned projects and work orders as My Assignments', () => {

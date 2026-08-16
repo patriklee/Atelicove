@@ -1,5 +1,6 @@
 import {
   getBudgetHealth,
+  getDashboardAlertEntries,
   getDashboardDeadlines,
   getUpcomingDeadlines,
   getProjectHealth,
@@ -76,6 +77,9 @@ describe('dashboard selectors', () => {
       expect.objectContaining({ id: 'overdue-deadlines', count: 1, severity: 'error' }),
       expect.objectContaining({ id: 'unassigned-work', count: 1, severity: 'error' }),
     ]));
+    getDashboardAlertEntries(data, now).forEach(alert => {
+      expect(alert.count).toBe(alert.records.length);
+    });
   });
 
   test('normalizes deadline dates without time or timezone boundary errors', () => {

@@ -1,15 +1,10 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import {
   Box,
   Button,
   CircularProgress,
-  FormControl,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
   Paper,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -17,7 +12,7 @@ import { formatMoney } from '../../model';
 import { WorkOrderDocuments } from '../documents';
 import { useAuth } from '../../Components/AuthContext';
 import { projectPathFor, workOrderPathFor } from '../../shared/routing/rolePaths';
-import { AppAlert, AppIcon, AppSelect, icons } from '../../shared/icons';
+import { AppAlert, AppIcon, icons } from '../../shared/icons';
 import ProjectList from './components/ProjectList';
 import ProjectForm from './components/ProjectForm';
 import ProjectWorkOrders from './components/ProjectWorkOrders';
@@ -33,33 +28,6 @@ const studioCardSx = {
   borderRadius: 3,
   boxShadow: theme => theme.customShadows.soft,
   bgcolor: 'background.paper',
-};
-
-const statusOptions = [
-  { value: 'ALL', label: 'All statuses' },
-  { value: 'OPEN', label: 'Planning' },
-  { value: 'IN_REVIEW', label: 'Needs review' },
-  { value: 'COMPLETE', label: 'Complete' },
-];
-
-const sortOptions = [
-  { value: 'updated', label: 'Recently updated' },
-  { value: 'name', label: 'Project name' },
-  { value: 'budget', label: 'Budget: high to low' },
-  { value: 'status', label: 'Status' },
-];
-
-const compareProjects = (sortBy) => (a, b) => {
-  if (sortBy === 'name') {
-    return (a.projectName || '').localeCompare(b.projectName || '');
-  }
-  if (sortBy === 'budget') {
-    return Number(b.budget || 0) - Number(a.budget || 0);
-  }
-  if (sortBy === 'status') {
-    return (a.projectStatus || 'OPEN').localeCompare(b.projectStatus || 'OPEN');
-  }
-  return new Date(b.lastModifiedAt || b.createdAt || 0) - new Date(a.lastModifiedAt || a.createdAt || 0);
 };
 
 function StudioSummary({ projects }) {
@@ -119,9 +87,6 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
   const navigate = useNavigate();
   const { user } = useAuth();
   const plannerRef = useRef(null);
-  const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [sortBy, setSortBy] = useState('updated');
   const isWorkerEdit = mode === 'worker-edit';
   const canManage = user?.isAdmin === true && !isWorkerEdit;
   const isStudio = mode === 'active' && !routeProjectID;
@@ -155,31 +120,11 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
     runProjectAction,
   } = useProjectsPage({ routeProjectID, canManage });
 
-  const portfolioProjects = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return visibleProjects
-      .filter(project => (
-        statusFilter === 'ALL' || (project.projectStatus || 'OPEN') === statusFilter
-      ))
-      .filter(project => (
-        !normalizedQuery
-        || [project.projectName, project.projectID, project.description].some(value =>
-          String(value ?? '').toLowerCase().includes(normalizedQuery)
-        )
-      ))
-      .sort(compareProjects(sortBy));
-  }, [query, sortBy, statusFilter, visibleProjects]);
-
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
   }
 
   if (isStudio) {
-    const statusCounts = visibleProjects.reduce((counts, project) => {
-      const status = project.projectStatus || 'OPEN';
-      return { ...counts, [status]: (counts[status] || 0) + 1 };
-    }, { ALL: visibleProjects.length });
-
     return (
       <Box sx={{ maxWidth: 1500, mx: 'auto', pb: 8 }}>
         <Stack
@@ -193,66 +138,6 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
         </Stack>
 
         {message && <AppAlert severity={message.severity} sx={{ mb: 3 }}>{message.text}</AppAlert>}
-
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: 'minmax(260px, 1fr) auto auto' },
-            gap: 1.5,
-            mb: 3,
-            alignItems: 'center',
-          }}
-        >
-          <TextField
-            value={query}
-            onChange={event => setQuery(event.target.value)}
-            label="Search projects"
-            placeholder="Project name, ID, or description"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start" sx={{ color: 'action.active' }}>
-                  <AppIcon icon={icons.search} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <FormControl sx={{ minWidth: { md: 180 } }}>
-            <InputLabel id="project-status-filter-label">Filter</InputLabel>
-            <AppSelect
-              labelId="project-status-filter-label"
-              value={statusFilter}
-              label="Filter"
-              onChange={event => setStatusFilter(event.target.value)}
-              startAdornment={(
-                <InputAdornment position="start" sx={{ color: 'action.active' }}>
-                  <AppIcon icon={icons.filter} />
-                </InputAdornment>
-              )}
-            >
-              {statusOptions.map(option => (
-                <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-              ))}
-            </AppSelect>
-          </FormControl>
-          <FormControl sx={{ minWidth: { md: 210 } }}>
-            <InputLabel id="project-sort-label">Sort</InputLabel>
-            <AppSelect
-              labelId="project-sort-label"
-              value={sortBy}
-              label="Sort"
-              onChange={event => setSortBy(event.target.value)}
-              startAdornment={(
-                <InputAdornment position="start" sx={{ color: 'action.active' }}>
-                  <AppIcon icon={icons.sort} />
-                </InputAdornment>
-              )}
-            >
-              {sortOptions.map(option => (
-                <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-              ))}
-            </AppSelect>
-          </FormControl>
-        </Box>
 
         <Stack spacing={3}>
           <StudioSummary projects={visibleProjects} />
@@ -272,11 +157,7 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
           )}
 
           <ProjectList
-            projects={portfolioProjects}
-            totalProjects={visibleProjects.length}
-            statusFilter={statusFilter}
-            statusCounts={statusCounts}
-            onStatusFilterChange={setStatusFilter}
+            projects={visibleProjects}
             canManage={canManage}
             onEdit={project => {
               selectProject(project);
