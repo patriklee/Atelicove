@@ -1,11 +1,18 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
 import theme from '../../../theme';
 import AdminDashboard from './AdminDashboard';
 import useAdminDashboard from './useAdminDashboard';
 
-jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }));
+const mockNavigate = jest.fn();
+
+jest.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }));
+jest.mock('../../../Components/AuthContext', () => ({
+  useAuth: () => ({ user: { workerID: 7, isAdmin: true } }),
+}));
 jest.mock('./useAdminDashboard');
+
+beforeEach(() => mockNavigate.mockClear());
 
 const renderDashboard = () => render(
   <ThemeProvider theme={theme}>
@@ -39,8 +46,66 @@ test('keeps an empty dashboard useful and stable', () => {
   expect(screen.getByRole('button', { name: 'Previous month' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Next month' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'My Calendar' })).toBeTruthy();
+  expect(screen.getByText('No assignments')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Alerts' }));
   expect(screen.getByText('No operational exceptions require attention.')).toBeTruthy();
+});
+
+test('shows the same assigned projects and work orders as My Assignments', () => {
+  useAdminDashboard.mockReturnValue({
+    data: {
+      projects: [{
+        projectID: 2,
+        projectName: 'Production Upgrade',
+        projectStatus: 'OPEN',
+        workOrders: [{ workOrderID: 11, workers: [{ workerID: 7 }] }],
+      }],
+      workOrders: [
+        { workOrderID: 11, status: 'IN_PROCESS', workers: [{ workerID: 7 }] },
+        { workOrderID: 12, status: 'OPEN', workers: [{ workerID: 8 }] },
+        { workOrderID: 13, status: 'COMPLETE', workers: [{ workerID: 7 }] },
+      ],
+      companies: [],
+      workers: [],
+    },
+    loading: false,
+    error: '',
+    query: '',
+    setQuery: jest.fn(),
+    searchResults: [],
+    searchReady: false,
+    workQueue: [],
+    deadlines: [],
+    upcomingDeadlines: [],
+    savingDeadline: false,
+    deadlineMessage: null,
+    saveDeadline: jest.fn(),
+    reload: jest.fn(),
+  });
+
+  renderDashboard();
+
+  expect(screen.getByRole('button', { name: 'Work Order #11' })).toBeTruthy();
+  expect(screen.queryByText('Work Order #12')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Work Order #13' })).toBeTruthy();
+  expect(screen.getAllByText('Production Upgrade')).toHaveLength(2);
+  const assignmentsTable = screen.getByRole('table', { name: 'My assignments' });
+  expect(within(assignmentsTable).getByRole('columnheader', { name: 'Assignment' })).toBeTruthy();
+  expect(within(assignmentsTable).getByRole('columnheader', { name: 'Type' })).toBeTruthy();
+  expect(within(assignmentsTable).getByRole('columnheader', { name: 'Status' })).toBeTruthy();
+  expect(within(assignmentsTable).getByText('Project')).toBeTruthy();
+  expect(within(assignmentsTable).getAllByText('Work Order')).toHaveLength(2);
+
+  fireEvent.click(screen.getAllByRole('button', { name: 'Production Upgrade' })[1]);
+  expect(mockNavigate).toHaveBeenCalledWith('/admin/projects/active', {
+    state: { projectStudioEditProjectID: 2 },
+  });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Work Order #11' }));
+  expect(mockNavigate).toHaveBeenCalledWith('/admin/my-assignments/11');
+
+  fireEvent.click(screen.getByRole('button', { name: /View all assignments/i }));
+  expect(mockNavigate).toHaveBeenCalledWith('/admin/my-assignments');
 });
 
 test('selecting a calendar date opens one create dialog', () => {

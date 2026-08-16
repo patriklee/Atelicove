@@ -38,6 +38,8 @@ import {
   icons,
 } from '../../../shared/icons';
 import { ConfirmationDialog } from '../../../shared/components/dialogs';
+import { useAuth } from '../../../Components/AuthContext';
+import { getWorkOrderWorkers, normalizeWorker } from '../../../model';
 import useAdminDashboard from './useAdminDashboard';
 import {
   DASHBOARD_SEVERITY,
@@ -77,9 +79,9 @@ const autocompleteIconProps = {
   popupIcon: <AppIcon icon={icons.expand} size={ICON_SIZES.compact} />,
 };
 
-function SectionHeading({ icon, iconColor = 'primary.main', title, subtitle, action }) {
+function SectionHeading({ icon, iconColor = 'primary.main', title, subtitle, action, sx }) {
   return (
-    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2 }}>
+    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2, ...sx }}>
       <Box>
         <Stack direction="row" spacing={1} alignItems="center">
           {icon && (
@@ -381,6 +383,23 @@ const projectStatusSx = {
   },
 };
 
+const assignmentStatusSx = {
+  OPEN: projectStatusSx.OPEN,
+  IN_PROCESS: {
+    bgcolor: '#DCE6DC',
+    color: '#526F59',
+  },
+  ACTIVE: {
+    bgcolor: '#DCE6DC',
+    color: '#526F59',
+  },
+  IN_REVIEW: {
+    bgcolor: '#E8E5D8',
+    color: '#6A6242',
+  },
+  COMPLETE: projectStatusSx.COMPLETE,
+};
+
 function ProjectStatus({ status = 'OPEN' }) {
   return (
     <Chip
@@ -393,7 +412,13 @@ function ProjectStatus({ status = 'OPEN' }) {
 
 function ProjectOverviewTable({ projects, onNavigate }) {
   return (
-    <Paper sx={{ ...cardSx, p: { xs: 2, md: 2.5 }, overflow: 'hidden' }}>
+    <Paper sx={{
+      ...cardSx,
+      p: { xs: 2, md: 2.5 },
+      minHeight: { lg: 540 },
+      height: '100%',
+      overflow: 'hidden',
+    }}>
       <SectionHeading
         icon={icons.projects}
         title="Project Overview"
@@ -458,13 +483,14 @@ function QuickActions({ onNavigate }) {
     { label: 'Add Worker', icon: icons.addWorker, path: '/admin/manage-workers' },
   ];
   return (
-    <Paper sx={{ ...cardSx, p: 2 }}>
+    <Paper sx={{ ...cardSx, p: 2, flex: '0 0 auto' }}>
       <SectionHeading title="Quick Actions" subtitle="Start common administrative work" />
       <Stack spacing={1}>
         {actions.map(action => (
           <Button
             key={action.label}
             variant="outlined"
+            size="small"
             startIcon={<AppIcon icon={action.icon} />}
             onClick={() => onNavigate(action.path)}
             sx={{ justifyContent: 'flex-start' }}
@@ -473,6 +499,130 @@ function QuickActions({ onNavigate }) {
           </Button>
         ))}
       </Stack>
+    </Paper>
+  );
+}
+
+function getMyWorkOrders(workOrders, workerID) {
+  const currentWorkerID = Number(workerID);
+  if (!currentWorkerID) return [];
+
+  return workOrders.filter(order => (
+    !order.archived
+    && getWorkOrderWorkers(order).some(worker => Number(worker.workerID) === currentWorkerID)
+  ));
+}
+
+function getMyProjects(projects, workerID) {
+  const currentWorkerID = Number(workerID);
+  if (!currentWorkerID) return [];
+
+  return projects.filter(project => {
+    if (project.projectStatus !== 'OPEN') return false;
+    const teamWorkers = (project.teams || [])
+      .flatMap(team => team.workers || [])
+      .map(normalizeWorker);
+    const workOrderWorkers = (project.workOrders || [])
+      .flatMap(order => getWorkOrderWorkers(order));
+    return [...teamWorkers, ...workOrderWorkers]
+      .some(worker => Number(worker.workerID) === currentWorkerID);
+  });
+}
+
+function MyAssignmentsCard({ workOrders, myProjects, onNavigate }) {
+  const hasAssignments = myProjects.length > 0 || workOrders.length > 0;
+
+  return (
+    <Paper sx={{
+      ...cardSx,
+      p: 2,
+      minHeight: 0,
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
+      <SectionHeading
+        icon={icons.assignments}
+        title="My Assignments"
+        subtitle="Work currently assigned to you"
+        sx={{ mb: 1 }}
+      />
+      {hasAssignments ? (
+        <TableContainer sx={{ minHeight: 0, flex: 1, overflowY: 'auto' }}>
+          <Table stickyHeader size="small" aria-label="My assignments">
+            <TableHead>
+              <TableRow>
+                <TableCell>Assignment</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell align="right">Status</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {myProjects.map(project => (
+                <TableRow key={`project-${project.projectID}`} hover>
+                  <TableCell sx={{ maxWidth: 150 }}>
+                      <Button
+                        variant="text"
+                        size="small"
+                        onClick={() => onNavigate('/admin/projects/active', {
+                          state: { projectStudioEditProjectID: project.projectID },
+                        })}
+                        sx={{ p: 0, minWidth: 0, fontWeight: 600, textTransform: 'none' }}
+                      >
+                        <Typography component="span" variant="body2" noWrap>
+                          {project.projectName || `Project #${project.projectID}`}
+                        </Typography>
+                      </Button>
+                  </TableCell>
+                  <TableCell><Typography variant="body2">Project</Typography></TableCell>
+                  <TableCell align="right">
+                    <Chip size="small" label="OPEN" sx={projectStatusSx.OPEN} />
+                  </TableCell>
+                </TableRow>
+              ))}
+              {workOrders.map(order => {
+                const assignmentName = order.workOrderName || order.title || `Work Order #${order.workOrderID}`;
+                return (
+                  <TableRow key={`work-order-${order.workOrderID}`} hover>
+                    <TableCell sx={{ maxWidth: 150 }}>
+                        <Button
+                          variant="text"
+                          size="small"
+                          onClick={() => onNavigate(`/admin/my-assignments/${order.workOrderID}`)}
+                          sx={{ p: 0, minWidth: 0, fontWeight: 600, textTransform: 'none' }}
+                        >
+                          <Typography component="span" variant="body2" noWrap>{assignmentName}</Typography>
+                        </Button>
+                    </TableCell>
+                    <TableCell><Typography variant="body2">Work Order</Typography></TableCell>
+                    <TableCell align="right">
+                        <Chip
+                          size="small"
+                          label={(order.status || 'OPEN').replaceAll('_', ' ')}
+                          sx={assignmentStatusSx[order.status] || assignmentStatusSx.OPEN}
+                        />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      ) : (
+        <Box sx={{ flex: 1, display: 'grid', placeContent: 'center', textAlign: 'center', py: 1 }}>
+          <Typography variant="subtitle2">No assignments</Typography>
+          <Typography variant="body2" color="text.secondary">You’re all caught up.</Typography>
+        </Box>
+      )}
+      <Button
+        size="small"
+        endIcon={<AppIcon icon={icons.forward} size={ICON_SIZES.compact} />}
+        onClick={() => onNavigate('/admin/my-assignments')}
+        sx={{ mt: 'auto', pt: 1, alignSelf: 'flex-start' }}
+      >
+        View all assignments
+      </Button>
     </Paper>
   );
 }
@@ -724,7 +874,7 @@ function DeadlineCalendar({ deadlines, onSelectDate }) {
                   p: 0.25,
                   border: '1px solid',
                   borderColor: 'divider',
-                  bgcolor: inMonth ? 'background.paper' : 'action.selected',
+                  bgcolor: inMonth ? 'background.paper' : 'background.subtle',
                   color: inMonth ? 'text.primary' : 'text.disabled',
                   textAlign: 'left',
                   overflow: 'hidden',
@@ -852,6 +1002,7 @@ function UpcomingDeadlinesTable({ deadlines, onSelectDeadline }) {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [deadlineSelection, setDeadlineSelection] = useState(null);
   const {
     data,
@@ -871,6 +1022,14 @@ export default function AdminDashboard() {
     deleteDeadline,
     reload,
   } = useAdminDashboard();
+  const myWorkOrders = useMemo(
+    () => getMyWorkOrders(data.workOrders, user?.workerID),
+    [data.workOrders, user?.workerID]
+  );
+  const myProjects = useMemo(
+    () => getMyProjects(data.projects, user?.workerID),
+    [data.projects, user?.workerID]
+  );
 
   return (
     <Box sx={{ maxWidth: 1500, mx: 'auto', pb: 8 }}>
@@ -916,9 +1075,26 @@ export default function AdminDashboard() {
       ) : (
         <Stack spacing={3}>
           <OperationsOverview data={data} onNavigate={navigate} />
-          <Box sx={dashboardContentGridSx}>
+          <Box sx={{ ...dashboardContentGridSx, alignItems: 'stretch' }}>
             <ProjectOverviewTable projects={data.projects} onNavigate={navigate} />
-            <QuickActions onNavigate={navigate} />
+            <Box sx={{ position: { xs: 'static', lg: 'relative' }, minHeight: 0 }}>
+              <Stack
+                spacing={3}
+                sx={{
+                  position: { xs: 'static', lg: 'absolute' },
+                  inset: { lg: 0 },
+                  height: { lg: '100%' },
+                  minHeight: 0,
+                }}
+              >
+                <QuickActions onNavigate={navigate} />
+                <MyAssignmentsCard
+                  workOrders={myWorkOrders}
+                  myProjects={myProjects}
+                  onNavigate={navigate}
+                />
+              </Stack>
+            </Box>
           </Box>
           <Box sx={{ ...dashboardContentGridSx, alignItems: 'stretch' }}>
             <DeadlineCalendar
