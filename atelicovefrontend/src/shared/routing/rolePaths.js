@@ -1,5 +1,5 @@
 export const roleLandingPath = (user) => (
-  user?.isAdmin ? '/admin/projects/active' : '/worker/my-assignments'
+  user?.isAdmin ? '/admin' : '/worker/my-assignments'
 );
 
 export const projectPathFor = (user, projectID) => (
