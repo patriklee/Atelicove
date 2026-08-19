@@ -29,6 +29,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { PageContainer, PageHeader, PageSections } from '../../../shared/components/layout';
 import { alpha } from '@mui/material/styles';
 import {
   AppAlert,
@@ -1236,22 +1237,12 @@ export default function AdminDashboard({ dashboard, headerActions }) {
   );
 
   return (
-    <Box sx={{ maxWidth: 1500, mx: 'auto', pb: 8 }}>
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'stretch', md: 'center' }}
-        spacing={2}
-        sx={{ mb: 3 }}
-      >
-        <Box>
-          <Typography variant="h4" component="h1" color="text.primary">Dashboard</Typography>
-          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            Monitor active work, surface risks, and keep operations moving.
-          </Typography>
-        </Box>
-        {headerActions}
-      </Stack>
+    <PageContainer>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Monitor active work, surface risks, and keep operations moving."
+        actions={headerActions}
+      />
 
       {error && (
         <AppAlert severity="error" action={<Button color="inherit" size="small" onClick={reload}>Retry</Button>} sx={{ mb: 3 }}>
@@ -1268,7 +1259,7 @@ export default function AdminDashboard({ dashboard, headerActions }) {
           </Stack>
         </Paper>
       ) : (
-        <Stack spacing={3}>
+        <PageSections>
           <OperationsOverview data={data} onNavigate={navigate} />
           <Box sx={{ ...dashboardContentGridSx, alignItems: 'stretch' }}>
             <ProjectOverviewTable projects={data.projects} onNavigate={navigate} />
@@ -1300,7 +1291,7 @@ export default function AdminDashboard({ dashboard, headerActions }) {
               onSelectDeadline={deadline => setDeadlineSelection({ deadline })}
             />
           </Box>
-        </Stack>
+        </PageSections>
       )}
 
       <DeadlineDialog
@@ -1313,6 +1304,6 @@ export default function AdminDashboard({ dashboard, headerActions }) {
         onSave={saveDeadline}
         onDelete={deleteDeadline}
       />
-    </Box>
+    </PageContainer>
   );
 }

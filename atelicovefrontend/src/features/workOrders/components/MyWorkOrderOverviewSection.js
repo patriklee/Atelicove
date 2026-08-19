@@ -13,7 +13,7 @@ import { formatDateTime } from '../../../model';
 import TableTitleRow from '../../../Components/TableTitleRow';
 
 const MyWorkOrderOverviewSection = ({ workOrder, workers, project, canOpenProject, onOpenProject }) => (
-  <TableContainer component={Paper} sx={{ mb: 4 }}>
+  <TableContainer component={Paper}>
     <Table>
       <TableHead>
         <TableTitleRow title="Details" colSpan={2} />

@@ -4,12 +4,12 @@ import {
   Button,
   CircularProgress,
   Stack,
-  Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formatMoney } from '../../model';
 import { WorkOrderDocuments } from '../documents';
 import { useAuth } from '../../Components/AuthContext';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { MetricSummary } from '../../shared/components/metrics';
 import { projectPathFor, workOrderPathFor } from '../../shared/routing/rolePaths';
 import { AppAlert, icons } from '../../shared/icons';
@@ -97,20 +97,12 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
 
   if (isStudio) {
     return (
-      <Box sx={{ maxWidth: 1500, mx: 'auto', pb: 8 }}>
-        <Stack
-          spacing={2}
-          sx={{ mb: 3 }}
-        >
-          <Box>
-            <Typography variant="h4" component="h1" color="text.primary">{title}</Typography>
-            <Typography color="text.secondary" sx={{ mt: 0.5 }}>{subtitle}</Typography>
-          </Box>
-        </Stack>
+      <PageContainer>
+        <PageHeader title={title} subtitle={subtitle} />
 
         {message && <AppAlert severity={message.severity} sx={{ mb: 3 }}>{message.text}</AppAlert>}
 
-        <Stack spacing={3}>
+        <PageSections>
           <StudioSummary projects={visibleProjects} />
 
           {canManage && (
@@ -190,15 +182,14 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
               </Stack>
             </Stack>
           )}
-        </Stack>
-      </Box>
+        </PageSections>
+      </PageContainer>
     );
   }
 
   return (
-    <Box sx={{ p: 3, pb: 8 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{title}</Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>{subtitle}</Typography>
+    <PageContainer>
+      <PageHeader title={title} subtitle={subtitle} />
       {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
 
       {!routeProjectID && (
@@ -276,7 +267,7 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
           )}
         </Stack>
       )}
-    </Box>
+    </PageContainer>
   );
 };
 

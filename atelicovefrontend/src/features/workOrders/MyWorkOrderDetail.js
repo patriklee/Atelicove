@@ -4,7 +4,6 @@ import {
   Button,
   CircularProgress,
   TextField,
-  Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
@@ -12,6 +11,7 @@ import { authService } from '../../services/authService';
 import { getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { BackNavigation } from '../../shared/components/navigation';
 import WorkOrderDetail from './WorkOrderDetail';
 import { WorkOrderDocuments } from '../documents';
@@ -209,12 +209,13 @@ const MyWorkOrderDetail = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <BackNavigation fallback={user?.isAdmin || user?.admin ? '/admin/my-assignments' : '/worker/my-assignments'} />
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
-        Work Order #{workOrder.workOrderID}
-      </Typography>
-      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
+    <PageContainer>
+      <PageHeader
+        context={<BackNavigation fallback={user?.isAdmin || user?.admin ? '/admin/my-assignments' : '/worker/my-assignments'} />}
+        title={`Work Order #${workOrder.workOrderID}`}
+      />
+      <PageSections>
+      {message && <AppAlert severity={message.severity}>{message.text}</AppAlert>}
 
       <MyWorkOrderOverviewSection
         workOrder={workOrder}
@@ -249,7 +250,7 @@ const MyWorkOrderDetail = () => {
 
       <WorkOrderDocuments workOrderID={workOrder.workOrderID} canManage={workOrder.status !== 'COMPLETE'} />
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Button variant="contained" color="success" onClick={() => requestPassword('submit')}>
             Submit for Review
           </Button>
@@ -273,7 +274,8 @@ const MyWorkOrderDetail = () => {
           margin="normal"
         />
       </ConfirmationDialog>
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

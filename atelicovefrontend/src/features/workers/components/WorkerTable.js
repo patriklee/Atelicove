@@ -13,10 +13,11 @@ import {
 import { formatDateTime } from '../../../model';
 import TableTitleRow from '../../../Components/TableTitleRow';
 import { EntityEmptyState } from '../../../shared/components/tables';
+import { SURFACE_PADDING } from '../../../shared/components/layout';
 
 const WorkerTable = ({ workers, saving, onView, onArchive }) => (
   <Grid item xs={12}>
-    <Paper sx={{ p: 3 }}>
+    <Paper sx={{ p: SURFACE_PADDING }}>
       <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
         <Table stickyHeader>
           <TableHead>

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-    Box,
     Table,
     TableBody,
     TableCell,
@@ -14,12 +13,12 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
-    Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { AppAlert, AppTableSortLabel } from '../../shared/icons';
 
 const WorkOrders = ({
@@ -81,10 +80,10 @@ const WorkOrders = ({
     };
 
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{title}</Typography>
-            <Typography color="text.secondary">{subtitle}</Typography>
-            {error && <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>}
+        <PageContainer>
+            <PageHeader title={title} subtitle={subtitle} />
+            <PageSections>
+            {error && <AppAlert severity="error">{error}</AppAlert>}
 
             <TableContainer component={Paper}>
                 <Table>
@@ -186,6 +185,7 @@ const WorkOrders = ({
                     </TableBody>
                 </Table>
             </TableContainer>
+            </PageSections>
 
             <Dialog open={Boolean(summaryDialogWorkOrder)} onClose={() => setSummaryDialogWorkOrder(null)} fullWidth maxWidth="sm">
                 <DialogTitle>
@@ -258,7 +258,7 @@ const WorkOrders = ({
                     <Button onClick={() => setSummaryDialogWorkOrder(null)}>Close</Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+        </PageContainer>
     );
 };
 

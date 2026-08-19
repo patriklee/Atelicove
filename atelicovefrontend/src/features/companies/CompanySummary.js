@@ -10,12 +10,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { BackNavigation } from '../../shared/components/navigation';
 import { AppAlert } from '../../shared/icons';
 
@@ -54,21 +54,21 @@ const CompanySummary = () => {
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
+      <PageContainer>
         <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>
         <BackNavigation fallback="/admin/companies" />
-      </Box>
+      </PageContainer>
     );
   }
 
   if (!company) return <AppAlert severity="warning">Company not found.</AppAlert>;
 
   return (
-    <Box sx={{ p: 3 }}>
-      <BackNavigation fallback="/admin/companies" />
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>{company.companyName}</Typography>
+    <PageContainer>
+      <PageHeader context={<BackNavigation fallback="/admin/companies" />} title={company.companyName} />
+      <PageSections>
 
-      <TableContainer component={Paper} sx={{ mb: 4 }}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableTitleRow title="Company Summary" colSpan={2} />
@@ -114,7 +114,8 @@ const CompanySummary = () => {
           </TableBody>
         </Table>
       </TableContainer>
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

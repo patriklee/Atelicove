@@ -21,7 +21,7 @@ const WorkOrderCommentsSection = ({
   onStartEditing,
   onUpdate,
 }) => (
-  <TableContainer component={Paper} sx={{ mb: 4 }}>
+  <TableContainer component={Paper}>
     <Table>
       <TableHead>
         <TableTitleRow title="Comments" colSpan={2} />

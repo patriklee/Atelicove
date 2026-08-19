@@ -240,6 +240,17 @@ const communityTheme = createTheme({
         }),
       },
     },
+    MuiTableContainer: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          borderRadius: 12,
+          '&.MuiPaper-root': {
+            border: `1px solid ${theme.palette.border.subtle}`,
+            boxShadow: softShadow,
+          },
+        }),
+      },
+    },
     MuiTableRow: {
       styleOverrides: {
         root: ({ theme }) => ({

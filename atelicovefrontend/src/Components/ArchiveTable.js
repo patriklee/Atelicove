@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Box,
   Button,
   Paper,
   Stack,
@@ -14,6 +13,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
+import { PageContainer, PageHeader, PageSections } from '../shared/components/layout';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../model';
 import { AppAlert } from '../shared/icons';
 
@@ -178,12 +178,10 @@ const ArchiveTable = ({ type }) => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }} sx={{ mb: 0.5 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{config.title}</Typography>
-      </Stack>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>{config.subtitle}</Typography>
-      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
+    <PageContainer>
+      <PageHeader title={config.title} subtitle={config.subtitle} />
+      <PageSections>
+      {message && <AppAlert severity={message.severity}>{message.text}</AppAlert>}
 
       <TableContainer component={Paper}>
         <Table>
@@ -239,7 +237,8 @@ const ArchiveTable = ({ type }) => {
           </TableBody>
         </Table>
       </TableContainer>
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

@@ -31,6 +31,7 @@ import { authService } from '../../services/authService';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker, workerPayload } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
+import { PageContainer, PageHeader, SURFACE_PADDING } from '../../shared/components/layout';
 import { MetricSummary } from '../../shared/components/metrics';
 import { BackNavigation } from '../../shared/components/navigation';
 import { useConfirmationDialog } from '../../shared/hooks';
@@ -58,21 +59,21 @@ const emptyTeam = {
 };
 
 const WorkerFields = ({ form, onChange, mode }) => (
-  <>
-    <TextField label="First Name" name="firstName" value={form.firstName} onChange={onChange} fullWidth margin="normal" />
-    <TextField label="Last Name" name="lastName" value={form.lastName} onChange={onChange} fullWidth margin="normal" />
-    <TextField label="Display Name" name="displayName" value={form.displayName} onChange={onChange} fullWidth margin="normal" />
-    <TextField label="Username" name="username" value={form.username} onChange={onChange} fullWidth margin="normal" disabled={mode === 'edit'} />
-    <TextField label="Email" name="email" type="email" value={form.email} onChange={onChange} fullWidth margin="normal" />
-    <TextField label="Worker Role" name="roleTitle" value={form.roleTitle} onChange={onChange} fullWidth margin="normal" />
-    <TextField label="Role Description" name="roleDescription" value={form.roleDescription} onChange={onChange} fullWidth margin="normal" multiline minRows={2} />
+  <Stack spacing={2}>
+    <TextField label="First Name" name="firstName" value={form.firstName} onChange={onChange} fullWidth />
+    <TextField label="Last Name" name="lastName" value={form.lastName} onChange={onChange} fullWidth />
+    <TextField label="Display Name" name="displayName" value={form.displayName} onChange={onChange} fullWidth />
+    <TextField label="Username" name="username" value={form.username} onChange={onChange} fullWidth disabled={mode === 'edit'} />
+    <TextField label="Email" name="email" type="email" value={form.email} onChange={onChange} fullWidth />
+    <TextField label="Worker Role" name="roleTitle" value={form.roleTitle} onChange={onChange} fullWidth />
+    <TextField label="Role Description" name="roleDescription" value={form.roleDescription} onChange={onChange} fullWidth multiline minRows={2} />
     {mode === 'create' && (
       <FormControlLabel
         control={<Checkbox name="isAdmin" checked={form.isAdmin} onChange={onChange} />}
         label="Admin"
       />
     )}
-  </>
+  </Stack>
 );
 
 const ManageWorkers = () => {
@@ -377,10 +378,13 @@ const ManageWorkers = () => {
   };
 
   return (
-    <Box sx={{ p: 3, pb: 8, maxWidth: 1500, mx: 'auto' }}>
-      <BackNavigation fallback="/admin/workers" />
-      <Typography variant="h4" component="h1" color="text.primary">Workers</Typography>
-      <Typography color="text.secondary">Create and edit active workers and teams.</Typography>
+    <PageContainer>
+      <PageHeader
+        context={routeWorkerID ? <BackNavigation fallback="/admin/workers" /> : null}
+        title="Workers"
+        subtitle="Create and edit active workers and teams."
+        sx={{ mb: 1 }}
+      />
       <ButtonGroup variant="outlined" aria-label="Manage workers view" sx={{ mt: 1, mb: 3 }}>
         <Button variant={view === 'workers' ? 'contained' : 'outlined'} onClick={() => setView('workers')}>
           Workers
@@ -396,13 +400,15 @@ const ManageWorkers = () => {
         {view === 'workers' && (
         <Grid container spacing={3} alignItems="stretch">
         <Grid item xs={12} md={6}>
-          <Paper component="form" onSubmit={createWorker} sx={{ p: 3, height: '100%' }}>
+          <Paper component="form" onSubmit={createWorker} sx={{ p: SURFACE_PADDING, height: '100%' }}>
             <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Create Worker</Typography>
 
             <WorkerFields form={createForm} onChange={handleCreateChange} mode="create" />
 
-            <TextField label="Password" name="password" type="password" value={createForm.password} onChange={handleCreateChange} fullWidth margin="normal" />
-            <TextField label="Confirm Password" name="confirmPassword" type="password" value={createForm.confirmPassword} onChange={handleCreateChange} fullWidth margin="normal" />
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              <TextField label="Password" name="password" type="password" value={createForm.password} onChange={handleCreateChange} fullWidth />
+              <TextField label="Confirm Password" name="confirmPassword" type="password" value={createForm.confirmPassword} onChange={handleCreateChange} fullWidth />
+            </Stack>
 
             <Button
               type="submit"
@@ -424,12 +430,12 @@ const ManageWorkers = () => {
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Paper sx={{ p: SURFACE_PADDING, height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Edit Worker</Typography>
 
-            <FormControl fullWidth margin="normal">
+            <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Worker</InputLabel>
-              <AppSelect value={workerID} label="Worker" onChange={event => setWorkerID(event.target.value)}>
+              <AppSelect value={selectedWorker && !selectedWorker.isAdmin ? workerID : ''} label="Worker" onChange={event => setWorkerID(event.target.value)}>
                 <MenuItem value="">No worker selected</MenuItem>
                 {workers.filter(worker => !worker.isAdmin).map(worker => (
                   <MenuItem key={worker.workerID} value={worker.workerID}>
@@ -571,7 +577,7 @@ const ManageWorkers = () => {
           <Button onClick={() => setTeamSummary(null)}>Close</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </PageContainer>
   );
 };
 

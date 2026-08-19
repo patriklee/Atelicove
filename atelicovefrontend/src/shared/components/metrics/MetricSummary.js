@@ -14,6 +14,7 @@ const cardSx = {
   boxShadow: theme => theme.customShadows.soft,
   bgcolor: 'background.paper',
   p: 2.5,
+  height: '100%',
 };
 
 const MetricSummary = ({ metrics, ariaLabel = 'Page summary' }) => (

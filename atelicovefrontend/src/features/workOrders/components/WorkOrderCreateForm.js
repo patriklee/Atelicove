@@ -10,9 +10,10 @@ import {
   Typography,
 } from '@mui/material';
 import { AppSelect } from '../../../shared/icons';
+import { SURFACE_PADDING } from '../../../shared/components/layout';
 
 const WorkOrderCreateForm = ({ form, workers, companies, saving, onChange, onSubmit }) => (
-  <Paper component="form" onSubmit={onSubmit} sx={{ p: 3 }}>
+  <Paper component="form" onSubmit={onSubmit} sx={{ p: SURFACE_PADDING }}>
     <Typography variant="h5" sx={{ mb: 2 }}>Create Work Order</Typography>
     <Stack spacing={2}>
       <FormControl>

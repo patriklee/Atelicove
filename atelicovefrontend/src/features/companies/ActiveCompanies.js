@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Typography
+  Button, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { companyService } from '../../services/companyService';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { EntityEmptyState } from '../../shared/components/tables';
 import { AppAlert, AppTableSortLabel } from '../../shared/icons';
 
@@ -36,10 +37,10 @@ const ActiveCompanies = () => {
   });
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Companies</Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>Browse currently active companies</Typography>
-      {error && <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>}
+    <PageContainer>
+      <PageHeader title="Companies" subtitle="Browse currently active companies." />
+      <PageSections>
+      {error && <AppAlert severity="error">{error}</AppAlert>}
 
       <TableContainer component={Paper}>
         <Table>
@@ -78,7 +79,8 @@ const ActiveCompanies = () => {
           </TableBody>
         </Table>
       </TableContainer>
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

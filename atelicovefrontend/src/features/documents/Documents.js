@@ -1,19 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Box,
   Button,
   Paper,
-  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Typography,
 } from '@mui/material';
 import { apiDownload, apiFetch } from '../../api';
 import { formatDateTime } from '../../model';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { MetricSummary } from '../../shared/components/metrics';
 import { AppAlert, icons } from '../../shared/icons';
 
@@ -82,14 +80,11 @@ const Documents = () => {
   ];
 
   return (
-    <Box sx={{ p: 3, pb: 8, maxWidth: 1500, mx: 'auto' }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" color="text.primary">Documents</Typography>
-        <Typography color="text.secondary" sx={{ mt: 0.5 }}>Browse uploaded work order and project documents.</Typography>
-      </Box>
+    <PageContainer>
+      <PageHeader title="Documents" subtitle="Browse uploaded work order and project documents." />
       {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
 
-      <Stack spacing={3}>
+      <PageSections>
         <MetricSummary metrics={documentMetrics} ariaLabel="Document summary" />
 
         <TableContainer component={Paper}>
@@ -140,8 +135,8 @@ const Documents = () => {
           </TableBody>
         </Table>
         </TableContainer>
-      </Stack>
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

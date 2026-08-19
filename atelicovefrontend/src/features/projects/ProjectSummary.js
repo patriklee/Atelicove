@@ -12,12 +12,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { BackNavigation } from '../../shared/components/navigation';
 import { AppAlert } from '../../shared/icons';
 
@@ -61,10 +61,10 @@ const ProjectSummary = () => {
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
+      <PageContainer>
         <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>
         <BackNavigation fallback="/admin/projects/active" />
-      </Box>
+      </PageContainer>
     );
   }
 
@@ -82,13 +82,14 @@ const ProjectSummary = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <BackNavigation fallback="/admin/projects/active" />
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
-        {project.projectName || `Project #${project.projectID}`}
-      </Typography>
+    <PageContainer>
+      <PageHeader
+        context={<BackNavigation fallback="/admin/projects/active" />}
+        title={project.projectName || `Project #${project.projectID}`}
+      />
+      <PageSections>
 
-      <TableContainer component={Paper} sx={{ mb: 4 }}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableTitleRow title="Project Summary" colSpan={2} />
@@ -106,7 +107,7 @@ const ProjectSummary = () => {
         </Table>
       </TableContainer>
 
-      <TableContainer component={Paper} sx={{ mb: 4 }}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableTitleRow title="Teams" colSpan={2} />
@@ -131,7 +132,7 @@ const ProjectSummary = () => {
         </Table>
       </TableContainer>
 
-      <TableContainer component={Paper} sx={{ mb: 4 }}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableTitleRow title="Work Orders" colSpan={6} />
@@ -168,7 +169,7 @@ const ProjectSummary = () => {
         </Table>
       </TableContainer>
 
-      <TableContainer component={Paper} sx={{ mb: 4 }}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableTitleRow title="Documents" colSpan={3} />
@@ -195,7 +196,7 @@ const ProjectSummary = () => {
         </Table>
       </TableContainer>
 
-      <Stack spacing={4}>
+      <Stack spacing={3}>
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
@@ -250,7 +251,8 @@ const ProjectSummary = () => {
           </Table>
         </TableContainer>
       </Stack>
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

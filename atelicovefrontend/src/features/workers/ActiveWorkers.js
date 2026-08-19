@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Typography
+  Button, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { workerService } from '../../services/workerService';
 import { formatDateTime, normalizeWorker } from '../../model';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { EntityEmptyState } from '../../shared/components/tables';
 import { AppAlert } from '../../shared/icons';
 
@@ -26,10 +27,10 @@ const ActiveWorkers = () => {
   );
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Worker</Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>Browse currently active workers.</Typography>
-      {error && <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>}
+    <PageContainer>
+      <PageHeader title="Workers" subtitle="Browse currently active workers." />
+      <PageSections>
+      {error && <AppAlert severity="error">{error}</AppAlert>}
 
       <TableContainer component={Paper}>
         <Table>
@@ -62,7 +63,8 @@ const ActiveWorkers = () => {
           </TableBody>
         </Table>
       </TableContainer>
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

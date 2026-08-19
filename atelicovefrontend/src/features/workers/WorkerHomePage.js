@@ -108,7 +108,7 @@ const WorkerHomePage = () => {
         </List>
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, p: 3, pb: 12 }}>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, overflowX: 'hidden', p: { xs: 2, sm: 3 }, pb: 12 }}>
         <Outlet />
       </Box>
 

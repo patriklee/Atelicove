@@ -1,17 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Box,
   Grid,
   Snackbar,
-  Stack,
   TextField,
-  Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { MetricSummary } from '../../shared/components/metrics';
 import { useConfirmationDialog } from '../../shared/hooks';
 import { CompanyCreatePanel, CompanyEditPanel } from './components/CompanyFormPanels';
@@ -238,13 +236,10 @@ const ManageCompanies = () => {
   };
 
   return (
-    <Box sx={{ p: 3, pb: 8, maxWidth: 1500, mx: 'auto' }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" color="text.primary">Companies</Typography>
-        <Typography color="text.secondary" sx={{ mt: 0.5 }}>Create and edit active companies.</Typography>
-      </Box>
+    <PageContainer>
+      <PageHeader title="Companies" subtitle="Create and edit active companies." />
 
-      <Stack spacing={3}>
+      <PageSections>
         <MetricSummary metrics={companyMetrics} ariaLabel="Company summary" />
 
         <Grid container spacing={3} alignItems="stretch">
@@ -270,7 +265,7 @@ const ManageCompanies = () => {
             onArchive={archiveCompany}
           />
         </Grid>
-      </Stack>
+      </PageSections>
 
       <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar(current => ({ ...current, open: false }))}>
         <AppAlert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</AppAlert>
@@ -300,7 +295,7 @@ const ManageCompanies = () => {
             margin="normal"
           />
       </ConfirmationDialog>
-    </Box>
+    </PageContainer>
   );
 };
 

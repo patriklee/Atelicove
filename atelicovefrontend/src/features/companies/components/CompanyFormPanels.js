@@ -13,19 +13,20 @@ import {
   Typography,
 } from '@mui/material';
 import { AppSelect } from '../../../shared/icons';
+import { SURFACE_PADDING } from '../../../shared/components/layout';
 
 const CompanyFields = ({ form, onChange, disabled = false }) => (
-  <>
-    <TextField label="Company Name" name="companyName" value={form.companyName} onChange={onChange} fullWidth margin="normal" disabled={disabled} />
-    <TextField label="Address" name="companyAddress" value={form.companyAddress} onChange={onChange} fullWidth margin="normal" disabled={disabled} />
-    <TextField label="Phone Number" name="companyPhone" value={form.companyPhone} onChange={onChange} fullWidth margin="normal" disabled={disabled} />
-    <TextField label="Email" name="companyEmail" value={form.companyEmail} onChange={onChange} fullWidth margin="normal" disabled={disabled} />
-  </>
+  <Stack spacing={2}>
+    <TextField label="Company Name" name="companyName" value={form.companyName} onChange={onChange} fullWidth disabled={disabled} />
+    <TextField label="Address" name="companyAddress" value={form.companyAddress} onChange={onChange} fullWidth disabled={disabled} />
+    <TextField label="Phone Number" name="companyPhone" value={form.companyPhone} onChange={onChange} fullWidth disabled={disabled} />
+    <TextField label="Email" name="companyEmail" value={form.companyEmail} onChange={onChange} fullWidth disabled={disabled} />
+  </Stack>
 );
 
 export const CompanyCreatePanel = ({ form, saving, onChange, onSubmit }) => (
   <Grid item xs={12} md={6}>
-    <Paper component="form" onSubmit={onSubmit} sx={{ p: 3, height: '100%' }}>
+    <Paper component="form" onSubmit={onSubmit} sx={{ p: SURFACE_PADDING, height: '100%' }}>
       <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Create Company</Typography>
       <CompanyFields form={form} onChange={onChange} />
       <Button type="submit" variant="contained" disabled={saving || !form.companyName.trim()} sx={{ mt: 2 }}>
@@ -50,9 +51,9 @@ export const CompanyEditPanel = ({
   onOpenWorkOrder,
 }) => (
   <Grid item xs={12} md={6}>
-    <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Paper sx={{ p: SURFACE_PADDING, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Edit Company</Typography>
-      <FormControl fullWidth margin="normal">
+      <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Company</InputLabel>
         <AppSelect value={companyID} label="Company" onChange={event => onCompanyChange(event.target.value)}>
           <MenuItem value="">No company selected</MenuItem>

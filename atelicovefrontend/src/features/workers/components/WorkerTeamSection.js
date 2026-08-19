@@ -21,6 +21,7 @@ import {
 import { normalizeWorker } from '../../../model';
 import TableTitleRow from '../../../Components/TableTitleRow';
 import { EntityEmptyState } from '../../../shared/components/tables';
+import { SURFACE_PADDING } from '../../../shared/components/layout';
 import { AppSelect } from '../../../shared/icons';
 
 const WorkerTeamSection = ({
@@ -38,11 +39,12 @@ const WorkerTeamSection = ({
 }) => (
   <Grid container spacing={3} alignItems="stretch">
     <Grid item xs={12} md={6}>
-      <Paper component="form" onSubmit={onSave} sx={{ p: 3, height: '100%' }}>
+      <Paper component="form" onSubmit={onSave} sx={{ p: SURFACE_PADDING, height: '100%' }}>
         <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>
           {teamForm.teamID ? 'Edit Team' : 'Create Team'}
         </Typography>
-        <FormControl fullWidth margin="normal">
+        <Stack spacing={2}>
+        <FormControl fullWidth>
           <InputLabel>Edit team</InputLabel>
           <AppSelect value={teamForm.teamID} label="Edit team" onChange={event => onSelectTeam(event.target.value)}>
             <MenuItem value="">New team</MenuItem>
@@ -54,11 +56,10 @@ const WorkerTeamSection = ({
         <TextField
           label="Team name"
           fullWidth
-          margin="normal"
           value={teamForm.teamName}
           onChange={event => onFormChange({ teamName: event.target.value })}
         />
-        <FormControl fullWidth margin="normal">
+        <FormControl fullWidth>
           <InputLabel>Workers</InputLabel>
           <AppSelect
             multiple
@@ -75,7 +76,7 @@ const WorkerTeamSection = ({
             ))}
           </AppSelect>
         </FormControl>
-        <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+        <Stack direction="row" spacing={2}>
           <Button type="submit" variant="contained" disabled={saving || !teamForm.teamName.trim() || !teamForm.workerIDs.length}>
             Save Team
           </Button>
@@ -86,11 +87,12 @@ const WorkerTeamSection = ({
             </Button>
           )}
         </Stack>
+        </Stack>
       </Paper>
     </Grid>
 
     <Grid item xs={12} md={6}>
-      <Paper sx={{ p: 3, height: '100%' }}>
+      <Paper sx={{ p: SURFACE_PADDING, height: '100%' }}>
         <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Team Preview</Typography>
         {selectedTeam ? (
           <Box>
@@ -109,7 +111,7 @@ const WorkerTeamSection = ({
     </Grid>
 
     <Grid item xs={12}>
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: SURFACE_PADDING }}>
         <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
           <Table stickyHeader>
             <TableHead>

@@ -10,6 +10,7 @@ import {
   Typography,
 } from '@mui/material';
 import { getWorkOrderWorkers } from '../../../model';
+import { SURFACE_PADDING } from '../../../shared/components/layout';
 import { AppIcon, AppSelect, ICON_SIZES, icons } from '../../../shared/icons';
 
 const WorkOrderAssignmentPanel = ({
@@ -32,7 +33,7 @@ const WorkOrderAssignmentPanel = ({
   const assignedWorkerIDs = new Set(getWorkOrderWorkers(selected || {}).map(worker => worker.workerID));
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <Paper sx={{ p: SURFACE_PADDING }}>
       <Typography variant="h5" sx={{ mb: 2 }}>Modify Assignments</Typography>
       <Stack spacing={2}>
         <FormControl>

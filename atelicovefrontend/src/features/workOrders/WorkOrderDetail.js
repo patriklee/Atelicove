@@ -16,6 +16,7 @@ import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import WorkOrderDocuments from '../documents/WorkOrderDocuments';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { BackNavigation } from '../../shared/components/navigation';
 import { AppAlert, AppTableSortLabel } from '../../shared/icons';
 
@@ -52,10 +53,10 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
+      <PageContainer>
         <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>
         <BackNavigation fallback="/admin/workorders" />
-      </Box>
+      </PageContainer>
     );
   }
 
@@ -87,13 +88,14 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <BackNavigation fallback="/admin/workorders" />
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
-        Work Order #{workOrder.workOrderID}
-      </Typography>
+    <PageContainer>
+      <PageHeader
+        context={<BackNavigation fallback="/admin/workorders" />}
+        title={`Work Order #${workOrder.workOrderID}`}
+      />
+      <PageSections>
 
-      <TableContainer component={Paper} sx={{ mb: 4 }}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableTitleRow title="Details" colSpan={2} />
@@ -114,10 +116,12 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
         </Table>
       </TableContainer>
 
-      <Typography variant="h6" sx={{ mb: 1 }}>Comments</Typography>
-      <Paper sx={{ p: 2, mb: 4 }}>
-        <Typography>{workOrder.comment || 'No comments have been added.'}</Typography>
-      </Paper>
+      <Box>
+        <Typography variant="h6" sx={{ mb: 1 }}>Comments</Typography>
+        <Paper sx={{ p: 2 }}>
+          <Typography>{workOrder.comment || 'No comments have been added.'}</Typography>
+        </Paper>
+      </Box>
 
       <TableContainer component={Paper}>
         <Table>
@@ -203,7 +207,8 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
         workOrderID={workOrder.workOrderID}
         canManage={canManageDocuments && workOrder.status !== 'COMPLETE' && !workOrder.archived}
       />
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

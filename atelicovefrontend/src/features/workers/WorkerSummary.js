@@ -10,12 +10,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { BackNavigation } from '../../shared/components/navigation';
 import { AppAlert } from '../../shared/icons';
 
@@ -56,23 +56,24 @@ const WorkerSummary = () => {
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
+      <PageContainer>
         <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>
         <BackNavigation fallback="/admin/workers" />
-      </Box>
+      </PageContainer>
     );
   }
 
   if (!worker) return <AppAlert severity="warning">Worker not found.</AppAlert>;
 
   return (
-    <Box sx={{ p: 3 }}>
-      <BackNavigation fallback="/admin/workers" />
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
-        {worker.firstName} {worker.lastName}
-      </Typography>
+    <PageContainer>
+      <PageHeader
+        context={<BackNavigation fallback="/admin/workers" />}
+        title={`${worker.firstName} ${worker.lastName}`}
+      />
+      <PageSections>
 
-      <TableContainer component={Paper} sx={{ mb: 4 }}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableTitleRow title="Worker Summary" colSpan={2} />
@@ -121,7 +122,8 @@ const WorkerSummary = () => {
           </TableBody>
         </Table>
       </TableContainer>
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

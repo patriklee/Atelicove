@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { projectPathFor, workOrderPathFor } from '../../shared/routing/rolePaths';
 import { AppAlert } from '../../shared/icons';
 
@@ -77,9 +78,12 @@ const MyAssignments = () => {
   if (loading) return <Box sx={{ textAlign: 'center', mt: 8 }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>My Assignments</Typography>
-      <Typography color="text.secondary">Browse my current assigned projects and work orders</Typography>
+    <PageContainer>
+      <PageHeader
+        title="My Assignments"
+        subtitle="Browse my current assigned projects and work orders."
+        sx={{ mb: 1 }}
+      />
       <ButtonGroup variant="outlined" aria-label="My Assignments view" sx={{ mt: 1, mb: 3 }}>
         <Button variant={view === 'projects' ? 'contained' : 'outlined'} onClick={() => setView('projects')}>
           Projects
@@ -88,7 +92,8 @@ const MyAssignments = () => {
           Work Orders
         </Button>
       </ButtonGroup>
-      {error && <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>}
+      <PageSections>
+      {error && <AppAlert severity="error">{error}</AppAlert>}
       {view === 'projects' && !activeProjects.length && <AppAlert severity="info">No active projects are assigned to you.</AppAlert>}
       {view === 'workOrders' && !workOrders.length && <AppAlert severity="info">No work orders are assigned to you.</AppAlert>}
 
@@ -170,7 +175,8 @@ const MyAssignments = () => {
         </Table>
       </TableContainer>
       )}
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

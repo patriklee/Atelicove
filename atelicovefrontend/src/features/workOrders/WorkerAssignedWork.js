@@ -7,6 +7,7 @@ import { apiFetch } from '../../api';
 import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { AppAlert } from '../../shared/icons';
 
 const WorkerAssignedWork = () => {
@@ -36,11 +37,12 @@ const WorkerAssignedWork = () => {
   if (loading) return <Box sx={{ textAlign: 'center', mt: 8 }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>Assigned Work</Typography>
-      {error && <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>}
+    <PageContainer>
+      <PageHeader title="Assigned Work" subtitle="Review and submit your active work orders." />
+      <PageSections>
+      {error && <AppAlert severity="error">{error}</AppAlert>}
       {!workOrders.length && <AppAlert severity="info">You have no assigned work orders.</AppAlert>}
-      <Grid container spacing={2}>
+      <Grid container spacing={3}>
         {workOrders.map(order => (
           <Grid item xs={12} md={6} lg={4} key={order.workOrderID}>
             <Card>
@@ -60,7 +62,8 @@ const WorkerAssignedWork = () => {
           </Grid>
         ))}
       </Grid>
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

@@ -1,9 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Box,
-  Stack,
-  Typography,
-} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { getWorkOrderWorkers, normalizeWorker } from '../../model';
@@ -11,6 +6,7 @@ import WorkOrderAssignmentPanel from './components/WorkOrderAssignmentPanel';
 import WorkOrderCreateForm from './components/WorkOrderCreateForm';
 import WorkOrderReviewQueue from './components/WorkOrderReviewQueue';
 import WorkOrderTable from './components/WorkOrderTable';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { MetricSummary } from '../../shared/components/metrics';
 import { AppAlert, icons } from '../../shared/icons';
 
@@ -155,14 +151,11 @@ const ManageWorkOrders = () => {
   };
 
   return (
-    <Box sx={{ p: 3, pb: 8, maxWidth: 1500, mx: 'auto' }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" color="text.primary">Manage Work Orders</Typography>
-        <Typography color="text.secondary" sx={{ mt: 0.5 }}>Create and maintain live work orders.</Typography>
-      </Box>
+    <PageContainer>
+      <PageHeader title="Manage Work Orders" subtitle="Create and maintain live work orders." />
       {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
 
-      <Stack spacing={3}>
+      <PageSections>
         <WorkOrderSummary activeWorkOrders={activeWorkOrders} reviewWorkOrders={reviewWorkOrders} />
 
         <WorkOrderCreateForm
@@ -203,8 +196,8 @@ const ManageWorkOrders = () => {
           onView={order => navigate(`/admin/workorders/${order.workOrderID}`)}
           onArchive={archiveWorkOrder}
         />
-      </Stack>
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 

@@ -85,7 +85,7 @@ const AdminHomePage = () => {
                     flexGrow: 1,
                     minWidth: 0,
                     overflowX: 'hidden',
-                    p: { xs: 1.5, sm: 3 },
+                    p: { xs: 2, sm: 3 },
                     pt: { xs: 8, sm: 3 },
                     pb: 12,
                 }}

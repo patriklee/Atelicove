@@ -4,6 +4,7 @@ import {
   Button,
   Grid,
   Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -17,6 +18,7 @@ import { apiFetch } from '../../api';
 import { useAuth } from '../../Components/AuthContext';
 import { normalizeWorker } from '../../model';
 import TableTitleRow from '../../Components/TableTitleRow';
+import { PageContainer, PageHeader, PageSections, SURFACE_PADDING } from '../../shared/components/layout';
 import { AppAlert } from '../../shared/icons';
 
 const Settings = () => {
@@ -82,16 +84,20 @@ const Settings = () => {
   };
 
   return (
-    <Box sx={{ p: 3, pb: 8 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>Settings</Typography>
-      <Typography variant="h6">{user?.displayName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim()}</Typography>
-      <Typography color="text.secondary">{user?.username}</Typography>
-      <Typography sx={{ mb: 3 }}>{user?.isAdmin ? 'Administrator' : 'Worker'}</Typography>
-      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
+    <PageContainer>
+      <PageHeader title="Settings" subtitle="Manage your profile and account preferences." />
+      <PageSections>
+      <Box>
+        <Typography variant="h6">{user?.displayName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim()}</Typography>
+        <Typography color="text.secondary">{user?.username}</Typography>
+        <Typography>{user?.isAdmin ? 'Administrator' : 'Worker'}</Typography>
+      </Box>
+      {message && <AppAlert severity={message.severity}>{message.text}</AppAlert>}
 
       <Grid container spacing={3} alignItems="flex-start">
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, mb: 3 }}>
+          <Stack spacing={3}>
+          <Paper sx={{ p: SURFACE_PADDING }}>
             <TableContainer>
               <Table>
                 <TableHead>
@@ -141,7 +147,7 @@ const Settings = () => {
             </Button>
           </Paper>
 
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: SURFACE_PADDING }}>
             {user?.isAdmin ? (
               <TableContainer>
                 <Table>
@@ -176,10 +182,11 @@ const Settings = () => {
               </Button>
             )}
           </Paper>
+          </Stack>
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '100%' }}>
+          <Paper sx={{ p: SURFACE_PADDING, height: '100%' }}>
             <TableContainer>
               <Table>
                 <TableHead>
@@ -216,7 +223,8 @@ const Settings = () => {
           </Paper>
         </Grid>
       </Grid>
-    </Box>
+      </PageSections>
+    </PageContainer>
   );
 };
 
