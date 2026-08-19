@@ -4,5 +4,6 @@ export {
   SURFACE_PADDING,
   PageContainer,
   PageHeader,
+  PageHeaderActionsProvider,
   PageSections,
 } from './PageLayout';

@@ -456,7 +456,14 @@ export function AdminGlobalControls({ dashboard, sx }) {
 
   return (
     <>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ width: { xs: '100%', md: 'auto' }, ...sx }}>
+      <Stack
+        component="section"
+        aria-label="Global admin controls"
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        sx={{ width: { xs: '100%', md: 'auto' }, minWidth: 0, ...sx }}
+      >
         <DashboardSearch
           query={query}
           onQueryChange={setQuery}

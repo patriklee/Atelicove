@@ -6,6 +6,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../Components/AuthContext';
+import { PageHeaderActionsProvider } from '../../shared/components/layout';
 import { AppIconButton, icons } from '../../shared/icons';
 import AdminDashboard, { AdminGlobalControls } from './dashboard/AdminDashboard';
 import useAdminDashboard from './dashboard/useAdminDashboard';
@@ -23,10 +24,9 @@ function AdminContent({ dashboardPage }) {
     return dashboardPage ? (
         <AdminDashboard dashboard={dashboard} headerActions={globalControls} />
     ) : (
-        <>
-            <Box sx={{ px: { sm: 3 }, mb: 2 }}>{globalControls}</Box>
+        <PageHeaderActionsProvider actions={globalControls}>
             <Outlet />
-        </>
+        </PageHeaderActionsProvider>
     );
 }
 
