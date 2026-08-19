@@ -108,7 +108,7 @@ const WorkerTeamSection = ({
       </Paper>
     </Grid>
 
-    <Grid item xs={12} sx={{ mt: 6 }}>
+    <Grid item xs={12}>
       <Paper sx={{ p: 3 }}>
         <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
           <Table stickyHeader>

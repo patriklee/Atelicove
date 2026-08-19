@@ -32,7 +32,7 @@ const WorkOrderAssignmentPanel = ({
   const assignedWorkerIDs = new Set(getWorkOrderWorkers(selected || {}).map(worker => worker.workerID));
 
   return (
-    <Paper sx={{ p: 3, mb: 4 }}>
+    <Paper sx={{ p: 3 }}>
       <Typography variant="h5" sx={{ mb: 2 }}>Modify Assignments</Typography>
       <Stack spacing={2}>
         <FormControl>

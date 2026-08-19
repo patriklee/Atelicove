@@ -3,6 +3,7 @@ import {
   Box,
   Grid,
   Snackbar,
+  Stack,
   TextField,
   Typography,
 } from '@mui/material';
@@ -11,10 +12,11 @@ import { apiFetch } from '../../api';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
+import { MetricSummary } from '../../shared/components/metrics';
 import { useConfirmationDialog } from '../../shared/hooks';
 import { CompanyCreatePanel, CompanyEditPanel } from './components/CompanyFormPanels';
 import CompanyTable from './components/CompanyTable';
-import { AppAlert } from '../../shared/icons';
+import { AppAlert, icons } from '../../shared/icons';
 
 const emptyCompany = {
   companyName: '',
@@ -73,6 +75,34 @@ const ManageCompanies = () => {
     [selectedCompany, workOrders]
   );
   const canDeleteSelectedCompany = Boolean(selectedCompany && attachedWorkOrders.length === 0);
+  const activeCompanies = useMemo(() => companies.filter(company => !company.archived), [companies]);
+  const activeCompanyIDs = useMemo(
+    () => new Set(activeCompanies.map(company => company.companyID)),
+    [activeCompanies]
+  );
+  const liveCompanyWorkOrders = useMemo(
+    () => workOrders.filter(order => (
+      !order.archived
+      && order.status !== 'COMPLETE'
+      && activeCompanyIDs.has(order.company?.companyID)
+    )),
+    [activeCompanyIDs, workOrders]
+  );
+  const companiesWithWork = useMemo(
+    () => new Set(liveCompanyWorkOrders.map(order => order.company.companyID)),
+    [liveCompanyWorkOrders]
+  );
+  const companyMetrics = [
+    { label: 'Active Companies', value: activeCompanies.length, detail: 'Currently active', icon: icons.companies },
+    { label: 'Companies With Work', value: companiesWithWork.size, detail: 'Across live orders', icon: icons.assignments },
+    { label: 'Active Work Orders', value: liveCompanyWorkOrders.length, detail: 'Assigned to companies', icon: icons.workOrders },
+    {
+      label: 'Unassigned Companies',
+      value: activeCompanies.filter(company => !companiesWithWork.has(company.companyID)).length,
+      detail: 'No current live work',
+      icon: icons.information,
+    },
+  ];
 
   useEffect(() => {
     if (selectedCompany) {
@@ -208,33 +238,39 @@ const ManageCompanies = () => {
   };
 
   return (
-    <Box sx={{ p: 3, pb: 8 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Companies</Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>Create and edit active companies.</Typography>
+    <Box sx={{ p: 3, pb: 8, maxWidth: 1500, mx: 'auto' }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" component="h1" color="text.primary">Companies</Typography>
+        <Typography color="text.secondary" sx={{ mt: 0.5 }}>Create and edit active companies.</Typography>
+      </Box>
 
-      <Grid container spacing={3} alignItems="stretch">
-        <CompanyCreatePanel form={createForm} saving={saving} onChange={handleCreateChange} onSubmit={createCompany} />
-        <CompanyEditPanel
-          companies={companies}
-          companyID={companyID}
-          form={editForm}
-          selectedCompany={selectedCompany}
-          attachedWorkOrders={attachedWorkOrders}
-          canDelete={canDeleteSelectedCompany}
-          saving={saving}
-          onCompanyChange={setCompanyID}
-          onChange={handleEditChange}
-          onUpdate={() => requestPassword('update')}
-          onDelete={() => requestPassword('delete')}
-          onOpenWorkOrder={order => navigate(`/admin/workorders/${order.workOrderID}`)}
-        />
-        <CompanyTable
-          companies={companies}
-          saving={saving}
-          onView={company => navigate(`/admin/companies/${company.companyID}`)}
-          onArchive={archiveCompany}
-        />
-      </Grid>
+      <Stack spacing={3}>
+        <MetricSummary metrics={companyMetrics} ariaLabel="Company summary" />
+
+        <Grid container spacing={3} alignItems="stretch">
+          <CompanyCreatePanel form={createForm} saving={saving} onChange={handleCreateChange} onSubmit={createCompany} />
+          <CompanyEditPanel
+            companies={companies}
+            companyID={companyID}
+            form={editForm}
+            selectedCompany={selectedCompany}
+            attachedWorkOrders={attachedWorkOrders}
+            canDelete={canDeleteSelectedCompany}
+            saving={saving}
+            onCompanyChange={setCompanyID}
+            onChange={handleEditChange}
+            onUpdate={() => requestPassword('update')}
+            onDelete={() => requestPassword('delete')}
+            onOpenWorkOrder={order => navigate(`/admin/workorders/${order.workOrderID}`)}
+          />
+          <CompanyTable
+            companies={companies}
+            saving={saving}
+            onView={company => navigate(`/admin/companies/${company.companyID}`)}
+            onArchive={archiveCompany}
+          />
+        </Grid>
+      </Stack>
 
       <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar(current => ({ ...current, open: false }))}>
         <AppAlert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</AppAlert>

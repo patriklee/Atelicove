@@ -12,7 +12,7 @@ import {
 import { AppSelect } from '../../../shared/icons';
 
 const WorkOrderCreateForm = ({ form, workers, companies, saving, onChange, onSubmit }) => (
-  <Paper component="form" onSubmit={onSubmit} sx={{ p: 3, mb: 4 }}>
+  <Paper component="form" onSubmit={onSubmit} sx={{ p: 3 }}>
     <Typography variant="h5" sx={{ mb: 2 }}>Create Work Order</Typography>
     <Stack spacing={2}>
       <FormControl>

@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -13,7 +14,8 @@ import {
 } from '@mui/material';
 import { apiDownload, apiFetch } from '../../api';
 import { formatDateTime } from '../../model';
-import { AppAlert } from '../../shared/icons';
+import { MetricSummary } from '../../shared/components/metrics';
+import { AppAlert, icons } from '../../shared/icons';
 
 const formatFileSize = (bytes = 0) => {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -57,13 +59,40 @@ const Documents = () => {
     }
   };
 
+  const documentMetrics = [
+    { label: 'Total Documents', value: documents.length, detail: 'Available files', icon: icons.documents },
+    {
+      label: 'Project Documents',
+      value: documents.filter(document => document.projectID != null).length,
+      detail: 'Linked to projects',
+      icon: icons.projects,
+    },
+    {
+      label: 'Work Order Documents',
+      value: documents.filter(document => document.workOrderID != null).length,
+      detail: 'Linked to work orders',
+      icon: icons.workOrders,
+    },
+    {
+      label: 'Storage Used',
+      value: formatFileSize(documents.reduce((total, document) => total + Number(document.fileSize || 0), 0)),
+      detail: 'Across all documents',
+      icon: icons.archive,
+    },
+  ];
+
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Documents</Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>Browse uploaded work order and project documents.</Typography>
+    <Box sx={{ p: 3, pb: 8, maxWidth: 1500, mx: 'auto' }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" component="h1" color="text.primary">Documents</Typography>
+        <Typography color="text.secondary" sx={{ mt: 0.5 }}>Browse uploaded work order and project documents.</Typography>
+      </Box>
       {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
 
-      <TableContainer component={Paper}>
+      <Stack spacing={3}>
+        <MetricSummary metrics={documentMetrics} ariaLabel="Document summary" />
+
+        <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
@@ -110,7 +139,8 @@ const Documents = () => {
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+        </TableContainer>
+      </Stack>
     </Box>
   );
 };

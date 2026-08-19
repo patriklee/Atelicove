@@ -31,11 +31,12 @@ import { authService } from '../../services/authService';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker, workerPayload } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
+import { MetricSummary } from '../../shared/components/metrics';
 import { BackNavigation } from '../../shared/components/navigation';
 import { useConfirmationDialog } from '../../shared/hooks';
 import WorkerTable from './components/WorkerTable';
 import WorkerTeamSection from './components/WorkerTeamSection';
-import { AppAlert, AppSelect } from '../../shared/icons';
+import { AppAlert, AppSelect, icons } from '../../shared/icons';
 
 const emptyWorker = {
   firstName: '',
@@ -140,6 +141,23 @@ const ManageWorkers = () => {
     () => teams.find(team => team.teamID === Number(teamForm.teamID)),
     [teams, teamForm.teamID]
   );
+  const activeWorkers = useMemo(() => workers.filter(worker => !worker.archived), [workers]);
+  const assignedWorkerCount = useMemo(() => {
+    const activeWorkerIDs = new Set(activeWorkers.map(worker => worker.workerID));
+    return new Set(
+      workOrders
+        .filter(order => !order.archived && order.status !== 'COMPLETE')
+        .flatMap(getWorkOrderWorkers)
+        .map(worker => worker.workerID)
+        .filter(id => activeWorkerIDs.has(id)),
+    ).size;
+  }, [activeWorkers, workOrders]);
+  const workerMetrics = [
+    { label: 'Active Workers', value: activeWorkers.length, detail: 'Currently active', icon: icons.workers },
+    { label: 'Administrators', value: activeWorkers.filter(worker => worker.isAdmin).length, detail: 'Admin access', icon: icons.settings },
+    { label: 'Teams', value: teams.length, detail: 'Active teams', icon: icons.assignments },
+    { label: 'Assigned to Work', value: assignedWorkerCount, detail: 'Across live work orders', icon: icons.workOrders },
+  ];
 
   useEffect(() => {
     if (selectedWorker) {
@@ -359,9 +377,9 @@ const ManageWorkers = () => {
   };
 
   return (
-    <Box sx={{ p: 3, pb: 8 }}>
+    <Box sx={{ p: 3, pb: 8, maxWidth: 1500, mx: 'auto' }}>
       <BackNavigation fallback="/admin/workers" />
-      <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Worker</Typography>
+      <Typography variant="h4" component="h1" color="text.primary">Workers</Typography>
       <Typography color="text.secondary">Create and edit active workers and teams.</Typography>
       <ButtonGroup variant="outlined" aria-label="Manage workers view" sx={{ mt: 1, mb: 3 }}>
         <Button variant={view === 'workers' ? 'contained' : 'outlined'} onClick={() => setView('workers')}>
@@ -372,8 +390,11 @@ const ManageWorkers = () => {
         </Button>
       </ButtonGroup>
 
-      {view === 'workers' && (
-      <Grid container spacing={3} alignItems="stretch">
+      <MetricSummary metrics={workerMetrics} ariaLabel="Worker summary" />
+
+      <Box sx={{ mt: 3 }}>
+        {view === 'workers' && (
+        <Grid container spacing={3} alignItems="stretch">
         <Grid item xs={12} md={6}>
           <Paper component="form" onSubmit={createWorker} sx={{ p: 3, height: '100%' }}>
             <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Create Worker</Typography>
@@ -463,24 +484,25 @@ const ManageWorkers = () => {
           onView={worker => navigate(`/admin/workers/${worker.workerID}`)}
           onArchive={archiveWorker}
         />
-      </Grid>
-      )}
+        </Grid>
+        )}
 
-      {view === 'teams' && (
-        <WorkerTeamSection
-          teams={teams}
-          workers={workers}
-          teamForm={teamForm}
-          selectedTeam={selectedTeam}
-          saving={saving}
-          onSelectTeam={selectTeam}
-          onFormChange={changes => setTeamForm(current => ({ ...current, ...changes }))}
-          onReset={resetTeamForm}
-          onSave={saveTeam}
-          onDelete={deleteTeam}
-          onShowSummary={setTeamSummary}
-        />
-      )}
+        {view === 'teams' && (
+          <WorkerTeamSection
+            teams={teams}
+            workers={workers}
+            teamForm={teamForm}
+            selectedTeam={selectedTeam}
+            saving={saving}
+            onSelectTeam={selectTeam}
+            onFormChange={changes => setTeamForm(current => ({ ...current, ...changes }))}
+            onReset={resetTeamForm}
+            onSave={saveTeam}
+            onDelete={deleteTeam}
+            onShowSummary={setTeamSummary}
+          />
+        )}
+      </Box>
 
       <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar(current => ({ ...current, open: false }))}>
         <AppAlert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</AppAlert>

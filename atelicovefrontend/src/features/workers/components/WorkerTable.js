@@ -15,7 +15,7 @@ import TableTitleRow from '../../../Components/TableTitleRow';
 import { EntityEmptyState } from '../../../shared/components/tables';
 
 const WorkerTable = ({ workers, saving, onView, onArchive }) => (
-  <Grid item xs={12} sx={{ mt: 6 }}>
+  <Grid item xs={12}>
     <Paper sx={{ p: 3 }}>
       <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
         <Table stickyHeader>
