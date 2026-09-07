@@ -2,7 +2,6 @@ import React from 'react';
 import {
   Button,
   Grid,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -11,13 +10,13 @@ import {
   TableRow,
 } from '@mui/material';
 import { formatDateTime } from '../../../model';
-import TableTitleRow from '../../../Components/TableTitleRow';
-import { EntityEmptyState } from '../../../shared/components/tables';
-import { SURFACE_PADDING } from '../../../shared/components/layout';
+import { EntityEmptyState, TableTitleRow } from '../../../shared/components/tables';
+import { PageSurface } from '../../../shared/components/layout';
+import TableNavigationButton from '../../../shared/components/navigation/TableNavigationButton';
 
 const CompanyTable = ({ companies, saving, onView, onArchive }) => (
   <Grid item xs={12}>
-    <Paper sx={{ p: SURFACE_PADDING }}>
+    <PageSurface>
       <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
         <Table stickyHeader>
           <TableHead>
@@ -32,9 +31,9 @@ const CompanyTable = ({ companies, saving, onView, onArchive }) => (
           </TableHead>
           <TableBody>
             {companies.map(company => (
-              <TableRow key={company.companyID}>
+              <TableRow key={company.companyID} hover>
                 <TableCell>
-                  <Button size="small" onClick={() => onView(company)}>{company.companyName}</Button>
+                  <TableNavigationButton onClick={() => onView(company)}>{company.companyName}</TableNavigationButton>
                 </TableCell>
                 <TableCell>{company.companyAddress || 'Not set'}</TableCell>
                 <TableCell>{company.companyPhone || 'Not set'}</TableCell>
@@ -50,7 +49,7 @@ const CompanyTable = ({ companies, saving, onView, onArchive }) => (
           </TableBody>
         </Table>
       </TableContainer>
-    </Paper>
+    </PageSurface>
   </Grid>
 );
 

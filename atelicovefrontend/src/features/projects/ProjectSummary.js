@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box,
-  Button,
   Chip,
   CircularProgress,
   Paper,
@@ -16,9 +15,9 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../../model';
-import TableTitleRow from '../../Components/TableTitleRow';
+import { EntityEmptyState, TableTitleRow } from '../../shared/components/tables';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
-import { BackNavigation } from '../../shared/components/navigation';
+import { BackNavigation, TableNavigationButton } from '../../shared/components/navigation';
 import { AppAlert } from '../../shared/icons';
 
 const DetailRow = ({ label, value }) => (
@@ -124,9 +123,7 @@ const ProjectSummary = () => {
               </TableRow>
             ))}
             {!teams.length && (
-              <TableRow>
-                <TableCell colSpan={2}>No teams are associated with this project.</TableCell>
-              </TableRow>
+              <EntityEmptyState message="No teams are associated with this project." colSpan={2} />
             )}
           </TableBody>
         </Table>
@@ -147,11 +144,11 @@ const ProjectSummary = () => {
           </TableHead>
           <TableBody>
             {workOrders.map(workOrder => (
-              <TableRow key={workOrder.workOrderID}>
+              <TableRow key={workOrder.workOrderID} hover>
                 <TableCell>
-                  <Button size="small" onClick={() => openWorkOrder(workOrder)}>
+                  <TableNavigationButton onClick={() => openWorkOrder(workOrder)}>
                     #{workOrder.workOrderID}
-                  </Button>
+                  </TableNavigationButton>
                 </TableCell>
                 <TableCell><Chip size="small" label={workOrder.status?.replaceAll('_', ' ') || 'Not set'} /></TableCell>
                 <TableCell>{workOrder.company?.companyName || 'No company'}</TableCell>
@@ -161,9 +158,7 @@ const ProjectSummary = () => {
               </TableRow>
             ))}
             {!workOrders.length && (
-              <TableRow>
-                <TableCell colSpan={6}>No work orders are associated with this project.</TableCell>
-              </TableRow>
+              <EntityEmptyState message="No work orders are associated with this project." colSpan={6} />
             )}
           </TableBody>
         </Table>
@@ -188,9 +183,7 @@ const ProjectSummary = () => {
               </TableRow>
             ))}
             {!projectDocuments.length && (
-              <TableRow>
-                <TableCell colSpan={3}>No documents are attached to this project.</TableCell>
-              </TableRow>
+              <EntityEmptyState message="No documents are attached to this project." colSpan={3} />
             )}
           </TableBody>
         </Table>
@@ -216,9 +209,7 @@ const ProjectSummary = () => {
                 </TableRow>
               ))}
               {!actionItems.length && (
-                <TableRow>
-                  <TableCell colSpan={3}>No action items are associated with this project.</TableCell>
-                </TableRow>
+                <EntityEmptyState message="No action items are associated with this project." colSpan={3} />
               )}
             </TableBody>
           </Table>
@@ -243,9 +234,7 @@ const ProjectSummary = () => {
                 </TableRow>
               ))}
               {!comments.length && (
-                <TableRow>
-                  <TableCell colSpan={3}>No comments have been added.</TableCell>
-                </TableRow>
+                <EntityEmptyState message="No comments have been added." colSpan={3} />
               )}
             </TableBody>
           </Table>

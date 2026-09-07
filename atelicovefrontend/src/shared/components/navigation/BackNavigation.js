@@ -20,7 +20,10 @@ export default function BackNavigation({ fallback = '/admin', label = 'Back', sx
       startIcon={<AppIcon icon={icons.back} />}
       onClick={handleBack}
       aria-label={label}
-      sx={{ mb: 2, alignSelf: 'flex-start', ...sx }}
+      sx={[
+        { mb: 2, alignSelf: 'flex-start' },
+        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+      ]}
     >
       {label}
     </Button>

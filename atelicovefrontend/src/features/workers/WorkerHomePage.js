@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../Components/AuthContext';
+import { PageContent } from '../../shared/components/layout';
 
 const WorkerHomePage = () => {
   const [open, setOpen] = useState(false);
@@ -108,9 +109,9 @@ const WorkerHomePage = () => {
         </List>
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, overflowX: 'hidden', p: { xs: 2, sm: 3 }, pb: 12 }}>
+      <PageContent>
         <Outlet />
-      </Box>
+      </PageContent>
 
       <Dialog open={open} onClose={handleCancelLogout}>
         <DialogTitle>Confirm Logout</DialogTitle>

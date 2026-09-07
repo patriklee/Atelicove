@@ -15,7 +15,7 @@ import { useParams } from 'react-router-dom';
 import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import WorkOrderDocuments from '../documents/WorkOrderDocuments';
-import TableTitleRow from '../../Components/TableTitleRow';
+import { EntityEmptyState, TableTitleRow } from '../../shared/components/tables';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { BackNavigation } from '../../shared/components/navigation';
 import { AppAlert, AppTableSortLabel } from '../../shared/icons';
@@ -190,9 +190,7 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
               </TableRow>
             ))}
             {!items.length && (
-              <TableRow>
-                <TableCell colSpan={7}>No items are associated with this work order.</TableCell>
-              </TableRow>
+              <EntityEmptyState message="No items are associated with this work order." colSpan={7} />
             )}
             <TableRow>
               <TableCell colSpan={4} align="right" sx={{ fontWeight: 600 }}>Total</TableCell>

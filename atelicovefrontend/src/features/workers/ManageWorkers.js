@@ -1,19 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Box,
   Button,
   ButtonGroup,
-  Checkbox,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
-  FormControlLabel,
   Grid,
-  InputLabel,
-  MenuItem,
   Paper,
   Snackbar,
   Stack,
@@ -31,13 +25,14 @@ import { authService } from '../../services/authService';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker, workerPayload } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
-import { PageContainer, PageHeader, SURFACE_PADDING } from '../../shared/components/layout';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { MetricSummary } from '../../shared/components/metrics';
 import { BackNavigation } from '../../shared/components/navigation';
 import { useConfirmationDialog } from '../../shared/hooks';
 import WorkerTable from './components/WorkerTable';
+import { WorkerCreatePanel, WorkerEditPanel } from './components/WorkerFormPanels';
 import WorkerTeamSection from './components/WorkerTeamSection';
-import { AppAlert, AppSelect, icons } from '../../shared/icons';
+import { AppAlert, icons } from '../../shared/icons';
 
 const emptyWorker = {
   firstName: '',
@@ -58,24 +53,6 @@ const emptyTeam = {
   workerIDs: [],
 };
 
-const WorkerFields = ({ form, onChange, mode }) => (
-  <Stack spacing={2}>
-    <TextField label="First Name" name="firstName" value={form.firstName} onChange={onChange} fullWidth />
-    <TextField label="Last Name" name="lastName" value={form.lastName} onChange={onChange} fullWidth />
-    <TextField label="Display Name" name="displayName" value={form.displayName} onChange={onChange} fullWidth />
-    <TextField label="Username" name="username" value={form.username} onChange={onChange} fullWidth disabled={mode === 'edit'} />
-    <TextField label="Email" name="email" type="email" value={form.email} onChange={onChange} fullWidth />
-    <TextField label="Worker Role" name="roleTitle" value={form.roleTitle} onChange={onChange} fullWidth />
-    <TextField label="Role Description" name="roleDescription" value={form.roleDescription} onChange={onChange} fullWidth multiline minRows={2} />
-    {mode === 'create' && (
-      <FormControlLabel
-        control={<Checkbox name="isAdmin" checked={form.isAdmin} onChange={onChange} />}
-        label="Admin"
-      />
-    )}
-  </Stack>
-);
-
 const ManageWorkers = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -95,6 +72,7 @@ const ManageWorkers = () => {
   const confirmationDialog = useConfirmationDialog();
   const pendingAction = confirmationDialog.target?.action;
   const pendingWorker = confirmationDialog.target?.worker;
+  const showContextBack = Boolean(routeWorkerID);
 
   const fetchWorkers = useCallback(async () => {
     const [data, teamData, workOrderData] = await Promise.all([
@@ -380,117 +358,51 @@ const ManageWorkers = () => {
   return (
     <PageContainer>
       <PageHeader
-        context={routeWorkerID ? <BackNavigation fallback="/admin/workers" /> : null}
+        context={showContextBack ? <BackNavigation fallback="/admin/workers" /> : null}
         title="Workers"
         subtitle="Create and edit active workers and teams."
-        sx={{ mb: 1 }}
       />
-      <ButtonGroup variant="outlined" aria-label="Manage workers view" sx={{ mt: 1, mb: 3 }}>
-        <Button variant={view === 'workers' ? 'contained' : 'outlined'} onClick={() => setView('workers')}>
-          Workers
-        </Button>
-        <Button variant={view === 'teams' ? 'contained' : 'outlined'} onClick={() => setView('teams')}>
-          Teams
-        </Button>
-      </ButtonGroup>
+      <PageSections>
+        <ButtonGroup variant="outlined" aria-label="Manage workers view" sx={{ alignSelf: 'flex-start' }}>
+          <Button variant={view === 'workers' ? 'contained' : 'outlined'} onClick={() => setView('workers')}>
+            Workers
+          </Button>
+          <Button variant={view === 'teams' ? 'contained' : 'outlined'} onClick={() => setView('teams')}>
+            Teams
+          </Button>
+        </ButtonGroup>
 
-      <MetricSummary metrics={workerMetrics} ariaLabel="Worker summary" />
+        <MetricSummary metrics={workerMetrics} ariaLabel="Worker summary" />
 
-      <Box sx={{ mt: 3 }}>
         {view === 'workers' && (
-        <Grid container spacing={3} alignItems="stretch">
-        <Grid item xs={12} md={6}>
-          <Paper component="form" onSubmit={createWorker} sx={{ p: SURFACE_PADDING, height: '100%' }}>
-            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Create Worker</Typography>
-
-            <WorkerFields form={createForm} onChange={handleCreateChange} mode="create" />
-
-            <Stack spacing={2} sx={{ mt: 2 }}>
-              <TextField label="Password" name="password" type="password" value={createForm.password} onChange={handleCreateChange} fullWidth />
-              <TextField label="Confirm Password" name="confirmPassword" type="password" value={createForm.confirmPassword} onChange={handleCreateChange} fullWidth />
-            </Stack>
-
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={
-                saving ||
-                !createForm.firstName.trim() ||
-                !createForm.lastName.trim() ||
-                !createForm.username.trim() ||
-                !createForm.email.trim() ||
-                createForm.password.length < 8 ||
-                !createForm.confirmPassword
-              }
-              sx={{ mt: 2 }}
-            >
-              {saving ? 'Creating...' : 'Create'}
-            </Button>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: SURFACE_PADDING, height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Edit Worker</Typography>
-
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Worker</InputLabel>
-              <AppSelect value={selectedWorker && !selectedWorker.isAdmin ? workerID : ''} label="Worker" onChange={event => setWorkerID(event.target.value)}>
-                <MenuItem value="">No worker selected</MenuItem>
-                {workers.filter(worker => !worker.isAdmin).map(worker => (
-                  <MenuItem key={worker.workerID} value={worker.workerID}>
-                    {worker.firstName} {worker.lastName}{worker.isAdmin ? ' (Admin)' : ''}
-                  </MenuItem>
-                ))}
-              </AppSelect>
-            </FormControl>
-
-            <WorkerFields form={editForm} onChange={handleEditChange} mode="edit" />
-
-            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-              <Button
-                variant="contained"
-                disabled={saving || !selectedWorker || !editForm.firstName.trim() || !editForm.lastName.trim() || !editForm.email.trim()}
-                onClick={() => requestPassword('update')}
-              >
-                Save Changes
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                disabled={saving || !canDeleteSelectedWorker}
-                onClick={() => requestPassword('delete')}
-              >
-                Delete
-              </Button>
-            </Stack>
-
-            {selectedWorker && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>Associated Work Orders</Typography>
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                  {visibleAttachedWorkOrders.length ? visibleAttachedWorkOrders.map(order => (
-                    <Chip
-                      key={order.workOrderID}
-                      label={`#${order.workOrderID} (${order.status?.replaceAll('_', ' ')})`}
-                      onClick={() => navigate(`/admin/workorders/${order.workOrderID}`)}
-                      clickable
-                    />
-                  )) : <Chip label="No active open work orders" />}
-                </Stack>
-              </Box>
-            )}
-
-          </Paper>
-        </Grid>
-
-        <WorkerTable
-          workers={workers}
-          saving={saving}
-          onView={worker => navigate(`/admin/workers/${worker.workerID}`)}
-          onArchive={archiveWorker}
-        />
-        </Grid>
+          <Grid container spacing={3} alignItems="stretch">
+            <WorkerCreatePanel
+              form={createForm}
+              saving={saving}
+              onChange={handleCreateChange}
+              onSubmit={createWorker}
+            />
+            <WorkerEditPanel
+              workers={workers}
+              workerID={workerID}
+              form={editForm}
+              selectedWorker={selectedWorker}
+              attachedWorkOrders={visibleAttachedWorkOrders}
+              canDelete={canDeleteSelectedWorker}
+              saving={saving}
+              onWorkerChange={setWorkerID}
+              onChange={handleEditChange}
+              onUpdate={() => requestPassword('update')}
+              onDelete={() => requestPassword('delete')}
+              onOpenWorkOrder={order => navigate(`/admin/workorders/${order.workOrderID}`)}
+            />
+            <WorkerTable
+              workers={workers}
+              saving={saving}
+              onView={worker => navigate(`/admin/workers/${worker.workerID}`)}
+              onArchive={archiveWorker}
+            />
+          </Grid>
         )}
 
         {view === 'teams' && (
@@ -508,7 +420,7 @@ const ManageWorkers = () => {
             onShowSummary={setTeamSummary}
           />
         )}
-      </Box>
+      </PageSections>
 
       <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar(current => ({ ...current, open: false }))}>
         <AppAlert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</AppAlert>

@@ -11,7 +11,7 @@ import {
   TableRow,
   TextField,
 } from '@mui/material';
-import TableTitleRow from '../../../Components/TableTitleRow';
+import { TableTitleRow } from '../../../shared/components/tables';
 
 const WorkOrderCommentsSection = ({
   comment,

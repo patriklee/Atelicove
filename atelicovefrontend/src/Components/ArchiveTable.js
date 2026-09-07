@@ -14,6 +14,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { PageContainer, PageHeader, PageSections } from '../shared/components/layout';
+import { TableNavigationButton } from '../shared/components/navigation';
+import { EntityEmptyState } from '../shared/components/tables';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../model';
 import { AppAlert } from '../shared/icons';
 
@@ -54,9 +56,9 @@ const archiveConfig = {
     empty: 'No archived work orders found.',
     columns: [
       { label: 'Work Order', value: (item, navigate) => (
-        <Button size="small" onClick={() => navigate(`/admin/workorders/${item.workOrderID}`)}>
+        <TableNavigationButton onClick={() => navigate(`/admin/workorders/${item.workOrderID}`)}>
           #{item.workOrderID}
-        </Button>
+        </TableNavigationButton>
       ) },
       { label: 'Company', value: item => item.company?.companyName || 'No company' },
       { label: 'Assigned Workers', value: item => {
@@ -82,9 +84,9 @@ const archiveConfig = {
     empty: 'No archived companies found.',
     columns: [
       { label: 'Company', value: (item, navigate) => (
-        <Button size="small" onClick={() => navigate(`/admin/companies/${item.companyID}`)}>
+        <TableNavigationButton onClick={() => navigate(`/admin/companies/${item.companyID}`)}>
           {item.companyName}
-        </Button>
+        </TableNavigationButton>
       ) },
       { label: 'Address', value: item => item.companyAddress || 'Not set' },
       { label: 'Phone', value: item => item.companyPhone || 'Not set' },
@@ -106,9 +108,9 @@ const archiveConfig = {
       { label: 'Worker', value: (item, navigate) => {
         const worker = normalizeWorker(item);
         return (
-          <Button size="small" onClick={() => navigate(`/admin/workers/${worker.workerID}`)}>
+          <TableNavigationButton onClick={() => navigate(`/admin/workers/${worker.workerID}`)}>
             {worker.firstName} {worker.lastName}
-          </Button>
+          </TableNavigationButton>
         );
       } },
       { label: 'Username', value: item => normalizeWorker(item).username },
@@ -195,7 +197,7 @@ const ArchiveTable = ({ type }) => {
           </TableHead>
           <TableBody>
             {items.map(item => (
-              <TableRow key={config.key(item)}>
+              <TableRow key={config.key(item)} hover>
                 {columns.map(column => (
                   <TableCell key={column.label}>{column.value(item, navigate)}</TableCell>
                 ))}
@@ -225,14 +227,10 @@ const ArchiveTable = ({ type }) => {
               </TableRow>
             ))}
             {!loading && !items.length && (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1}>{config.empty}</TableCell>
-              </TableRow>
+              <EntityEmptyState message={config.empty} colSpan={columns.length + 1} />
             )}
             {loading && (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1}>Loading...</TableCell>
-              </TableRow>
+              <EntityEmptyState message="Loading..." colSpan={columns.length + 1} />
             )}
           </TableBody>
         </Table>

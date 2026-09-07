@@ -13,6 +13,7 @@ import { apiDownload, apiFetch } from '../../api';
 import { formatDateTime } from '../../model';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { MetricSummary } from '../../shared/components/metrics';
+import { EntityEmptyState } from '../../shared/components/tables';
 import { AppAlert, icons } from '../../shared/icons';
 
 const formatFileSize = (bytes = 0) => {
@@ -82,9 +83,8 @@ const Documents = () => {
   return (
     <PageContainer>
       <PageHeader title="Documents" subtitle="Browse uploaded work order and project documents." />
-      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
-
       <PageSections>
+        {message && <AppAlert severity={message.severity}>{message.text}</AppAlert>}
         <MetricSummary metrics={documentMetrics} ariaLabel="Document summary" />
 
         <TableContainer component={Paper}>
@@ -105,7 +105,7 @@ const Documents = () => {
           </TableHead>
           <TableBody>
             {documents.map(document => (
-              <TableRow key={`${document.projectID ? 'project' : 'workorder'}-${document.projectID || document.workOrderID}-${document.documentID}`}>
+              <TableRow key={`${document.projectID ? 'project' : 'workorder'}-${document.projectID || document.workOrderID}-${document.documentID}`} hover>
                 <TableCell>{document.fileName}</TableCell>
                 <TableCell>{document.documentType?.replaceAll('_', ' ') || 'Not set'}</TableCell>
                 <TableCell>{document.projectID ? document.projectName || `Project #${document.projectID}` : 'No project'}</TableCell>
@@ -123,14 +123,10 @@ const Documents = () => {
               </TableRow>
             ))}
             {!loading && !documents.length && (
-              <TableRow>
-                <TableCell colSpan={10}>No documents have been uploaded.</TableCell>
-              </TableRow>
+              <EntityEmptyState message="No documents have been uploaded." colSpan={10} />
             )}
             {loading && (
-              <TableRow>
-                <TableCell colSpan={10}>Loading documents...</TableCell>
-              </TableRow>
+              <EntityEmptyState message="Loading documents..." colSpan={10} />
             )}
           </TableBody>
         </Table>

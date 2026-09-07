@@ -20,7 +20,9 @@ import { apiFetch } from '../../api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
+import { TableNavigationButton } from '../../shared/components/navigation';
 import { projectPathFor, workOrderPathFor } from '../../shared/routing/rolePaths';
+import { EntityEmptyState } from '../../shared/components/tables';
 import { AppAlert } from '../../shared/icons';
 
 const formatStatus = (status = '') => status.replaceAll('_', ' ');
@@ -82,9 +84,9 @@ const MyAssignments = () => {
       <PageHeader
         title="My Assignments"
         subtitle="Browse my current assigned projects and work orders."
-        sx={{ mb: 1 }}
       />
-      <ButtonGroup variant="outlined" aria-label="My Assignments view" sx={{ mt: 1, mb: 3 }}>
+      <PageSections>
+      <ButtonGroup variant="outlined" aria-label="My Assignments view" sx={{ alignSelf: 'flex-start' }}>
         <Button variant={view === 'projects' ? 'contained' : 'outlined'} onClick={() => setView('projects')}>
           Projects
         </Button>
@@ -92,10 +94,7 @@ const MyAssignments = () => {
           Work Orders
         </Button>
       </ButtonGroup>
-      <PageSections>
       {error && <AppAlert severity="error">{error}</AppAlert>}
-      {view === 'projects' && !activeProjects.length && <AppAlert severity="info">No active projects are assigned to you.</AppAlert>}
-      {view === 'workOrders' && !workOrders.length && <AppAlert severity="info">No work orders are assigned to you.</AppAlert>}
 
       {view === 'projects' && (
       <TableContainer component={Paper}>
@@ -113,11 +112,11 @@ const MyAssignments = () => {
           </TableHead>
           <TableBody>
             {activeProjects.map(project => (
-              <TableRow key={project.projectID}>
+              <TableRow key={project.projectID} hover>
                 <TableCell>
-                  <Button size="small" onClick={() => openProject(project.projectID)} sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}>
+                  <TableNavigationButton onClick={() => openProject(project.projectID)} sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}>
                     {project.projectName || `Project #${project.projectID}`}
-                  </Button>
+                  </TableNavigationButton>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                     {project.description || 'No description'}
                   </Typography>
@@ -136,6 +135,9 @@ const MyAssignments = () => {
                 <TableCell>{formatDateTime(project.lastModifiedAt)}</TableCell>
               </TableRow>
             ))}
+            {!activeProjects.length && (
+              <EntityEmptyState message="No active projects are assigned to you." colSpan={7} />
+            )}
           </TableBody>
         </Table>
       </TableContainer>
@@ -157,11 +159,11 @@ const MyAssignments = () => {
           </TableHead>
           <TableBody>
             {workOrders.map(order => (
-              <TableRow key={order.workOrderID}>
+              <TableRow key={order.workOrderID} hover>
                 <TableCell>
-                  <Button size="small" onClick={() => openWorkOrder(order.workOrderID)}>
+                  <TableNavigationButton onClick={() => openWorkOrder(order.workOrderID)}>
                     {order.workOrderID}
-                  </Button>
+                  </TableNavigationButton>
                 </TableCell>
                 <TableCell>{order.company?.companyName || 'No company'}</TableCell>
                 <TableCell><Chip label={formatStatus(order.status)} size="small" /></TableCell>
@@ -171,6 +173,9 @@ const MyAssignments = () => {
                 <TableCell>{order.fileNo ?? ''}</TableCell>
               </TableRow>
             ))}
+            {!workOrders.length && (
+              <EntityEmptyState message="No work orders are assigned to you." colSpan={7} />
+            )}
           </TableBody>
         </Table>
       </TableContainer>

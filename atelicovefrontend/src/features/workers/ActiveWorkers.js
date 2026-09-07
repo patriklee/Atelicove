@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Button, Paper, Table, TableBody, TableCell, TableContainer,
+  Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { workerService } from '../../services/workerService';
 import { formatDateTime, normalizeWorker } from '../../model';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
+import { TableNavigationButton } from '../../shared/components/navigation';
 import { EntityEmptyState } from '../../shared/components/tables';
 import { AppAlert } from '../../shared/icons';
 
@@ -45,11 +46,11 @@ const ActiveWorkers = () => {
           </TableHead>
           <TableBody>
             {sortedWorkers.map(worker => (
-              <TableRow key={worker.workerID}>
+              <TableRow key={worker.workerID} hover>
                 <TableCell>
-                  <Button size="small" onClick={() => navigate(`/admin/workers/${worker.workerID}`)}>
+                  <TableNavigationButton onClick={() => navigate(`/admin/workers/${worker.workerID}`)}>
                     {worker.firstName} {worker.lastName}
-                  </Button>
+                  </TableNavigationButton>
                 </TableCell>
                 <TableCell>{worker.username}</TableCell>
                 <TableCell>{worker.email}</TableCell>

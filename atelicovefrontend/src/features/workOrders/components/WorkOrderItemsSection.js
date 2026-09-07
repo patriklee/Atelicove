@@ -14,7 +14,7 @@ import {
   TableRow,
   TextField,
 } from '@mui/material';
-import TableTitleRow from '../../../Components/TableTitleRow';
+import { EntityEmptyState, TableTitleRow } from '../../../shared/components/tables';
 import { AppSelect } from '../../../shared/icons';
 
 const ITEM_TYPES = ['LABOR', 'MATERIAL', 'OTHER'];
@@ -121,9 +121,7 @@ const WorkOrderItemsSection = ({
           </TableRow>
         ))}
         {!savedItems.length && !editItems.length && (
-          <TableRow>
-            <TableCell colSpan={6}>No items are currently listed.</TableCell>
-          </TableRow>
+          <EntityEmptyState message="No items are currently listed." colSpan={6} />
         )}
         <TableRow>
           <TableCell colSpan={4} align="right" sx={{ fontWeight: 600 }}>Total</TableCell>

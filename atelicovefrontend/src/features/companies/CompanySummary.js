@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
-  Button,
   CircularProgress,
   Paper,
   Table,
@@ -14,9 +13,9 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
-import TableTitleRow from '../../Components/TableTitleRow';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
-import { BackNavigation } from '../../shared/components/navigation';
+import { BackNavigation, TableNavigationButton } from '../../shared/components/navigation';
+import { EntityEmptyState, TableTitleRow } from '../../shared/components/tables';
 import { AppAlert } from '../../shared/icons';
 
 const CompanySummary = () => {
@@ -95,11 +94,11 @@ const CompanySummary = () => {
           </TableHead>
           <TableBody>
             {associatedWorkOrders.map(order => (
-              <TableRow key={order.workOrderID}>
+              <TableRow key={order.workOrderID} hover>
                 <TableCell>
-                  <Button size="small" onClick={() => navigate(`/admin/workorders/${order.workOrderID}`)}>
+                  <TableNavigationButton onClick={() => navigate(`/admin/workorders/${order.workOrderID}`)}>
                     #{order.workOrderID}
-                  </Button>
+                  </TableNavigationButton>
                 </TableCell>
                 <TableCell>{order.status?.replaceAll('_', ' ') || 'Not set'}</TableCell>
                 <TableCell>{getWorkOrderWorkers(order).map(worker => `${worker.firstName} ${worker.lastName}`).join(', ') || 'Unassigned'}</TableCell>
@@ -107,9 +106,7 @@ const CompanySummary = () => {
               </TableRow>
             ))}
             {!associatedWorkOrders.length && (
-              <TableRow>
-                <TableCell colSpan={4}>No work orders are associated with this company.</TableCell>
-              </TableRow>
+              <EntityEmptyState message="No work orders are associated with this company." colSpan={4} />
             )}
           </TableBody>
         </Table>

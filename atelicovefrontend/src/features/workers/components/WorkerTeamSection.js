@@ -7,7 +7,6 @@ import {
   Grid,
   InputLabel,
   MenuItem,
-  Paper,
   Stack,
   Table,
   TableBody,
@@ -19,9 +18,8 @@ import {
   Typography,
 } from '@mui/material';
 import { normalizeWorker } from '../../../model';
-import TableTitleRow from '../../../Components/TableTitleRow';
-import { EntityEmptyState } from '../../../shared/components/tables';
-import { SURFACE_PADDING } from '../../../shared/components/layout';
+import { PageSurface } from '../../../shared/components/layout';
+import { EntityEmptyState, TableTitleRow } from '../../../shared/components/tables';
 import { AppSelect } from '../../../shared/icons';
 
 const WorkerTeamSection = ({
@@ -39,8 +37,8 @@ const WorkerTeamSection = ({
 }) => (
   <Grid container spacing={3} alignItems="stretch">
     <Grid item xs={12} md={6}>
-      <Paper component="form" onSubmit={onSave} sx={{ p: SURFACE_PADDING, height: '100%' }}>
-        <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>
+      <PageSurface component="form" onSubmit={onSave} sx={{ height: '100%' }}>
+        <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
           {teamForm.teamID ? 'Edit Team' : 'Create Team'}
         </Typography>
         <Stack spacing={2}>
@@ -88,12 +86,12 @@ const WorkerTeamSection = ({
           )}
         </Stack>
         </Stack>
-      </Paper>
+      </PageSurface>
     </Grid>
 
     <Grid item xs={12} md={6}>
-      <Paper sx={{ p: SURFACE_PADDING, height: '100%' }}>
-        <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Team Preview</Typography>
+      <PageSurface sx={{ height: '100%' }}>
+        <Typography variant="h5" component="h2" sx={{ mb: 2 }}>Team Preview</Typography>
         {selectedTeam ? (
           <Box>
             <Typography variant="subtitle1">{selectedTeam.teamName}</Typography>
@@ -107,11 +105,11 @@ const WorkerTeamSection = ({
         ) : (
           <Typography color="text.secondary">Select a team from the list below to edit it.</Typography>
         )}
-      </Paper>
+      </PageSurface>
     </Grid>
 
     <Grid item xs={12}>
-      <Paper sx={{ p: SURFACE_PADDING }}>
+      <PageSurface>
         <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
           <Table stickyHeader>
             <TableHead>
@@ -125,7 +123,7 @@ const WorkerTeamSection = ({
             </TableHead>
             <TableBody>
               {teams.map(team => (
-                <TableRow key={team.teamID}>
+                <TableRow key={team.teamID} hover>
                   <TableCell>
                     <Button size="small" onClick={() => onShowSummary(team)}>{team.teamName || `Team #${team.teamID}`}</Button>
                   </TableCell>
@@ -147,7 +145,7 @@ const WorkerTeamSection = ({
             </TableBody>
           </Table>
         </TableContainer>
-      </Paper>
+      </PageSurface>
     </Grid>
   </Grid>
 );

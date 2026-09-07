@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { apiDownload, apiFetch } from '../../api';
 import { formatDateTime } from '../../model';
-import TableTitleRow from '../../Components/TableTitleRow';
+import { EntityEmptyState, TableTitleRow } from '../../shared/components/tables';
 import { AppAlert, AppSelect } from '../../shared/icons';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -171,7 +171,7 @@ const WorkOrderDocuments = ({
           </TableHead>
           <TableBody>
             {documents.map(document => (
-              <TableRow key={document.documentID}>
+              <TableRow key={document.documentID} hover>
                 <TableCell>{document.fileName}</TableCell>
                 <TableCell>{document.documentType?.replaceAll('_', ' ') || 'Not set'}</TableCell>
                 <TableCell>{formatFileSize(document.fileSize)}</TableCell>
@@ -190,7 +190,7 @@ const WorkOrderDocuments = ({
               </TableRow>
             ))}
             {pendingDocuments.map(document => (
-              <TableRow key={document.localID}>
+              <TableRow key={document.localID} hover>
                 <TableCell>{document.file.name}</TableCell>
                 <TableCell>
                   <FormControl size="small" fullWidth>
@@ -217,14 +217,10 @@ const WorkOrderDocuments = ({
               </TableRow>
             ))}
             {!loading && !documents.length && !pendingDocuments.length && (
-              <TableRow>
-                <TableCell colSpan={6}>{emptyMessage}</TableCell>
-              </TableRow>
+              <EntityEmptyState message={emptyMessage} colSpan={6} />
             )}
             {loading && (
-              <TableRow>
-                <TableCell colSpan={6}>Loading documents...</TableCell>
-              </TableRow>
+              <EntityEmptyState message="Loading documents..." colSpan={6} />
             )}
           </TableBody>
         </Table>

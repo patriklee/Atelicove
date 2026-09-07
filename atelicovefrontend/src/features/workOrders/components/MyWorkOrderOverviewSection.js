@@ -10,7 +10,7 @@ import {
   TableRow,
 } from '@mui/material';
 import { formatDateTime } from '../../../model';
-import TableTitleRow from '../../../Components/TableTitleRow';
+import { TableTitleRow } from '../../../shared/components/tables';
 
 const MyWorkOrderOverviewSection = ({ workOrder, workers, project, canOpenProject, onOpenProject }) => (
   <TableContainer component={Paper}>

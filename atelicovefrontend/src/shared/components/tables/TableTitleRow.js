@@ -7,19 +7,15 @@ const TableTitleRow = ({ title, colSpan }) => (
       colSpan={colSpan}
       align="left"
       sx={{
-        bgcolor: 'grey.50',
-        textAlign: 'left',
+        bgcolor: 'background.subtle',
         left: 'auto',
         zIndex: 3,
         '&.MuiTableCell-stickyHeader': {
-          textAlign: 'left',
           left: 'auto',
         },
       }}
     >
-      <Typography variant="h6" sx={{ textAlign: 'left' }}>
-        {title}
-      </Typography>
+      <Typography variant="h6" component="h2">{title}</Typography>
     </TableCell>
   </TableRow>
 );

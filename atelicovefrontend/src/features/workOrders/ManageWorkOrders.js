@@ -153,9 +153,8 @@ const ManageWorkOrders = () => {
   return (
     <PageContainer>
       <PageHeader title="Manage Work Orders" subtitle="Create and maintain live work orders." />
-      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
-
       <PageSections>
+        {message && <AppAlert severity={message.severity}>{message.text}</AppAlert>}
         <WorkOrderSummary activeWorkOrders={activeWorkOrders} reviewWorkOrders={reviewWorkOrders} />
 
         <WorkOrderCreateForm

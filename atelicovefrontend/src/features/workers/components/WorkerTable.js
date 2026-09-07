@@ -2,7 +2,6 @@ import React from 'react';
 import {
   Button,
   Grid,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -11,13 +10,13 @@ import {
   TableRow,
 } from '@mui/material';
 import { formatDateTime } from '../../../model';
-import TableTitleRow from '../../../Components/TableTitleRow';
-import { EntityEmptyState } from '../../../shared/components/tables';
-import { SURFACE_PADDING } from '../../../shared/components/layout';
+import { PageSurface } from '../../../shared/components/layout';
+import TableNavigationButton from '../../../shared/components/navigation/TableNavigationButton';
+import { EntityEmptyState, TableTitleRow } from '../../../shared/components/tables';
 
 const WorkerTable = ({ workers, saving, onView, onArchive }) => (
   <Grid item xs={12}>
-    <Paper sx={{ p: SURFACE_PADDING }}>
+    <PageSurface>
       <TableContainer sx={{ maxHeight: 360, overflowY: 'auto' }}>
         <Table stickyHeader>
           <TableHead>
@@ -34,9 +33,9 @@ const WorkerTable = ({ workers, saving, onView, onArchive }) => (
           </TableHead>
           <TableBody>
             {workers.map(worker => (
-              <TableRow key={worker.workerID}>
+              <TableRow key={worker.workerID} hover>
                 <TableCell>
-                  <Button size="small" onClick={() => onView(worker)}>{worker.firstName} {worker.lastName}</Button>
+                  <TableNavigationButton onClick={() => onView(worker)}>{worker.firstName} {worker.lastName}</TableNavigationButton>
                 </TableCell>
                 <TableCell>{worker.username}</TableCell>
                 <TableCell>{worker.email}</TableCell>
@@ -54,7 +53,7 @@ const WorkerTable = ({ workers, saving, onView, onArchive }) => (
           </TableBody>
         </Table>
       </TableContainer>
-    </Paper>
+    </PageSurface>
   </Grid>
 );
 

@@ -12,4 +12,5 @@ test('renders the existing empty message with the requested column span', () => 
   );
 
   expect(screen.getByRole('cell', { name: 'No companies found.' }).colSpan).toBe(4);
+  expect(screen.getByRole('cell').getAttribute('aria-live')).toBe('polite');
 });

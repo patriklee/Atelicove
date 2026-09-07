@@ -190,7 +190,8 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
   return (
     <PageContainer>
       <PageHeader title={title} subtitle={subtitle} />
-      {message && <AppAlert severity={message.severity} sx={{ mb: 2 }}>{message.text}</AppAlert>}
+      <PageSections>
+      {message && <AppAlert severity={message.severity}>{message.text}</AppAlert>}
 
       {!routeProjectID && (
         <ProjectList
@@ -267,6 +268,7 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
           )}
         </Stack>
       )}
+      </PageSections>
     </PageContainer>
   );
 };

@@ -11,6 +11,7 @@ import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { MetricSummary } from '../../shared/components/metrics';
+import { BackNavigation } from '../../shared/components/navigation';
 import { useConfirmationDialog } from '../../shared/hooks';
 import { CompanyCreatePanel, CompanyEditPanel } from './components/CompanyFormPanels';
 import CompanyTable from './components/CompanyTable';
@@ -38,6 +39,7 @@ const ManageCompanies = () => {
   const confirmationDialog = useConfirmationDialog();
   const pendingAction = confirmationDialog.target?.action;
   const pendingCompany = confirmationDialog.target?.company;
+  const showContextBack = Boolean(routeCompanyID);
 
   const loadData = useCallback(async () => {
     const [companyData, workOrderData] = await Promise.all([
@@ -237,7 +239,11 @@ const ManageCompanies = () => {
 
   return (
     <PageContainer>
-      <PageHeader title="Companies" subtitle="Create and edit active companies." />
+      <PageHeader
+        context={showContextBack ? <BackNavigation fallback="/admin/companies" /> : null}
+        title="Companies"
+        subtitle="Create and edit active companies."
+      />
 
       <PageSections>
         <MetricSummary metrics={companyMetrics} ariaLabel="Company summary" />

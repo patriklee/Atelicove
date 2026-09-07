@@ -4,17 +4,16 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
-  Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
 import { AppSelect } from '../../../shared/icons';
-import { SURFACE_PADDING } from '../../../shared/components/layout';
+import { PageSurface } from '../../../shared/components/layout';
 
 const WorkOrderCreateForm = ({ form, workers, companies, saving, onChange, onSubmit }) => (
-  <Paper component="form" onSubmit={onSubmit} sx={{ p: SURFACE_PADDING }}>
-    <Typography variant="h5" sx={{ mb: 2 }}>Create Work Order</Typography>
+  <PageSurface component="form" onSubmit={onSubmit}>
+    <Typography variant="h5" component="h2" sx={{ mb: 2 }}>Create Work Order</Typography>
     <Stack spacing={2}>
       <FormControl>
         <InputLabel>Workers</InputLabel>
@@ -32,7 +31,7 @@ const WorkOrderCreateForm = ({ form, workers, companies, saving, onChange, onSub
       <TextField label="Work order note" value={form.comment} onChange={event => onChange({ comment: event.target.value })} multiline minRows={2} />
       <Button type="submit" variant="contained" disabled={saving}>Create</Button>
     </Stack>
-  </Paper>
+  </PageSurface>
 );
 
 export default WorkOrderCreateForm;

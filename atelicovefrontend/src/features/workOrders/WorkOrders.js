@@ -9,17 +9,16 @@ import {
     Paper,
     Chip,
     Button,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
+import { TableNavigationButton } from '../../shared/components/navigation';
+import { EntityEmptyState } from '../../shared/components/tables';
 import { AppAlert, AppTableSortLabel } from '../../shared/icons';
+import WorkOrderSummaryDialog from './components/WorkOrderSummaryDialog';
 
 const WorkOrders = ({
     title = 'Work Orders',
@@ -146,14 +145,13 @@ const WorkOrders = ({
 
                     <TableBody>
                         {visibleWorkOrders.map((wo) => (
-                            <TableRow key={wo.workOrderID}>
+                            <TableRow key={wo.workOrderID} hover>
                                 <TableCell>
-                                    <Button
-                                        size="small"
+                                    <TableNavigationButton
                                         onClick={() => openWorkOrder(wo)}
                                     >
                                         {wo.workOrderID}
-                                    </Button>
+                                    </TableNavigationButton>
                                 </TableCell>
                                 <TableCell>
                                     {getWorkOrderWorkers(wo).map(worker => `${worker.firstName} ${worker.lastName}`).join(', ') || 'Unassigned'}
@@ -178,86 +176,18 @@ const WorkOrders = ({
                             </TableRow>
                         ))}
                         {!visibleWorkOrders.length && (
-                            <TableRow>
-                                <TableCell colSpan={9}>No active work orders found.</TableCell>
-                            </TableRow>
+                            <EntityEmptyState message="No active work orders found." colSpan={9} />
                         )}
                     </TableBody>
                 </Table>
             </TableContainer>
             </PageSections>
 
-            <Dialog open={Boolean(summaryDialogWorkOrder)} onClose={() => setSummaryDialogWorkOrder(null)} fullWidth maxWidth="sm">
-                <DialogTitle>
-                    {summaryDialogMode === 'summary'
-                        ? `Work Order #${summaryDialogWorkOrder?.workOrderID}`
-                        : `Work Order #${summaryDialogWorkOrder?.workOrderID} Items`}
-                </DialogTitle>
-                <DialogContent dividers>
-                    {summaryDialogMode === 'summary' && (
-                        <TableContainer sx={{ mb: 2 }}>
-                            <Table size="small">
-                                <TableBody>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600, width: 160 }}>Status</TableCell>
-                                        <TableCell>{formatStatus(summaryDialogWorkOrder?.status)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600 }}>Project</TableCell>
-                                        <TableCell>{summaryDialogWorkOrder?.projectName || 'No project'}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600 }}>Company</TableCell>
-                                        <TableCell>{summaryDialogWorkOrder?.company?.companyName || 'No company'}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600 }}>Workers</TableCell>
-                                        <TableCell>{getWorkOrderWorkers(summaryDialogWorkOrder || {}).map(worker => `${worker.firstName} ${worker.lastName}`).join(', ') || 'Unassigned'}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600 }}>Total</TableCell>
-                                        <TableCell>{formatMoney(workOrderPrice(summaryDialogWorkOrder || {}))}</TableCell>
-                                    </TableRow>
-                                    {summaryDialogWorkOrder?.comment && (
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: 600 }}>Note</TableCell>
-                                            <TableCell>{summaryDialogWorkOrder.comment}</TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
-                    <TableContainer>
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Item</TableCell>
-                                    <TableCell align="right">Quantity</TableCell>
-                                    <TableCell align="right">Price</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {(summaryDialogWorkOrder?.items || []).map(item => (
-                                    <TableRow key={item.workOrderItemID || item.itemName}>
-                                        <TableCell>{item.itemName || 'Item'}</TableCell>
-                                        <TableCell align="right">{item.quantity ?? 0}</TableCell>
-                                        <TableCell align="right">{formatMoney(item.price)}</TableCell>
-                                    </TableRow>
-                                ))}
-                                {!(summaryDialogWorkOrder?.items || []).length && (
-                                    <TableRow>
-                                        <TableCell colSpan={3}>No items are associated with this work order.</TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setSummaryDialogWorkOrder(null)}>Close</Button>
-                </DialogActions>
-            </Dialog>
+            <WorkOrderSummaryDialog
+                workOrder={summaryDialogWorkOrder}
+                mode={summaryDialogMode}
+                onClose={() => setSummaryDialogWorkOrder(null)}
+            />
         </PageContainer>
     );
 };

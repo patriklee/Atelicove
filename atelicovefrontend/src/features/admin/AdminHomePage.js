@@ -6,7 +6,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../Components/AuthContext';
-import { PageHeaderActionsProvider } from '../../shared/components/layout';
+import { PageContent, PageHeaderActionsProvider } from '../../shared/components/layout';
 import { AppIconButton, icons } from '../../shared/icons';
 import AdminDashboard, { AdminGlobalControls } from './dashboard/AdminDashboard';
 import useAdminDashboard from './dashboard/useAdminDashboard';
@@ -79,21 +79,11 @@ const AdminHomePage = () => {
                 />
             )}
 
-			<Box
-                component="main"
-                sx={{
-                    flexGrow: 1,
-                    minWidth: 0,
-                    overflowX: 'hidden',
-                    p: { xs: 2, sm: 3 },
-                    pt: { xs: 8, sm: 3 },
-                    pb: 12,
-                }}
-            >
+			<PageContent sx={{ pt: { xs: 8, sm: 3 } }}>
 			    {showGlobalControls
 			        ? <AdminContent dashboardPage={location.pathname === '/admin'} />
 			        : <Outlet />}
-			</Box>
+			</PageContent>
 
             <Dialog open={open} onClose={handleCancelLogout}>
                 <DialogTitle>Confirm Logout</DialogTitle>

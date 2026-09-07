@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Button, Paper, Table, TableBody, TableCell, TableContainer,
+  Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { companyService } from '../../services/companyService';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
+import { TableNavigationButton } from '../../shared/components/navigation';
 import { EntityEmptyState } from '../../shared/components/tables';
 import { AppAlert, AppTableSortLabel } from '../../shared/icons';
 
@@ -62,11 +63,11 @@ const ActiveCompanies = () => {
           </TableHead>
           <TableBody>
             {sortedCompanies.map(company => (
-              <TableRow key={company.companyID}>
+              <TableRow key={company.companyID} hover>
                 <TableCell>
-                  <Button size="small" onClick={() => navigate(`/admin/companies/${company.companyID}`)}>
+                  <TableNavigationButton onClick={() => navigate(`/admin/companies/${company.companyID}`)}>
                     {company.companyName}
-                  </Button>
+                  </TableNavigationButton>
                 </TableCell>
                 <TableCell>{company.companyAddress || 'Not set'}</TableCell>
                 <TableCell>{company.companyPhone || 'Not set'}</TableCell>

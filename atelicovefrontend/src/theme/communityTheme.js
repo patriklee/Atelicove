@@ -6,6 +6,7 @@ export const primaryFontFamily =
 
 const softShadow = '0 8px 24px rgba(49, 69, 58, 0.06)';
 const floatingShadow = '0 14px 34px rgba(49, 69, 58, 0.10)';
+const focusRing = `3px solid ${alpha(communityTokens.brand.primary, 0.34)}`;
 
 const communityTheme = createTheme({
   palette: {
@@ -131,7 +132,7 @@ const communityTheme = createTheme({
           minHeight: 36,
           paddingInline: theme.spacing(1.75),
           '&.Mui-focusVisible': {
-            outline: `3px solid ${alpha(theme.palette.brand.primary, 0.34)}`,
+            outline: focusRing,
             outlineOffset: 2,
           },
         }),
@@ -263,6 +264,24 @@ const communityTheme = createTheme({
         }),
       },
     },
+    MuiTableSortLabel: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          color: theme.palette.text.secondary,
+          '&:hover, &.Mui-active': {
+            color: theme.palette.text.primary,
+          },
+          '&.Mui-focusVisible': {
+            borderRadius: theme.shape.borderRadius / 2,
+            outline: focusRing,
+            outlineOffset: 2,
+          },
+        }),
+        icon: {
+          color: 'inherit !important',
+        },
+      },
+    },
     MuiChip: {
       styleOverrides: {
         root: {
@@ -347,7 +366,7 @@ const communityTheme = createTheme({
             color: theme.palette.text.primary,
           },
           '&.Mui-focusVisible': {
-            outline: `3px solid ${alpha(theme.palette.brand.primary, 0.34)}`,
+            outline: focusRing,
             outlineOffset: 2,
           },
         }),

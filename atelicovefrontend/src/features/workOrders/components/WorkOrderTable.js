@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '@mui/material';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers } from '../../../model';
+import TableNavigationButton from '../../../shared/components/navigation/TableNavigationButton';
 import { EntityEmptyState } from '../../../shared/components/tables';
 
 const WorkOrderTable = ({ workOrders, onView, onArchive }) => (
@@ -29,8 +30,8 @@ const WorkOrderTable = ({ workOrders, onView, onArchive }) => (
       </TableHead>
       <TableBody>
         {workOrders.map(order => (
-          <TableRow key={order.workOrderID}>
-            <TableCell><Button onClick={() => onView(order)}>#{order.workOrderID}</Button></TableCell>
+          <TableRow key={order.workOrderID} hover>
+            <TableCell><TableNavigationButton onClick={() => onView(order)}>#{order.workOrderID}</TableNavigationButton></TableCell>
             <TableCell><Chip size="small" label={(order.status || 'OPEN').replaceAll('_', ' ')} /></TableCell>
             <TableCell>{getWorkOrderWorkers(order).map(worker => `${worker.firstName} ${worker.lastName}`).join(', ') || 'Unassigned'}</TableCell>
             <TableCell>{order.company?.companyName || 'No company'}</TableCell>

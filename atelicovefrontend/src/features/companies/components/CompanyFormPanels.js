@@ -7,13 +7,12 @@ import {
   Grid,
   InputLabel,
   MenuItem,
-  Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
 import { AppSelect } from '../../../shared/icons';
-import { SURFACE_PADDING } from '../../../shared/components/layout';
+import { PageSurface } from '../../../shared/components/layout';
 
 const CompanyFields = ({ form, onChange, disabled = false }) => (
   <Stack spacing={2}>
@@ -26,13 +25,13 @@ const CompanyFields = ({ form, onChange, disabled = false }) => (
 
 export const CompanyCreatePanel = ({ form, saving, onChange, onSubmit }) => (
   <Grid item xs={12} md={6}>
-    <Paper component="form" onSubmit={onSubmit} sx={{ p: SURFACE_PADDING, height: '100%' }}>
-      <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Create Company</Typography>
+    <PageSurface component="form" onSubmit={onSubmit} sx={{ height: '100%' }}>
+      <Typography variant="h5" component="h2" sx={{ mb: 2 }}>Create Company</Typography>
       <CompanyFields form={form} onChange={onChange} />
       <Button type="submit" variant="contained" disabled={saving || !form.companyName.trim()} sx={{ mt: 2 }}>
         {saving ? 'Creating...' : 'Create'}
       </Button>
-    </Paper>
+    </PageSurface>
   </Grid>
 );
 
@@ -51,11 +50,11 @@ export const CompanyEditPanel = ({
   onOpenWorkOrder,
 }) => (
   <Grid item xs={12} md={6}>
-    <Paper sx={{ p: SURFACE_PADDING, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h5" align="left" sx={{ fontWeight: 600, mb: 2 }}>Edit Company</Typography>
+    <PageSurface sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Typography variant="h5" component="h2" sx={{ mb: 2 }}>Edit Company</Typography>
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Company</InputLabel>
-        <AppSelect value={companyID} label="Company" onChange={event => onCompanyChange(event.target.value)}>
+        <AppSelect value={selectedCompany ? companyID : ''} label="Company" onChange={event => onCompanyChange(event.target.value)}>
           <MenuItem value="">No company selected</MenuItem>
           {companies.map(company => (
             <MenuItem key={company.companyID} value={company.companyID}>{company.companyName}</MenuItem>
@@ -95,6 +94,6 @@ export const CompanyEditPanel = ({
           </Stack>
         </Box>
       )}
-    </Paper>
+    </PageSurface>
   </Grid>
 );

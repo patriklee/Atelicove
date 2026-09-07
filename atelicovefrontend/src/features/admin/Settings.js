@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Grid,
-  Paper,
   Stack,
   Table,
   TableBody,
@@ -17,8 +16,8 @@ import {
 import { apiFetch } from '../../api';
 import { useAuth } from '../../Components/AuthContext';
 import { normalizeWorker } from '../../model';
-import TableTitleRow from '../../Components/TableTitleRow';
-import { PageContainer, PageHeader, PageSections, SURFACE_PADDING } from '../../shared/components/layout';
+import { PageContainer, PageHeader, PageSections, PageSurface } from '../../shared/components/layout';
+import { TableTitleRow } from '../../shared/components/tables';
 import { AppAlert } from '../../shared/icons';
 
 const Settings = () => {
@@ -97,7 +96,7 @@ const Settings = () => {
       <Grid container spacing={3} alignItems="flex-start">
         <Grid item xs={12} md={6}>
           <Stack spacing={3}>
-          <Paper sx={{ p: SURFACE_PADDING }}>
+          <PageSurface>
             <TableContainer>
               <Table>
                 <TableHead>
@@ -145,9 +144,9 @@ const Settings = () => {
             >
               Save Profile
             </Button>
-          </Paper>
+          </PageSurface>
 
-          <Paper sx={{ p: SURFACE_PADDING }}>
+          <PageSurface>
             {user?.isAdmin ? (
               <TableContainer>
                 <Table>
@@ -181,12 +180,12 @@ const Settings = () => {
                 Reset Password
               </Button>
             )}
-          </Paper>
+          </PageSurface>
           </Stack>
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: SURFACE_PADDING, height: '100%' }}>
+          <PageSurface sx={{ height: '100%' }}>
             <TableContainer>
               <Table>
                 <TableHead>
@@ -220,7 +219,7 @@ const Settings = () => {
                 </TableBody>
               </Table>
             </TableContainer>
-          </Paper>
+          </PageSurface>
         </Grid>
       </Grid>
       </PageSections>

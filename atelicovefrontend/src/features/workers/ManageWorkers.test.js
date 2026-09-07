@@ -39,6 +39,8 @@ test('hides Back navigation for the normal manage-workers route', async () => {
   renderPage();
 
   expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+  expect(screen.getByRole('heading', { name: 'Create Worker' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Edit Worker' })).toBeTruthy();
   await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(3));
 });
 
