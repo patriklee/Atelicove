@@ -6,7 +6,7 @@ import {
   TextField,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiFetch } from '../../api';
+import { apiFetch } from '../../shared/api';
 import { authService } from '../../services/authService';
 import { getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';

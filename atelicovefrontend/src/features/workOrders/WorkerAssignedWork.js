@@ -3,7 +3,7 @@ import {
   Box, Button, Card, CardActions, CardContent,
   Chip, CircularProgress, Grid, Typography
 } from '@mui/material';
-import { apiFetch } from '../../api';
+import { apiFetch } from '../../shared/api';
 import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';

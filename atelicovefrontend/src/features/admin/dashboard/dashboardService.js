@@ -2,7 +2,7 @@ import { projectService } from '../../../services/projectService';
 import { workOrderService } from '../../../services/workOrderService';
 import { companyService } from '../../../services/companyService';
 import { workerService } from '../../../services/workerService';
-import { apiFetch } from '../../../api';
+import { apiFetch } from '../../../shared/api';
 
 export const dashboardService = {
   load: async () => {

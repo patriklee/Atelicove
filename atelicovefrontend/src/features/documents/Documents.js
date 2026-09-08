@@ -9,7 +9,7 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material';
-import { apiDownload, apiFetch } from '../../api';
+import { apiDownload, apiFetch } from '../../shared/api';
 import { formatDateTime } from '../../model';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { MetricSummary } from '../../shared/components/metrics';

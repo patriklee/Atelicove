@@ -2,11 +2,11 @@ import React from 'react';
 import { ThemeProvider } from '@mui/material';
 import { render, screen, waitFor } from '@testing-library/react';
 import { useParams } from 'react-router-dom';
-import { apiFetch } from '../../api';
+import { apiFetch } from '../../shared/api';
 import theme from '../../theme';
 import ManageWorkers from './ManageWorkers';
 
-jest.mock('../../api', () => ({ apiFetch: jest.fn() }));
+jest.mock('../../shared/api', () => ({ apiFetch: jest.fn() }));
 jest.mock('react-router-dom', () => ({
   useLocation: () => ({ key: 'default' }),
   useNavigate: () => jest.fn(),

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiFetch } from '../../../api';
+import { apiFetch } from '../../../shared/api';
 
 const emptyProjectForm = {
   projectID: '',

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiFetch } from '../../api';
+import { apiFetch } from '../../shared/api';
 import { getWorkOrderWorkers, normalizeWorker } from '../../model';
 import WorkOrderAssignmentPanel from './components/WorkOrderAssignmentPanel';
 import WorkOrderCreateForm from './components/WorkOrderCreateForm';

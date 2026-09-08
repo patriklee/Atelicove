@@ -12,12 +12,12 @@ import {
   Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { apiFetch } from '../api';
-import { PageContainer, PageHeader, PageSections } from '../shared/components/layout';
-import { TableNavigationButton } from '../shared/components/navigation';
-import { EntityEmptyState } from '../shared/components/tables';
-import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../model';
-import { AppAlert } from '../shared/icons';
+import { apiFetch } from '../../shared/api';
+import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
+import { TableNavigationButton } from '../../shared/components/navigation';
+import { EntityEmptyState } from '../../shared/components/tables';
+import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../../model';
+import { AppAlert } from '../../shared/icons';
 
 const archiveConfig = {
   projects: {

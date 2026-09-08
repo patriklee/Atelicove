@@ -1,8 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { apiFetch } from '../../../api';
+import { apiFetch } from '../../../shared/api';
 import useProjectsPage from './useProjectsPage';
 
-jest.mock('../../../api', () => ({ apiFetch: jest.fn() }));
+jest.mock('../../../shared/api', () => ({ apiFetch: jest.fn() }));
 
 beforeEach(() => {
   jest.clearAllMocks();

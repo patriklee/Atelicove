@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
-import { AUTH_UNAUTHORIZED_EVENT } from '../shared/api/client';
+import { AUTH_UNAUTHORIZED_EVENT } from '../shared/api';
 import { clearStoredAuth, storeUser } from '../shared/auth';
 import { roleLandingPath } from '../shared/routing/rolePaths';
 

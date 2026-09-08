@@ -16,7 +16,7 @@ import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import WorkOrderDocuments from '../documents/WorkOrderDocuments';
 import { EntityEmptyState, TableTitleRow } from '../../shared/components/tables';
-import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
+import { PageContainer, PageHeader, PageSections, PageSurface } from '../../shared/components/layout';
 import { BackNavigation } from '../../shared/components/navigation';
 import { AppAlert, AppTableSortLabel } from '../../shared/icons';
 
@@ -118,9 +118,9 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
 
       <Box>
         <Typography variant="h6" sx={{ mb: 1 }}>Comments</Typography>
-        <Paper sx={{ p: 2 }}>
+        <PageSurface sx={{ p: 2 }}>
           <Typography>{workOrder.comment || 'No comments have been added.'}</Typography>
-        </Paper>
+        </PageSurface>
       </Box>
 
       <TableContainer component={Paper}>

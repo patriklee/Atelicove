@@ -16,7 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { apiFetch } from '../../api';
+import { apiFetch } from '../../shared/api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';

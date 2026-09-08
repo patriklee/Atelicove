@@ -1,5 +1,5 @@
 import React from 'react';
-import ArchiveTable from '../../Components/ArchiveTable';
+import ArchiveTable from '../archive/ArchiveTable';
 
 const ArchivedCompanies = () => <ArchiveTable type="companies" />;
 

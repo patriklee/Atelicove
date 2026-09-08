@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiFetch } from '../../api';
+import { apiFetch } from '../../shared/api';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { BackNavigation, TableNavigationButton } from '../../shared/components/navigation';

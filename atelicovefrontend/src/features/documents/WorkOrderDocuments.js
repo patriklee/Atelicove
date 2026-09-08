@@ -13,7 +13,7 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material';
-import { apiDownload, apiFetch } from '../../api';
+import { apiDownload, apiFetch } from '../../shared/api';
 import { formatDateTime } from '../../model';
 import { EntityEmptyState, TableTitleRow } from '../../shared/components/tables';
 import { AppAlert, AppSelect } from '../../shared/icons';
