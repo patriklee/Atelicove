@@ -30,6 +30,8 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { PageContainer, PageHeader, PageSections } from '../../../shared/components/layout';
+import { TableNavigationButton } from '../../../shared/components/navigation';
+import { EntityEmptyState } from '../../../shared/components/tables';
 import { alpha } from '@mui/material/styles';
 import {
   AppAlert,
@@ -49,14 +51,7 @@ import {
   groupDeadlinesByDate,
   isDeadlineToday,
 } from './dashboardUtils';
-
-const cardSx = {
-  border: '1px solid',
-  borderColor: 'divider',
-  borderRadius: 3,
-  boxShadow: theme => theme.customShadows.soft,
-  bgcolor: 'background.paper',
-};
+import { DashboardPanel, DashboardSectionHeading } from './components/DashboardPanel';
 
 const dashboardContentGridSx = {
   display: 'grid',
@@ -78,25 +73,6 @@ const autocompleteIconProps = {
   clearIcon: <AppIcon icon={icons.close} size={ICON_SIZES.compact} />,
   popupIcon: <AppIcon icon={icons.expand} size={ICON_SIZES.compact} />,
 };
-
-function SectionHeading({ icon, iconColor = 'primary.main', title, subtitle, action, sx }) {
-  return (
-    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2, ...sx }}>
-      <Box>
-        <Stack direction="row" spacing={1} alignItems="center">
-          {icon && (
-            <Box component="span" sx={{ color: iconColor, display: 'inline-flex' }}>
-              <AppIcon icon={icon} />
-            </Box>
-          )}
-          <Typography variant="h6" component="h2">{title}</Typography>
-        </Stack>
-        {subtitle && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{subtitle}</Typography>}
-      </Box>
-      {action}
-    </Stack>
-  );
-}
 
 function DashboardSearch({ query, onQueryChange, groups, searchReady, onNavigate }) {
   const [focused, setFocused] = useState(false);
@@ -517,13 +493,12 @@ function OperationsOverview({ data, onNavigate }) {
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(210px, 100%), 1fr))', gap: 2 }}>
       {cards.map(card => (
-        <Paper
+        <DashboardPanel
           key={card.label}
           component="button"
           type="button"
           onClick={() => onNavigate(card.path)}
           sx={{
-            ...cardSx,
             p: 2.5,
             textAlign: 'left',
             font: 'inherit',
@@ -543,7 +518,7 @@ function OperationsOverview({ data, onNavigate }) {
               <AppIcon icon={card.icon} size={22} />
             </Box>
           </Stack>
-        </Paper>
+        </DashboardPanel>
       ))}
     </Box>
   );
@@ -629,14 +604,13 @@ function ProjectStatus({ status = 'OPEN' }) {
 
 function ProjectOverviewTable({ projects, onNavigate }) {
   return (
-    <Paper sx={{
-      ...cardSx,
+    <DashboardPanel sx={{
       p: { xs: 2, md: 2.5 },
       minHeight: { lg: 540 },
       height: '100%',
       overflow: 'hidden',
     }}>
-      <SectionHeading
+      <DashboardSectionHeading
         icon={icons.projects}
         title="Project Overview"
         subtitle="Completion and budget signals for active projects"
@@ -655,9 +629,7 @@ function ProjectOverviewTable({ projects, onNavigate }) {
             {projects.slice(0, 8).map(project => (
               <TableRow key={project.projectID} hover>
                 <TableCell sx={{ minWidth: 180 }}>
-                  <Button
-                    variant="text"
-                    size="small"
+                  <TableNavigationButton
                     onClick={() => onNavigate(`/admin/projects/${project.projectID}`)}
                     sx={{
                       p: 0,
@@ -669,7 +641,7 @@ function ProjectOverviewTable({ projects, onNavigate }) {
                     }}
                   >
                     {project.projectName || `Project #${project.projectID}`}
-                  </Button>
+                  </TableNavigationButton>
                 </TableCell>
                 <TableCell><HealthProgress health={getProjectHealth(project)} label="Project health" /></TableCell>
                 <TableCell><BudgetHealth health={getBudgetHealth(project)} /></TableCell>
@@ -677,18 +649,16 @@ function ProjectOverviewTable({ projects, onNavigate }) {
               </TableRow>
             ))}
             {!projects.length && (
-              <TableRow>
-                <TableCell colSpan={4}>
-                  <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
-                    No active projects yet. Create a project to begin tracking operations.
-                  </Typography>
-                </TableCell>
-              </TableRow>
+              <EntityEmptyState
+                message="No active projects yet. Create a project to begin tracking operations."
+                colSpan={4}
+                sx={{ py: 4 }}
+              />
             )}
           </TableBody>
         </Table>
       </TableContainer>
-    </Paper>
+    </DashboardPanel>
   );
 }
 
@@ -700,8 +670,8 @@ function QuickActions({ onNavigate }) {
     { label: 'Add Worker', icon: icons.addWorker, path: '/admin/manage-workers' },
   ];
   return (
-    <Paper sx={{ ...cardSx, p: 2, flex: '0 0 auto' }}>
-      <SectionHeading title="Quick Actions" subtitle="Start common administrative work" />
+    <DashboardPanel sx={{ p: 2, flex: '0 0 auto' }}>
+      <DashboardSectionHeading title="Quick Actions" subtitle="Start common administrative work" />
       <Stack spacing={1}>
         {actions.map(action => (
           <Button
@@ -716,7 +686,7 @@ function QuickActions({ onNavigate }) {
           </Button>
         ))}
       </Stack>
-    </Paper>
+    </DashboardPanel>
   );
 }
 
@@ -750,8 +720,7 @@ function MyAssignmentsCard({ workOrders, myProjects, onNavigate }) {
   const hasAssignments = myProjects.length > 0 || workOrders.length > 0;
 
   return (
-    <Paper sx={{
-      ...cardSx,
+    <DashboardPanel sx={{
       p: 2,
       minHeight: 0,
       flex: 1,
@@ -759,7 +728,7 @@ function MyAssignmentsCard({ workOrders, myProjects, onNavigate }) {
       flexDirection: 'column',
       overflow: 'hidden',
     }}>
-      <SectionHeading
+      <DashboardSectionHeading
         icon={icons.assignments}
         title="My Assignments"
         subtitle="Work currently assigned to you"
@@ -779,9 +748,7 @@ function MyAssignmentsCard({ workOrders, myProjects, onNavigate }) {
               {myProjects.map(project => (
                 <TableRow key={`project-${project.projectID}`} hover>
                   <TableCell sx={{ maxWidth: 150 }}>
-                      <Button
-                        variant="text"
-                        size="small"
+                      <TableNavigationButton
                         onClick={() => onNavigate('/admin/projects/active', {
                           state: { projectStudioEditProjectID: project.projectID },
                         })}
@@ -790,7 +757,7 @@ function MyAssignmentsCard({ workOrders, myProjects, onNavigate }) {
                         <Typography component="span" variant="body2" noWrap>
                           {project.projectName || `Project #${project.projectID}`}
                         </Typography>
-                      </Button>
+                      </TableNavigationButton>
                   </TableCell>
                   <TableCell><Typography variant="body2">Project</Typography></TableCell>
                   <TableCell align="right">
@@ -803,14 +770,12 @@ function MyAssignmentsCard({ workOrders, myProjects, onNavigate }) {
                 return (
                   <TableRow key={`work-order-${order.workOrderID}`} hover>
                     <TableCell sx={{ maxWidth: 150 }}>
-                        <Button
-                          variant="text"
-                          size="small"
+                        <TableNavigationButton
                           onClick={() => onNavigate(`/admin/my-assignments/${order.workOrderID}`)}
                           sx={{ p: 0, minWidth: 0, fontWeight: 600, textTransform: 'none' }}
                         >
                           <Typography component="span" variant="body2" noWrap>{assignmentName}</Typography>
-                        </Button>
+                        </TableNavigationButton>
                     </TableCell>
                     <TableCell><Typography variant="body2">Work Order</Typography></TableCell>
                     <TableCell align="right">
@@ -840,7 +805,7 @@ function MyAssignmentsCard({ workOrders, myProjects, onNavigate }) {
       >
         View all assignments
       </Button>
-    </Paper>
+    </DashboardPanel>
   );
 }
 
@@ -1032,8 +997,8 @@ function DeadlineCalendar({ deadlines, onSelectDate }) {
   };
 
   return (
-    <Paper sx={{ ...cardSx, p: 1.5, overflowX: 'auto', height: '100%' }}>
-      <SectionHeading
+    <DashboardPanel sx={{ p: 1.5, overflowX: 'auto', height: '100%' }}>
+      <DashboardSectionHeading
         icon={icons.calendar}
         title="My Calendar"
         subtitle="Select a date to view or add deadlines"
@@ -1159,14 +1124,14 @@ function DeadlineCalendar({ deadlines, onSelectDate }) {
           })}
         </Box>
       </Box>
-    </Paper>
+    </DashboardPanel>
   );
 }
 
 function UpcomingDeadlinesTable({ deadlines, onSelectDeadline }) {
   return (
-    <Paper sx={{ ...cardSx, p: 1.5, height: '100%', minWidth: 0 }}>
-      <SectionHeading
+    <DashboardPanel sx={{ p: 1.5, height: '100%', minWidth: 0 }}>
+      <DashboardSectionHeading
         icon={icons.calendar}
         title="Upcoming Deadlines"
         subtitle="Remainder of this month and the next two"
@@ -1213,7 +1178,7 @@ function UpcomingDeadlinesTable({ deadlines, onSelectDeadline }) {
           </Box>
         </Box>
       )}
-    </Paper>
+    </DashboardPanel>
   );
 }
 
@@ -1251,22 +1216,23 @@ export default function AdminDashboard({ dashboard, headerActions }) {
         actions={headerActions}
       />
 
+      <PageSections>
       {error && (
-        <AppAlert severity="error" action={<Button color="inherit" size="small" onClick={reload}>Retry</Button>} sx={{ mb: 3 }}>
+        <AppAlert severity="error" action={<Button color="inherit" size="small" onClick={reload}>Retry</Button>}>
           {error}
         </AppAlert>
       )}
-      {deadlineMessage && <AppAlert severity={deadlineMessage.severity} sx={{ mb: 3 }}>{deadlineMessage.text}</AppAlert>}
+      {deadlineMessage && <AppAlert severity={deadlineMessage.severity}>{deadlineMessage.text}</AppAlert>}
 
       {loading ? (
-        <Paper sx={{ ...cardSx, minHeight: 300, display: 'grid', placeItems: 'center' }}>
+        <DashboardPanel sx={{ p: 0, minHeight: 300, display: 'grid', placeItems: 'center' }}>
           <Stack alignItems="center" spacing={1}>
             <CircularProgress size={34} />
             <Typography color="text.secondary">Loading operational overview…</Typography>
           </Stack>
-        </Paper>
+        </DashboardPanel>
       ) : (
-        <PageSections>
+        <>
           <OperationsOverview data={data} onNavigate={navigate} />
           <Box sx={{ ...dashboardContentGridSx, alignItems: 'stretch' }}>
             <ProjectOverviewTable projects={data.projects} onNavigate={navigate} />
@@ -1298,8 +1264,9 @@ export default function AdminDashboard({ dashboard, headerActions }) {
               onSelectDeadline={deadline => setDeadlineSelection({ deadline })}
             />
           </Box>
-        </PageSections>
+        </>
       )}
+      </PageSections>
 
       <DeadlineDialog
         open={Boolean(deadlineSelection)}

@@ -1,13 +1,10 @@
 import React, { useRef } from 'react';
 import {
   Box,
-  Button,
   CircularProgress,
-  Stack,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formatMoney } from '../../model';
-import { WorkOrderDocuments } from '../documents';
 import { useAuth } from '../../Components/AuthContext';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { MetricSummary } from '../../shared/components/metrics';
@@ -15,12 +12,8 @@ import { projectPathFor, workOrderPathFor } from '../../shared/routing/rolePaths
 import { AppAlert, icons } from '../../shared/icons';
 import ProjectList from './components/ProjectList';
 import ProjectForm from './components/ProjectForm';
-import ProjectWorkOrders from './components/ProjectWorkOrders';
-import ProjectComments from './components/ProjectComments';
-import ProjectActionItems from './components/ProjectActionItems';
+import ProjectWorkspace from './components/ProjectWorkspace';
 import useProjectsPage from './hooks/useProjectsPage';
-
-const COMMENT_TYPES = ['GENERAL', 'QUESTION', 'DECISION', 'WARNING', 'UPDATE'];
 
 function StudioSummary({ projects }) {
   const metrics = [
@@ -91,6 +84,32 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
     runProjectAction,
   } = useProjectsPage({ routeProjectID, canManage });
 
+  const projectWorkspace = selectedProject ? (
+    <ProjectWorkspace
+      project={selectedProject}
+      canManage={canManage}
+      workOrderForm={workOrderForm}
+      workOrders={attachableWorkOrders}
+      teams={teams}
+      companies={companies}
+      saving={saving}
+      commentText={commentText}
+      commentType={commentType}
+      actionItemText={actionItemText}
+      onWorkOrderFormChange={updateWorkOrderForm}
+      onOpenWorkOrder={order => navigate(workOrderPathFor(user, order.workOrderID))}
+      onRemoveWorkOrder={removeWorkOrder}
+      onAttachWorkOrder={attachOrCreateWorkOrder}
+      onCommentTextChange={setCommentText}
+      onCommentTypeChange={setCommentType}
+      onAddComment={addComment}
+      onActionItemTextChange={setActionItemText}
+      onToggleActionItem={setActionItemCompleted}
+      onAddActionItem={addActionItem}
+      onRunProjectAction={runProjectAction}
+    />
+  ) : null;
+
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
   }
@@ -129,59 +148,7 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
             onOpen={project => navigate(projectPathFor(user, project.projectID))}
           />
 
-          {selectedProject && (
-            <Stack spacing={4}>
-              <ProjectWorkOrders
-                project={selectedProject}
-                canManage={canManage}
-                form={workOrderForm}
-                workOrders={attachableWorkOrders}
-                teams={teams}
-                companies={companies}
-                saving={saving}
-                onFormChange={updateWorkOrderForm}
-                onOpen={order => navigate(workOrderPathFor(user, order.workOrderID))}
-                onRemove={removeWorkOrder}
-                onSubmit={attachOrCreateWorkOrder}
-              />
-
-              <ProjectComments
-                comments={selectedProject.comments || []}
-                commentText={commentText}
-                commentType={commentType}
-                commentTypes={COMMENT_TYPES}
-                saving={saving}
-                canEdit={!selectedProject.archived && selectedProject.projectStatus !== 'COMPLETE'}
-                onTextChange={setCommentText}
-                onTypeChange={setCommentType}
-                onSubmit={addComment}
-              />
-
-              <ProjectActionItems
-                items={selectedProject.actionItems || []}
-                text={actionItemText}
-                saving={saving}
-                canEdit={!selectedProject.archived && selectedProject.projectStatus !== 'COMPLETE'}
-                onTextChange={setActionItemText}
-                onToggle={setActionItemCompleted}
-                onSubmit={addActionItem}
-              />
-
-              <WorkOrderDocuments
-                basePath={`/projects/${selectedProject.projectID}/documents`}
-                canManage={!selectedProject.archived}
-                title="Project Documents"
-                emptyMessage="No documents are attached to this project."
-              />
-
-              <Stack direction="row" spacing={1} justifyContent="flex-end">
-                {selectedProject.projectStatus === 'OPEN' && <Button onClick={() => runProjectAction(`/projects/${selectedProject.projectID}/submit`, { method: 'PUT' }, 'Project submitted for review.')}>Submit for Review</Button>}
-                {selectedProject.projectStatus === 'IN_REVIEW' && <Button onClick={() => runProjectAction(`/projects/${selectedProject.projectID}/reject`, { method: 'PUT' }, 'Project returned to open status.')}>Reject</Button>}
-                {selectedProject.projectStatus === 'IN_REVIEW' && <Button variant="contained" onClick={() => runProjectAction(`/projects/${selectedProject.projectID}/complete`, { method: 'PUT' }, 'Project completed.')}>Complete</Button>}
-                {selectedProject.projectStatus === 'COMPLETE' && <Button color="warning" onClick={() => runProjectAction(`/projects/${selectedProject.projectID}`, { method: 'DELETE' }, 'Project archived.')}>Archive</Button>}
-              </Stack>
-            </Stack>
-          )}
+          {projectWorkspace}
         </PageSections>
       </PageContainer>
     );
@@ -213,61 +180,7 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
         />
       )}
 
-      {selectedProject && (
-        <Stack spacing={4}>
-          <ProjectWorkOrders
-            project={selectedProject}
-            canManage={canManage}
-            form={workOrderForm}
-            workOrders={attachableWorkOrders}
-            teams={teams}
-            companies={companies}
-            saving={saving}
-            onFormChange={updateWorkOrderForm}
-            onOpen={order => navigate(workOrderPathFor(user, order.workOrderID))}
-            onRemove={removeWorkOrder}
-            onSubmit={attachOrCreateWorkOrder}
-          />
-
-          <ProjectComments
-            comments={selectedProject.comments || []}
-            commentText={commentText}
-            commentType={commentType}
-            commentTypes={COMMENT_TYPES}
-            saving={saving}
-            canEdit={!selectedProject.archived && selectedProject.projectStatus !== 'COMPLETE'}
-            onTextChange={setCommentText}
-            onTypeChange={setCommentType}
-            onSubmit={addComment}
-          />
-
-          <ProjectActionItems
-            items={selectedProject.actionItems || []}
-            text={actionItemText}
-            saving={saving}
-            canEdit={!selectedProject.archived && selectedProject.projectStatus !== 'COMPLETE'}
-            onTextChange={setActionItemText}
-            onToggle={setActionItemCompleted}
-            onSubmit={addActionItem}
-          />
-
-          <WorkOrderDocuments
-            basePath={`/projects/${selectedProject.projectID}/documents`}
-            canManage={!selectedProject.archived}
-            title="Project Documents"
-            emptyMessage="No documents are attached to this project."
-          />
-
-          {canManage && (
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
-              {selectedProject.projectStatus === 'OPEN' && <Button onClick={() => runProjectAction(`/projects/${selectedProject.projectID}/submit`, { method: 'PUT' }, 'Project submitted for review.')}>Submit for Review</Button>}
-              {selectedProject.projectStatus === 'IN_REVIEW' && <Button onClick={() => runProjectAction(`/projects/${selectedProject.projectID}/reject`, { method: 'PUT' }, 'Project returned to open status.')}>Reject</Button>}
-              {selectedProject.projectStatus === 'IN_REVIEW' && <Button variant="contained" onClick={() => runProjectAction(`/projects/${selectedProject.projectID}/complete`, { method: 'PUT' }, 'Project completed.')}>Complete</Button>}
-              {selectedProject.projectStatus === 'COMPLETE' && <Button color="warning" onClick={() => runProjectAction(`/projects/${selectedProject.projectID}`, { method: 'DELETE' }, 'Project archived.')}>Archive</Button>}
-            </Stack>
-          )}
-        </Stack>
-      )}
+      {projectWorkspace}
       </PageSections>
     </PageContainer>
   );

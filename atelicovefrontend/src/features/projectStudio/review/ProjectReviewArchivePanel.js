@@ -3,7 +3,6 @@ import {
   Button,
   Chip,
   Grid,
-  Paper,
   Stack,
   Table,
   TableBody,
@@ -14,16 +13,9 @@ import {
   Typography,
 } from '@mui/material';
 import { formatDateTime } from '../../../model';
-
-const ProjectLinkButton = ({ project, onOpenProject }) => (
-  <Button
-    size="small"
-    onClick={() => onOpenProject(project)}
-    sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}
-  >
-    {project.projectName || `Project #${project.projectID}`}
-  </Button>
-);
+import { PageSurface } from '../../../shared/components/layout';
+import { TableNavigationButton } from '../../../shared/components/navigation';
+import { EntityEmptyState } from '../../../shared/components/tables';
 
 const ProjectReviewArchivePanel = ({
   reviewProjects = [],
@@ -37,9 +29,9 @@ const ProjectReviewArchivePanel = ({
 }) => (
   <Grid container spacing={3} sx={{ mt: 3, mb: 3 }}>
     <Grid item xs={12} lg={6}>
-      <Paper sx={{ p: 3, height: '100%' }}>
+      <PageSurface sx={{ height: '100%' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-          <Typography variant="h5">Review Projects</Typography>
+          <Typography variant="h5" component="h2">Review Projects</Typography>
           <Chip label={`${reviewProjects.length} waiting`} />
         </Stack>
         <TableContainer>
@@ -54,9 +46,14 @@ const ProjectReviewArchivePanel = ({
             </TableHead>
             <TableBody>
               {reviewProjects.map(project => (
-                <TableRow key={project.projectID}>
+                <TableRow key={project.projectID} hover>
                   <TableCell>
-                    <ProjectLinkButton project={project} onOpenProject={onOpenProject} />
+                    <TableNavigationButton
+                      onClick={() => onOpenProject(project)}
+                      sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}
+                    >
+                      {project.projectName || `Project #${project.projectID}`}
+                    </TableNavigationButton>
                   </TableCell>
                   <TableCell>{(project.workOrders || []).length || project.workOrderCount || 0}</TableCell>
                   <TableCell>{formatDateTime(project.lastModifiedAt)}</TableCell>
@@ -73,19 +70,17 @@ const ProjectReviewArchivePanel = ({
                 </TableRow>
               ))}
               {!reviewProjects.length && (
-                <TableRow>
-                  <TableCell colSpan={4}>No projects are waiting for review.</TableCell>
-                </TableRow>
+                <EntityEmptyState message="No projects are waiting for review." colSpan={4} />
               )}
             </TableBody>
           </Table>
         </TableContainer>
-      </Paper>
+      </PageSurface>
     </Grid>
 
     <Grid item xs={12} lg={6}>
-      <Paper sx={{ p: 3, height: '100%' }}>
-        <Typography variant="h5" sx={{ mb: 2 }}>Projects</Typography>
+      <PageSurface sx={{ height: '100%' }}>
+        <Typography variant="h5" component="h2" sx={{ mb: 2 }}>Projects</Typography>
         <TableContainer>
           <Table size="small">
             <TableHead>
@@ -99,9 +94,14 @@ const ProjectReviewArchivePanel = ({
             </TableHead>
             <TableBody>
               {archiveProjects.map(project => (
-                <TableRow key={project.projectID}>
+                <TableRow key={project.projectID} hover>
                   <TableCell>
-                    <ProjectLinkButton project={project} onOpenProject={onOpenProject} />
+                    <TableNavigationButton
+                      onClick={() => onOpenProject(project)}
+                      sx={{ justifyContent: 'flex-start', p: 0, textAlign: 'left' }}
+                    >
+                      {project.projectName || `Project #${project.projectID}`}
+                    </TableNavigationButton>
                   </TableCell>
                   <TableCell>{project.projectStatus.replaceAll('_', ' ')}</TableCell>
                   <TableCell>{formatDateTime(project.activatedAt || project.projectStartedAt || project.startedAt)}</TableCell>
@@ -120,14 +120,12 @@ const ProjectReviewArchivePanel = ({
                 </TableRow>
               ))}
               {!archiveProjects.length && (
-                <TableRow>
-                  <TableCell colSpan={5}>No projects are available for archiving.</TableCell>
-                </TableRow>
+                <EntityEmptyState message="No projects are available for archiving." colSpan={5} />
               )}
             </TableBody>
           </Table>
         </TableContainer>
-      </Paper>
+      </PageSurface>
     </Grid>
   </Grid>
 );
