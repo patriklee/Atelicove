@@ -17,7 +17,6 @@ import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import WorkOrderDocuments from '../documents/WorkOrderDocuments';
 import { EntityEmptyState, TableTitleRow } from '../../shared/components/tables';
 import { PageContainer, PageHeader, PageSections, PageSurface } from '../../shared/components/layout';
-import { BackNavigation } from '../../shared/components/navigation';
 import { AppAlert, AppTableSortLabel } from '../../shared/icons';
 
 const money = (value) => Number(value || 0).toLocaleString(undefined, {
@@ -55,7 +54,6 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
     return (
       <PageContainer>
         <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>
-        <BackNavigation fallback="/admin/workorders" />
       </PageContainer>
     );
   }
@@ -90,7 +88,6 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
   return (
     <PageContainer>
       <PageHeader
-        context={<BackNavigation fallback="/admin/workorders" />}
         title={`Work Order #${workOrder.workOrderID}`}
       />
       <PageSections>

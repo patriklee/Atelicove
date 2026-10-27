@@ -6,7 +6,8 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../Components/AuthContext';
-import { PageContent, PageHeaderActionsProvider } from '../../shared/components/layout';
+import { PageContainer, PageContent, PageHeaderActionsProvider } from '../../shared/components/layout';
+import { BackNavigation } from '../../shared/components/navigation';
 import { AppIconButton, icons } from '../../shared/icons';
 import AdminDashboard, { AdminGlobalControls } from './dashboard/AdminDashboard';
 import useAdminDashboard from './dashboard/useAdminDashboard';
@@ -80,6 +81,9 @@ const AdminHomePage = () => {
             )}
 
 			<PageContent sx={{ pt: { xs: 8, sm: 3 } }}>
+                {location.pathname.replace(/\/$/, '') !== '/admin' && (
+                    <PageContainer><BackNavigation /></PageContainer>
+                )}
 			    {showGlobalControls
 			        ? <AdminContent dashboardPage={location.pathname === '/admin'} />
 			        : <Outlet />}

@@ -14,7 +14,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../../shared/api';
 import { formatDateTime, getWorkOrderWorkers, normalizeWorker } from '../../model';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
-import { BackNavigation, TableNavigationButton } from '../../shared/components/navigation';
+import { TableNavigationButton } from '../../shared/components/navigation';
 import { EntityEmptyState, TableTitleRow } from '../../shared/components/tables';
 import { AppAlert } from '../../shared/icons';
 
@@ -57,7 +57,6 @@ const WorkerSummary = () => {
     return (
       <PageContainer>
         <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>
-        <BackNavigation fallback="/admin/workers" />
       </PageContainer>
     );
   }
@@ -67,7 +66,6 @@ const WorkerSummary = () => {
   return (
     <PageContainer>
       <PageHeader
-        context={<BackNavigation fallback="/admin/workers" />}
         title={`${worker.firstName} ${worker.lastName}`}
       />
       <PageSections>

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '../Components/AuthContext';
 import { AdminRoute, PublicRoute, WorkerRoute } from '../Components/ProtectedRoute';
+import { BackNavigationProvider } from '../shared/components/navigation/BackNavigation';
 
 // Public pages
 import LoginPage from '../Components/LoginPage';
@@ -42,6 +43,7 @@ import {
 function AppRoutes() {
   return (
     <Router>
+      <BackNavigationProvider>
       <AuthProvider>
         <Routes>
           {/* Public Routes */}
@@ -98,6 +100,7 @@ function AppRoutes() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
+      </BackNavigationProvider>
     </Router>
   );
 }

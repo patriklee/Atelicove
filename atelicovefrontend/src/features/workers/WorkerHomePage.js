@@ -4,7 +4,8 @@ import {
 } from '@mui/material';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../Components/AuthContext';
-import { PageContent } from '../../shared/components/layout';
+import { PageContainer, PageContent } from '../../shared/components/layout';
+import { BackNavigation } from '../../shared/components/navigation';
 import WorkerNavigation from './components/WorkerNavigation';
 
 const WorkerHomePage = () => {
@@ -32,6 +33,9 @@ const WorkerHomePage = () => {
       />
 
       <PageContent>
+        {!['/worker', '/worker/my-assignments'].includes(location.pathname.replace(/\/$/, '')) && (
+          <PageContainer><BackNavigation /></PageContainer>
+        )}
         <Outlet />
       </PageContent>
 

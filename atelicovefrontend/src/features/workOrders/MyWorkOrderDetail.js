@@ -12,7 +12,6 @@ import { getWorkOrderWorkers } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
-import { BackNavigation } from '../../shared/components/navigation';
 import WorkOrderDetail from './WorkOrderDetail';
 import { WorkOrderDocuments } from '../documents';
 import { projectPathFor } from '../../shared/routing/rolePaths';
@@ -211,7 +210,6 @@ const MyWorkOrderDetail = () => {
   return (
     <PageContainer>
       <PageHeader
-        context={<BackNavigation fallback={user?.isAdmin || user?.admin ? '/admin/my-assignments' : '/worker/my-assignments'} />}
         title={`Work Order #${workOrder.workOrderID}`}
       />
       <PageSections>

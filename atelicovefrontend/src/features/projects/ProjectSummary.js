@@ -17,7 +17,7 @@ import { apiFetch } from '../../shared/api';
 import { formatDateTime, formatMoney, getWorkOrderActualPrice, getWorkOrderWorkers, normalizeWorker } from '../../model';
 import { EntityEmptyState, TableTitleRow } from '../../shared/components/tables';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
-import { BackNavigation, TableNavigationButton } from '../../shared/components/navigation';
+import { TableNavigationButton } from '../../shared/components/navigation';
 import { AppAlert } from '../../shared/icons';
 
 const DetailRow = ({ label, value }) => (
@@ -62,7 +62,6 @@ const ProjectSummary = () => {
     return (
       <PageContainer>
         <AppAlert severity="error" sx={{ mb: 2 }}>{error}</AppAlert>
-        <BackNavigation fallback="/admin/projects/active" />
       </PageContainer>
     );
   }
@@ -83,7 +82,6 @@ const ProjectSummary = () => {
   return (
     <PageContainer>
       <PageHeader
-        context={<BackNavigation fallback="/admin/projects/active" />}
         title={project.projectName || `Project #${project.projectID}`}
       />
       <PageSections>

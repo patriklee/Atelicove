@@ -27,7 +27,6 @@ import { useAuth } from '../../Components/AuthContext';
 import { ConfirmationDialog } from '../../shared/components/dialogs';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
 import { MetricSummary } from '../../shared/components/metrics';
-import { BackNavigation } from '../../shared/components/navigation';
 import { useConfirmationDialog } from '../../shared/hooks';
 import WorkerTable from './components/WorkerTable';
 import { WorkerCreatePanel, WorkerEditPanel } from './components/WorkerFormPanels';
@@ -72,7 +71,6 @@ const ManageWorkers = () => {
   const confirmationDialog = useConfirmationDialog();
   const pendingAction = confirmationDialog.target?.action;
   const pendingWorker = confirmationDialog.target?.worker;
-  const showContextBack = Boolean(routeWorkerID);
 
   const fetchWorkers = useCallback(async () => {
     const [data, teamData, workOrderData] = await Promise.all([
@@ -358,7 +356,6 @@ const ManageWorkers = () => {
   return (
     <PageContainer>
       <PageHeader
-        context={showContextBack ? <BackNavigation fallback="/admin/workers" /> : null}
         title="Workers"
         subtitle="Create and edit active workers and teams."
       />
