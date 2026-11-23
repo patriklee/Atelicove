@@ -21,7 +21,7 @@ jest.mock('./dashboard/AdminDashboard', () => ({
 }));
 // History behavior is covered with a real BrowserRouter in BackNavigation.test.js.
 jest.mock('../../shared/components/navigation', () => ({
-  BackNavigation: () => <button>Back</button>,
+  BackNavigation: ({ fallback }) => <button data-fallback={fallback}>Back</button>,
 }));
 
 test.each([
@@ -40,4 +40,15 @@ test.each([
   useLocation.mockReturnValue({ pathname });
   render(<Shell />);
   expect(screen.queryAllByRole('button', { name: 'Back' })).toHaveLength(count);
+});
+
+test.each([
+  ['/admin/projects/2/edit', '/admin/projects/2'],
+  ['/admin/projects/2', '/admin/projects/active'],
+  ['/admin/projects/new', '/admin/projects/active'],
+  ['/admin/projects/active', '/admin'],
+])('uses a project-specific fallback for %s', (pathname, fallback) => {
+  useLocation.mockReturnValue({ pathname });
+  render(<AdminHomePage />);
+  expect(screen.getByRole('button', { name: 'Back' }).getAttribute('data-fallback')).toBe(fallback);
 });

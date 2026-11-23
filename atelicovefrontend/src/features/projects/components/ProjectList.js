@@ -3,8 +3,9 @@ import {
   Box,
   Button,
   Chip,
+  FormControl,
+  InputLabel,
   LinearProgress,
-  Menu,
   MenuItem,
   Paper,
   Stack,
@@ -14,12 +15,13 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { formatDateTime, formatMoney } from '../../../model';
 import { EntityEmptyState } from '../../../shared/components/tables';
-import { AppIcon, AppIconButton, ICON_SIZES, icons } from '../../../shared/icons';
+import { AppIcon, AppSelect, icons } from '../../../shared/icons';
 import { getBudgetHealth, getProjectHealth } from '../../admin/dashboard/dashboardUtils';
 
 const statusConfig = {
@@ -202,16 +204,31 @@ export default function ProjectList({
   onEdit,
   onOpen,
 }) {
-  const [menuAnchor, setMenuAnchor] = useState(null);
-  const [menuProject, setMenuProject] = useState(null);
-  const closeMenu = () => {
-    setMenuAnchor(null);
-    setMenuProject(null);
-  };
-  const editMenuProject = () => {
-    if (menuProject) onEdit(menuProject);
-    closeMenu();
-  };
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sort, setSort] = useState('updated');
+  const activeProjects = projects.filter(project => !project.archived);
+  const statuses = [...new Set([
+    ...Object.keys(statusConfig),
+    ...activeProjects.map(project => project.projectStatus || 'OPEN'),
+  ])];
+  const query = search.trim().toLowerCase();
+  const filteredProjects = activeProjects.filter(project => (
+    (statusFilter === 'all' || (project.projectStatus || 'OPEN') === statusFilter)
+    && [
+      project.projectName,
+      project.projectID,
+      project.description,
+      ...(project.teams || []).map(team => team.teamName),
+    ].join(' ').toLowerCase().includes(query)
+  )).sort((first, second) => {
+    const byName = (first.projectName || `Project #${first.projectID}`)
+      .localeCompare(second.projectName || `Project #${second.projectID}`);
+    if (sort === 'name') return byName;
+    if (sort === 'name-desc') return -byName;
+    if (sort === 'budget') return Number(second.budget || 0) - Number(first.budget || 0) || byName;
+    return (Date.parse(second.lastModifiedAt) || 0) - (Date.parse(first.lastModifiedAt) || 0) || byName;
+  });
 
   return (
     <Paper
@@ -237,6 +254,45 @@ export default function ProjectList({
             </Typography>
           </Box>
         </Stack>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ my: 2 }}>
+          <TextField
+            label="Search projects"
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+            size="small"
+            sx={{ flex: 1 }}
+          />
+          <FormControl size="small" sx={{ minWidth: 170 }}>
+            <InputLabel id="project-status-filter-label">Status</InputLabel>
+            <AppSelect
+              labelId="project-status-filter-label"
+              label="Status"
+              value={statusFilter}
+              onChange={event => setStatusFilter(event.target.value)}
+            >
+              <MenuItem value="all">All statuses</MenuItem>
+              {statuses.map(status => (
+                <MenuItem key={status} value={status}>
+                  {statusConfig[status]?.label || status.replaceAll('_', ' ')}
+                </MenuItem>
+              ))}
+            </AppSelect>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 190 }}>
+            <InputLabel id="project-sort-label">Sort by</InputLabel>
+            <AppSelect
+              labelId="project-sort-label"
+              label="Sort by"
+              value={sort}
+              onChange={event => setSort(event.target.value)}
+            >
+              <MenuItem value="updated">Recently updated</MenuItem>
+              <MenuItem value="name">Name A–Z</MenuItem>
+              <MenuItem value="name-desc">Name Z–A</MenuItem>
+              <MenuItem value="budget">Highest budget</MenuItem>
+            </AppSelect>
+          </FormControl>
+        </Stack>
       </Box>
       <TableContainer sx={{ overflowX: 'auto', maxWidth: '100%' }}>
         <Table
@@ -260,7 +316,7 @@ export default function ProjectList({
             </TableRow>
           </TableHead>
           <TableBody>
-            {projects.map(project => {
+            {filteredProjects.map(project => {
               const status = statusConfig[project.projectStatus || 'OPEN'] || {
                 label: (project.projectStatus || 'OPEN').replaceAll('_', ' '),
                 sx: {
@@ -293,49 +349,25 @@ export default function ProjectList({
                   <TableCell align="right">
                     <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
                       <Button variant="outlined" size="small" onClick={() => onOpen(project)}>
-                        Open Project
+                        Open Workspace
                       </Button>
                       {canManage && (
-                        <AppIconButton
-                          icon={icons.moreActions}
-                          iconSize={ICON_SIZES.compact}
-                          label={`More actions for ${projectName}`}
-                          size="small"
-                          onClick={event => {
-                            setMenuAnchor(event.currentTarget);
-                            setMenuProject(project);
-                          }}
-                          aria-haspopup="menu"
-                          aria-expanded={menuProject?.projectID === project.projectID ? 'true' : undefined}
-                          sx={{ p: 0.75 }}
-                        />
+                        <Button size="small" onClick={() => onEdit(project)}>Edit Project</Button>
                       )}
                     </Stack>
                   </TableCell>
                 </TableRow>
               );
             })}
-            {!projects.length && (
+            {!filteredProjects.length && (
               <EntityEmptyState
-                message="No active projects found."
+                message={activeProjects.length ? 'No projects match your search and filters.' : 'No active projects found.'}
                 colSpan={8}
               />
             )}
           </TableBody>
         </Table>
       </TableContainer>
-      <Menu
-        anchorEl={menuAnchor}
-        open={Boolean(menuAnchor)}
-        onClose={closeMenu}
-        MenuListProps={{
-          'aria-label': menuProject
-            ? `Actions for ${menuProject.projectName || `Project #${menuProject.projectID}`}`
-            : 'Project actions',
-        }}
-      >
-        <MenuItem onClick={editMenuProject}>Edit</MenuItem>
-      </Menu>
     </Paper>
   );
 }

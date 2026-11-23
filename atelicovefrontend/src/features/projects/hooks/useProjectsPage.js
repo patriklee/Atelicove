@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '../../../shared/api';
 
 const emptyProjectForm = {
@@ -23,7 +23,15 @@ const projectPayload = (form) => ({
   teamIDs: form.teamIDs.map(Number),
 });
 
-const useProjectsPage = ({ routeProjectID, canManage }) => {
+const formForProject = (project) => ({
+  projectID: project.projectID,
+  projectName: project.projectName || '',
+  description: project.description || '',
+  budget: project.budget ?? '',
+  teamIDs: (project.teams || []).map(team => team.teamID),
+});
+
+const useProjectsPage = ({ routeProjectID, canManage, mode = 'active', onSaved }) => {
   const [projects, setProjects] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -36,63 +44,59 @@ const useProjectsPage = ({ routeProjectID, canManage }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const loadSequence = useRef(0);
 
   const loadData = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setMessage(null);
+    setProjects([]);
+    setProjectForm(emptyProjectForm);
+    setWorkOrderForm(emptyWorkOrderForm);
+    setCommentText('');
+    setCommentType('GENERAL');
+    setActionItemText('');
     try {
+      const workspace = mode === 'workspace' || mode === 'worker-edit';
       const [projectData, workOrderData, teamData, companyData] = await Promise.all([
-        apiFetch('/projects'),
-        apiFetch('/workorders'),
-        canManage ? apiFetch('/teams') : Promise.resolve([]),
-        canManage ? apiFetch('/companies') : Promise.resolve([]),
+        mode === 'create' ? Promise.resolve([])
+          : routeProjectID ? apiFetch(`/projects/${routeProjectID}`) : apiFetch('/projects'),
+        workspace ? apiFetch('/workorders') : Promise.resolve([]),
+        canManage && mode !== 'active' ? apiFetch('/teams') : Promise.resolve([]),
+        canManage && workspace ? apiFetch('/companies') : Promise.resolve([]),
       ]);
-      setProjects(projectData);
+      if (sequence !== loadSequence.current) return;
+      setProjects(routeProjectID && mode !== 'create' ? (projectData ? [projectData] : []) : projectData);
+      if (mode === 'edit' && projectData?.projectID) setProjectForm(formForProject(projectData));
       setWorkOrders(workOrderData);
       setTeams(teamData);
       setCompanies(companyData.filter(company => !company.archived));
     } catch (error) {
-      setMessage({ severity: 'error', text: error.message });
+      if (sequence === loadSequence.current) setMessage({ severity: 'error', text: error.message });
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
-  }, [canManage]);
+  }, [canManage, mode, routeProjectID]);
 
   useEffect(() => {
     loadData();
+    return () => { loadSequence.current += 1; };
   }, [loadData]);
 
   const visibleProjects = useMemo(() => projects.filter(project => !project.archived), [projects]);
-  const selectedProject = projects.find(project => project.projectID === Number(projectForm.projectID));
+  const selectedProject = mode === 'create' ? undefined
+    : projects.find(project => Number(project.projectID) === Number(routeProjectID));
   const attachableWorkOrders = workOrders.filter(order => (
     !order.archived &&
     ['OPEN', 'IN_PROCESS'].includes(order.status) &&
     (!order.project || order.project.projectID === selectedProject?.projectID)
   ));
 
-  const selectProject = useCallback((project) => {
-    if (!project) return;
-    setProjectForm({
-      projectID: project.projectID,
-      projectName: project.projectName || '',
-      description: project.description || '',
-      budget: project.budget ?? '',
-      teamIDs: (project.teams || []).map(team => team.teamID),
-    });
-    setWorkOrderForm(emptyWorkOrderForm);
-    setMessage(null);
-  }, []);
-
-  useEffect(() => {
-    if (!routeProjectID || !projects.length) return;
-    selectProject(projects.find(project => project.projectID === Number(routeProjectID)));
-  }, [projects, routeProjectID, selectProject]);
-
   const replaceProject = (updated) => {
-    setProjects(current => current.map(project => (
-      project.projectID === updated.projectID ? updated : project
-    )));
-    selectProject(updated);
+    setProjects(current => current.some(project => project.projectID === updated.projectID)
+      ? current.map(project => project.projectID === updated.projectID ? updated : project)
+      : [...current, updated]);
+    if (mode === 'edit') setProjectForm(formForProject(updated));
   };
 
   const runProjectAction = async (path, options, successText) => {
@@ -100,11 +104,13 @@ const useProjectsPage = ({ routeProjectID, canManage }) => {
     setMessage(null);
     try {
       const updated = await apiFetch(path, options);
-      if (updated) replaceProject(updated);
+      if (updated?.projectID) replaceProject(updated);
       else await loadData();
       setMessage({ severity: 'success', text: successText });
+      return { success: true, project: updated };
     } catch (error) {
       setMessage({ severity: 'error', text: error.message });
+      return { success: false };
     } finally {
       setSaving(false);
     }
@@ -112,16 +118,19 @@ const useProjectsPage = ({ routeProjectID, canManage }) => {
 
   const saveProject = async (event) => {
     event.preventDefault();
+    if (!canManage || saving || !['create', 'edit'].includes(mode)) return;
+    if (mode === 'edit' && !selectedProject) return;
     if (!projectForm.projectName.trim()) {
       setMessage({ severity: 'error', text: 'Project name is required.' });
       return;
     }
-    const editing = Boolean(projectForm.projectID);
-    await runProjectAction(
-      editing ? `/projects/${projectForm.projectID}` : '/projects',
+    const editing = mode === 'edit';
+    const result = await runProjectAction(
+      editing ? `/projects/${routeProjectID}` : '/projects',
       { method: editing ? 'PUT' : 'POST', body: JSON.stringify(projectPayload(projectForm)) },
       editing ? 'Project updated.' : 'Project created.',
     );
+    if (result.success) onSaved?.(result.project);
   };
 
   const attachOrCreateWorkOrder = async (event) => {
@@ -195,7 +204,6 @@ const useProjectsPage = ({ routeProjectID, canManage }) => {
     loading,
     saving,
     message,
-    selectProject,
     updateProjectForm: changes => setProjectForm(current => ({ ...current, ...changes })),
     resetProjectForm: () => setProjectForm(emptyProjectForm),
     saveProject,

@@ -17,7 +17,7 @@ import {
   ManageCompanies,
 } from '../features/companies';
 import { Documents } from '../features/documents';
-import { ArchivedProjects, ProjectsPage, ProjectSummary } from '../features/projects';
+import { ArchivedProjects, ProjectsPage } from '../features/projects';
 import { ProjectStudioPage } from '../features/projectStudio';
 import {
   ActiveWorkers,
@@ -74,8 +74,10 @@ function AppRoutes() {
               <Route path="settings" element={<Settings />} />
               <Route path="my-assignments" element={<MyAssignments />} />
               <Route path="my-assignments/:workOrderID" element={<MyWorkOrderDetail />} />
-              <Route path="projects/active" element={<ProjectStudioPage />} />
-              <Route path="projects/:projectID" element={<ProjectSummary />} />
+              <Route path="projects/active" element={<ProjectsPage mode="active" title="Active Projects" subtitle="Browse and manage the project portfolio." />} />
+              <Route path="projects/new" element={<ProjectStudioPage />} />
+              <Route path="projects/:projectID" element={<ProjectsPage mode="workspace" title="Project Workspace" />} />
+              <Route path="projects/:projectID/edit" element={<ProjectsPage mode="edit" title="Project Editor" />} />
 			  <Route path="workorders" element={<WorkOrders />} />
               <Route path="workorders/:workOrderID" element={<WorkOrderDetail />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />

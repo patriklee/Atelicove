@@ -8,6 +8,7 @@ let mockPathname = '/admin/projects/active';
 
 jest.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: mockPathname }),
+  useNavigate: () => jest.fn(),
   Outlet: () => {
     const React = require('react');
     const { PageHeader } = jest.requireActual('../../shared/components/layout');

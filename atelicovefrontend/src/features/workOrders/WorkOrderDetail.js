@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box,
+  Button,
   CircularProgress,
   Paper,
   Table,
@@ -11,13 +12,15 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../Components/AuthContext';
 import { workOrderService } from '../../services/workOrderService';
 import { formatDateTime, getWorkOrderWorkers } from '../../model';
 import WorkOrderDocuments from '../documents/WorkOrderDocuments';
 import { EntityEmptyState, TableTitleRow } from '../../shared/components/tables';
 import { PageContainer, PageHeader, PageSections, PageSurface } from '../../shared/components/layout';
 import { AppAlert, AppTableSortLabel } from '../../shared/icons';
+import { projectPathFor } from '../../shared/routing/rolePaths';
 
 const money = (value) => Number(value || 0).toLocaleString(undefined, {
   style: 'currency',
@@ -33,6 +36,8 @@ const DetailRow = ({ label, value }) => (
 
 const WorkOrderDetail = ({ canManageDocuments = false }) => {
   const { workOrderID } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [workOrder, setWorkOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -78,6 +83,7 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
   });
   const total = items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.price)), 0);
   const company = workOrder.company || {};
+  const projectID = workOrder.project?.projectID || workOrder.projectID;
 
   const handleItemSort = (column) => {
     const isAsc = itemOrderBy === column && itemOrder === 'asc';
@@ -91,6 +97,11 @@ const WorkOrderDetail = ({ canManageDocuments = false }) => {
         title={`Work Order #${workOrder.workOrderID}`}
       />
       <PageSections>
+      {projectID && (
+        <Button sx={{ alignSelf: 'flex-start' }} onClick={() => navigate(projectPathFor(user, projectID))}>
+          Open Project Workspace
+        </Button>
+      )}
 
       <TableContainer component={Paper}>
         <Table>

@@ -53,8 +53,17 @@ test('expands the active project group and marks its current route', () => {
   renderSidebar();
 
   expect(screen.getByRole('button', { name: 'Projects' }).getAttribute('aria-expanded')).toBe('true');
-  expect(screen.getByRole('link', { name: 'Project Studio' }).getAttribute('aria-current')).toBe('page');
-  expect(screen.getByRole('link', { name: 'Project Studio' }).getAttribute('href')).toBe('/admin/projects/active');
+  expect(screen.getByRole('link', { name: 'Active Projects' }).getAttribute('aria-current')).toBe('page');
+  expect(screen.getByRole('link', { name: 'Active Projects' }).getAttribute('href')).toBe('/admin/projects/active');
+  expect(screen.getByRole('link', { name: 'Project Planner' }).getAttribute('href')).toBe('/admin/projects/new');
+});
+
+test('keeps archived projects in the existing Archive section', () => {
+  renderSidebar('/admin/archive/projects');
+
+  expect(screen.getByRole('button', { name: 'Archive' }).getAttribute('aria-expanded')).toBe('true');
+  expect(screen.getByRole('link', { name: 'Projects' }).getAttribute('href')).toBe('/admin/archive/projects');
+  expect(screen.getByRole('link', { name: 'Projects' }).getAttribute('aria-current')).toBe('page');
 });
 
 test('keeps project group expansion keyboard-operable and manually collapsible', () => {

@@ -55,6 +55,8 @@ test('keeps an empty dashboard useful and stable', () => {
   expect(screen.getByRole('button', { name: 'Next month' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'My Calendar' })).toBeTruthy();
   expect(screen.getByText('No assignments')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Create Project' }));
+  expect(mockNavigate).toHaveBeenCalledWith('/admin/projects/new');
 });
 
 test('opens alert records in a dialog before navigating to a detail page', () => {
@@ -148,9 +150,7 @@ test('shows the same assigned projects and work orders as My Assignments', () =>
   expect(within(assignmentsTable).getAllByText('Work Order')).toHaveLength(2);
 
   fireEvent.click(screen.getAllByRole('button', { name: 'Production Upgrade' })[1]);
-  expect(mockNavigate).toHaveBeenCalledWith('/admin/projects/active', {
-    state: { projectStudioEditProjectID: 2 },
-  });
+  expect(mockNavigate).toHaveBeenCalledWith('/admin/projects/2');
 
   fireEvent.click(screen.getByRole('button', { name: 'Work Order #11' }));
   expect(mockNavigate).toHaveBeenCalledWith('/admin/my-assignments/11');

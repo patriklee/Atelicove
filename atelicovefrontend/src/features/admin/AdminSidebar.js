@@ -31,7 +31,8 @@ const navigationItems = [
     key: 'projects',
     routePrefixes: ['/admin/projects/', '/admin/my-assignments'],
     children: [
-      { label: 'Project Studio', icon: icons.projectStudio, path: '/admin/projects/active' },
+      { label: 'Active Projects', icon: icons.projects, path: '/admin/projects/active' },
+      { label: 'Project Planner', icon: icons.projectStudio, path: '/admin/projects/new' },
       { label: 'My Assignments', icon: icons.assignments, path: '/admin/my-assignments' },
     ],
   },

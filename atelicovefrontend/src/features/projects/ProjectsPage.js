@@ -1,9 +1,12 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   Box,
+  Button,
+  Chip,
   CircularProgress,
+  Stack,
 } from '@mui/material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { formatMoney } from '../../model';
 import { useAuth } from '../../Components/AuthContext';
 import { PageContainer, PageHeader, PageSections } from '../../shared/components/layout';
@@ -15,7 +18,7 @@ import ProjectForm from './components/ProjectForm';
 import ProjectWorkspace from './components/ProjectWorkspace';
 import useProjectsPage from './hooks/useProjectsPage';
 
-function StudioSummary({ projects }) {
+function PortfolioSummary({ projects }) {
   const metrics = [
     {
       label: 'Active Projects',
@@ -46,14 +49,15 @@ function StudioSummary({ projects }) {
   return <MetricSummary metrics={metrics} ariaLabel="Project summary" />;
 }
 
-const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = '' }) => {
-  const { projectID: routeProjectID } = useParams();
+const ProjectPageContent = ({ mode, title, subtitle, routeProjectID }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const plannerRef = useRef(null);
   const isWorkerEdit = mode === 'worker-edit';
   const canManage = user?.isAdmin === true && !isWorkerEdit;
-  const isStudio = mode === 'active' && !routeProjectID;
+  const isCreating = mode === 'create';
+  const isEditing = mode === 'edit';
+  const isPortfolio = mode === 'active';
+  const workspacePath = routeProjectID ? projectPathFor(user, routeProjectID) : '/admin/projects/active';
   const {
     visibleProjects,
     selectedProject,
@@ -68,7 +72,6 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
     loading,
     saving,
     message,
-    selectProject,
     updateProjectForm,
     resetProjectForm,
     saveProject,
@@ -82,12 +85,20 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
     setActionItemCompleted,
     addActionItem,
     runProjectAction,
-  } = useProjectsPage({ routeProjectID, canManage });
+  } = useProjectsPage({
+    routeProjectID,
+    canManage,
+    mode,
+    onSaved: project => {
+      const projectID = project?.projectID || (isEditing ? routeProjectID : null);
+      navigate(projectID ? projectPathFor(user, projectID) : '/admin/projects/active', { replace: true });
+    },
+  });
 
-  const projectWorkspace = selectedProject ? (
+  const projectWorkspace = selectedProject && !isEditing ? (
     <ProjectWorkspace
       project={selectedProject}
-      canManage={canManage}
+      canManage={canManage && !selectedProject.archived}
       workOrderForm={workOrderForm}
       workOrders={attachableWorkOrders}
       teams={teams}
@@ -114,69 +125,67 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
     return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
   }
 
-  if (isStudio) {
-    return (
-      <PageContainer>
-        <PageHeader title={title} subtitle={subtitle} />
-
-        {message && <AppAlert severity={message.severity} sx={{ mb: 3 }}>{message.text}</AppAlert>}
-
-        <PageSections>
-          <StudioSummary projects={visibleProjects} />
-
-          {canManage && (
-            <Box ref={plannerRef} sx={{ scrollMarginTop: 24 }}>
-              <ProjectForm
-                form={projectForm}
-                project={selectedProject}
-                teams={teams}
-                saving={saving}
-                onChange={updateProjectForm}
-                onReset={resetProjectForm}
-                onSubmit={saveProject}
-              />
-            </Box>
-          )}
-
-          <ProjectList
-            projects={visibleProjects}
-            canManage={canManage}
-            onEdit={project => {
-              selectProject(project);
-              plannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-            onOpen={project => navigate(projectPathFor(user, project.projectID))}
-          />
-
-          {projectWorkspace}
-        </PageSections>
-      </PageContainer>
-    );
-  }
+  const pageTitle = isEditing ? 'Edit Project'
+    : selectedProject ? selectedProject.projectName || `Project #${selectedProject.projectID}`
+      : title || (isCreating ? 'Project Planner' : isPortfolio ? 'Active Projects' : 'Project Workspace');
 
   return (
     <PageContainer>
-      <PageHeader title={title} subtitle={subtitle} />
+      <PageHeader
+        title={pageTitle}
+        subtitle={selectedProject ? selectedProject.description : subtitle}
+        context={selectedProject && (
+          <Chip
+            size="small"
+            label={selectedProject.archived ? 'Archived' : (selectedProject.projectStatus || 'OPEN').replaceAll('_', ' ')}
+            sx={{ mb: 1 }}
+          />
+        )}
+      />
       <PageSections>
       {message && <AppAlert severity={message.severity}>{message.text}</AppAlert>}
 
-      {!routeProjectID && (
+      <Stack direction="row" spacing={1}>
+        {isPortfolio && canManage && (
+          <Button component={Link} to="/admin/projects/new" variant="contained">Create Project</Button>
+        )}
+        {!isPortfolio && !isWorkerEdit && (
+          <Button component={Link} to={isEditing ? workspacePath : '/admin/projects/active'}>
+            {isEditing ? 'Project Workspace' : 'Active Projects'}
+          </Button>
+        )}
+        {selectedProject && canManage && !isEditing && !selectedProject.archived && (
+          <Button component={Link} to={`/admin/projects/${selectedProject.projectID}/edit`} variant="outlined">
+            Edit Project
+          </Button>
+        )}
+      </Stack>
+
+      {isPortfolio && <PortfolioSummary projects={visibleProjects} />}
+      {isPortfolio && (
         <ProjectList
           projects={visibleProjects}
           canManage={canManage}
-          onEdit={selectProject}
+          onEdit={project => navigate(`/admin/projects/${project.projectID}/edit`)}
           onOpen={project => navigate(projectPathFor(user, project.projectID))}
         />
       )}
 
-      {canManage && (
+      {routeProjectID && !selectedProject && !message && (
+        <AppAlert severity="warning">Project not found.</AppAlert>
+      )}
+
+      {canManage && (isCreating || (isEditing && selectedProject)) && (
         <ProjectForm
+          mode={isEditing ? 'edit' : 'create'}
           form={projectForm}
+          project={selectedProject}
           teams={teams}
           saving={saving}
           onChange={updateProjectForm}
           onReset={resetProjectForm}
           onSubmit={saveProject}
+          onCancel={() => navigate(workspacePath)}
         />
       )}
 
@@ -184,6 +193,11 @@ const ProjectsPage = ({ mode = 'active', title = 'Project Studio', subtitle = ''
       </PageSections>
     </PageContainer>
   );
+};
+
+const ProjectsPage = ({ mode = 'active', ...props }) => {
+  const { projectID } = useParams();
+  return <ProjectPageContent key={`${mode}:${projectID || 'new'}`} mode={mode} routeProjectID={projectID} {...props} />;
 };
 
 export default ProjectsPage;

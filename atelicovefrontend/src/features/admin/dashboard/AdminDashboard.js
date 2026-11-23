@@ -664,7 +664,7 @@ function ProjectOverviewTable({ projects, onNavigate }) {
 
 function QuickActions({ onNavigate }) {
   const actions = [
-    { label: 'Create Project', icon: icons.projects, path: '/admin/projects/active' },
+    { label: 'Create Project', icon: icons.projects, path: '/admin/projects/new' },
     { label: 'Create Work Order', icon: icons.workOrders, path: '/admin/manage-workorders' },
     { label: 'Add Company', icon: icons.companies, path: '/admin/manage-companies' },
     { label: 'Add Worker', icon: icons.addWorker, path: '/admin/manage-workers' },
@@ -749,9 +749,7 @@ function MyAssignmentsCard({ workOrders, myProjects, onNavigate }) {
                 <TableRow key={`project-${project.projectID}`} hover>
                   <TableCell sx={{ maxWidth: 150 }}>
                       <TableNavigationButton
-                        onClick={() => onNavigate('/admin/projects/active', {
-                          state: { projectStudioEditProjectID: project.projectID },
-                        })}
+                        onClick={() => onNavigate(`/admin/projects/${project.projectID}`)}
                         sx={{ p: 0, minWidth: 0, fontWeight: 600, textTransform: 'none' }}
                       >
                         <Typography component="span" variant="body2" noWrap>

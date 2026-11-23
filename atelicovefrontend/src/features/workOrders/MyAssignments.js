@@ -72,9 +72,7 @@ const MyAssignments = () => {
   };
 
   const openProject = (projectID) => {
-    navigate(user?.isAdmin ? '/admin/projects/active' : projectPathFor(user, projectID), {
-      state: user?.isAdmin ? { projectStudioEditProjectID: projectID } : undefined,
-    });
+    navigate(projectPathFor(user, projectID));
   };
 
   if (loading) return <Box sx={{ textAlign: 'center', mt: 8 }}><CircularProgress /></Box>;

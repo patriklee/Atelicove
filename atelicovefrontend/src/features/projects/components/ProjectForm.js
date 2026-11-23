@@ -93,7 +93,8 @@ const suggestedWorkOrders = [
   'Final Inspection and Handover',
 ];
 
-export default function ProjectForm({ form, project, teams, saving, onChange, onReset, onSubmit }) {
+export default function ProjectForm({ form, project, teams, saving, onChange, onReset, onSubmit, mode = 'create', onCancel }) {
+  const isEditing = mode === 'edit';
   const [selectedTemplate, setSelectedTemplate] = useState('blank');
   const [selectedSuggestions, setSelectedSuggestions] = useState([]);
   const readinessItems = [
@@ -157,16 +158,16 @@ export default function ProjectForm({ form, project, teams, saving, onChange, on
               <Box sx={{ color: 'brand.secondary', display: 'flex' }}>
                 <AppIcon icon={icons.projectStudio} />
               </Box>
-              <Typography variant="h5" component="h2">Project Planner</Typography>
+              <Typography variant="h5" component="h2">{isEditing ? 'Project Configuration' : 'Project Planner'}</Typography>
             </Stack>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {form.projectID ? `Refine project #${form.projectID} and keep its plan current.` : 'Shape the project details before work begins.'}
+              {isEditing ? `Update the details for project #${form.projectID}.` : 'Shape the project details before work begins.'}
             </Typography>
           </Box>
         </Stack>
       </Box>
 
-      <Box
+      {!isEditing && <Box
         component="ol"
         aria-label="Project planning sequence"
         sx={{
@@ -224,17 +225,17 @@ export default function ProjectForm({ form, project, teams, saving, onChange, on
             </Box>
           </Box>
         ))}
-      </Box>
+      </Box>}
 
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1.45fr) minmax(310px, 0.8fr)' },
+          gridTemplateColumns: isEditing ? 'minmax(0, 1fr)' : { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1.45fr) minmax(310px, 0.8fr)' },
           alignItems: 'stretch',
         }}
       >
         <Stack spacing={2.25} sx={{ p: { xs: 2, md: 3 } }}>
-          {!form.projectID && (
+          {!isEditing && (
             <Box>
               <Typography variant="subtitle1">Start From Template</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -284,7 +285,7 @@ export default function ProjectForm({ form, project, teams, saving, onChange, on
           <Box>
             <Typography variant="subtitle1">Budget & Schedule</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Set the available budget. Scheduling remains tied to work orders after project creation.
+              {isEditing ? 'Set the available budget. Manage scheduling through the project’s work orders.' : 'Set the available budget. Scheduling remains tied to work orders after project creation.'}
             </Typography>
             <TextField
               label="Budget"
@@ -329,21 +330,25 @@ export default function ProjectForm({ form, project, teams, saving, onChange, on
 
           <Divider />
 
-          <Box>
+          {!isEditing && <Box>
             <Typography variant="subtitle1">Review & Create</Typography>
             <Typography variant="body2" color="text.secondary">
               Check the planning summary, then create the project when the supported details are ready.
             </Typography>
-          </Box>
+          </Box>}
           <Stack direction={{ xs: 'column-reverse', sm: 'row' }} justifyContent="flex-end" spacing={1}>
-            <Button variant="text" color="secondary" onClick={clearPlanner}>Clear planner</Button>
+            {isEditing ? (
+              onCancel && <Button variant="text" color="secondary" onClick={onCancel} disabled={saving}>Cancel</Button>
+            ) : (
+              <Button variant="text" color="secondary" onClick={clearPlanner} disabled={saving}>Clear planner</Button>
+            )}
             <Button type="submit" variant="contained" disabled={saving}>
-              {saving ? 'Saving…' : form.projectID ? 'Save Changes' : 'Review & Create'}
+              {saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Review & Create'}
             </Button>
           </Stack>
         </Stack>
 
-        <Box
+        {!isEditing && <Box
           component="aside"
           aria-label="Planning summary"
           sx={{
@@ -456,7 +461,7 @@ export default function ProjectForm({ form, project, teams, saving, onChange, on
               ))}
             </Stack>
           </Stack>
-        </Box>
+        </Box>}
       </Box>
     </Paper>
   );

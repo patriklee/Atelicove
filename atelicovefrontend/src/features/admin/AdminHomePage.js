@@ -39,6 +39,12 @@ const AdminHomePage = () => {
     const theme = useTheme();
     const mobile = useMediaQuery(theme.breakpoints.down('sm'));
     const showGlobalControls = !location.pathname.startsWith('/admin/settings');
+    const projectEditPath = location.pathname.match(/^\/admin\/projects\/(\d+)\/edit\/?$/);
+    const backFallback = projectEditPath
+        ? `/admin/projects/${projectEditPath[1]}`
+        : location.pathname.startsWith('/admin/projects/') && location.pathname.replace(/\/$/, '') !== '/admin/projects/active'
+            ? '/admin/projects/active'
+            : '/admin';
 
     const handleLogoutClick = () => {
         setOpen(true);
@@ -82,7 +88,7 @@ const AdminHomePage = () => {
 
 			<PageContent sx={{ pt: { xs: 8, sm: 3 } }}>
                 {location.pathname.replace(/\/$/, '') !== '/admin' && (
-                    <PageContainer><BackNavigation /></PageContainer>
+                    <PageContainer><BackNavigation fallback={backFallback} /></PageContainer>
                 )}
 			    {showGlobalControls
 			        ? <AdminContent dashboardPage={location.pathname === '/admin'} />
