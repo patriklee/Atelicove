@@ -4,24 +4,40 @@ import useProjectsPage from './useProjectsPage';
 
 jest.mock('../../../shared/api', () => ({ apiFetch: jest.fn() }));
 
+test('loads and updates the route project, then reports the saved project', async () => {
+  const project = { projectID: 42, projectName: 'Original', teams: [] };
+  const onSaved = jest.fn();
+  apiFetch.mockImplementation(path => Promise.resolve(path === '/projects/42' ? project : []));
+  const { result } = renderHook(() => useProjectsPage({ canManage: true, mode: 'edit', routeProjectID: '42', onSaved }));
+  await waitFor(() => expect(result.current.projectForm.projectName).toBe('Original'));
+  act(() => result.current.updateProjectForm({ projectName: 'Updated' }));
+  apiFetch.mockResolvedValue({ ...project, projectName: 'Updated' });
+  await act(async () => result.current.saveProject({ preventDefault: jest.fn() }));
+  expect(apiFetch).toHaveBeenLastCalledWith('/projects/42', {
+    method: 'PUT', body: JSON.stringify({ projectName: 'Updated', description: null, budget: null, teamIDs: [] }),
+  });
+  expect(result.current.selectedProject.projectName).toBe('Updated');
+  expect(onSaved).toHaveBeenCalledWith({ ...project, projectName: 'Updated' });
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
 });
 
 test('loads the project page data from the existing endpoints', async () => {
   apiFetch.mockImplementation(path => Promise.resolve({
-    '/projects': [{ projectID: 1, projectName: 'Project One' }],
+    '/projects/1': { projectID: 1, projectName: 'Project One' },
     '/workorders': [{ workOrderID: 2, status: 'OPEN' }],
     '/teams': [{ teamID: 3 }],
     '/companies': [{ companyID: 4, archived: false }],
   }[path]));
 
-  const { result } = renderHook(() => useProjectsPage({ canManage: true }));
+  const { result } = renderHook(() => useProjectsPage({ canManage: true, mode: 'workspace', routeProjectID: '1' }));
 
   await waitFor(() => expect(result.current.loading).toBe(false));
 
   expect(apiFetch.mock.calls.map(([path]) => path)).toEqual([
-    '/projects',
+    '/projects/1',
     '/workorders',
     '/teams',
     '/companies',
@@ -40,7 +56,7 @@ test('preserves the project create payload', async () => {
     '/companies': [],
   }[path]));
 
-  const { result } = renderHook(() => useProjectsPage({ canManage: true }));
+  const { result } = renderHook(() => useProjectsPage({ canManage: true, mode: 'create' }));
   await waitFor(() => expect(result.current.loading).toBe(false));
 
   act(() => {
