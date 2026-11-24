@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Box,
   Button,
   Chip,
-  FormControl,
-  InputLabel,
   LinearProgress,
-  MenuItem,
   Paper,
   Stack,
   Table,
@@ -15,13 +12,11 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { formatDateTime, formatMoney } from '../../../model';
 import { EntityEmptyState } from '../../../shared/components/tables';
-import { AppIcon, AppSelect, icons } from '../../../shared/icons';
 import { getBudgetHealth, getProjectHealth } from '../../admin/dashboard/dashboardUtils';
 
 const statusConfig = {
@@ -82,7 +77,7 @@ function ProjectProgress({ project }) {
     : health.label;
 
   return (
-    <Box sx={{ minWidth: 140 }}>
+    <Box sx={{ minWidth: 0 }}>
       <Typography variant="body2" fontWeight={600}>{health.percent}%</Typography>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.125 }}>
         {progressLabel}
@@ -103,8 +98,8 @@ function BudgetUsage({ project }) {
     return <Typography variant="body2" color="text.secondary">Not configured</Typography>;
   }
   return (
-    <Box sx={{ minWidth: 190 }}>
-      <Typography variant="body2" fontWeight={600} noWrap>
+    <Box sx={{ minWidth: 0 }}>
+      <Typography variant="body2" fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
         {formatMoney(health.spent)} / {formatMoney(health.budget)}
       </Typography>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.125 }}>
@@ -131,7 +126,7 @@ function ProjectTeams({ teams = [] }) {
     <Tooltip title={teamNames.join(', ')} placement="top">
       <Box
         aria-label={`Teams: ${teamNames.join(', ')}`}
-        sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 180, maxWidth: 260 }}
+        sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', minWidth: 0 }}
       >
         {visibleTeams.map(team => (
           <Chip
@@ -204,31 +199,10 @@ export default function ProjectList({
   onEdit,
   onOpen,
 }) {
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [sort, setSort] = useState('updated');
-  const activeProjects = projects.filter(project => !project.archived);
-  const statuses = [...new Set([
-    ...Object.keys(statusConfig),
-    ...activeProjects.map(project => project.projectStatus || 'OPEN'),
-  ])];
-  const query = search.trim().toLowerCase();
-  const filteredProjects = activeProjects.filter(project => (
-    (statusFilter === 'all' || (project.projectStatus || 'OPEN') === statusFilter)
-    && [
-      project.projectName,
-      project.projectID,
-      project.description,
-      ...(project.teams || []).map(team => team.teamName),
-    ].join(' ').toLowerCase().includes(query)
-  )).sort((first, second) => {
-    const byName = (first.projectName || `Project #${first.projectID}`)
-      .localeCompare(second.projectName || `Project #${second.projectID}`);
-    if (sort === 'name') return byName;
-    if (sort === 'name-desc') return -byName;
-    if (sort === 'budget') return Number(second.budget || 0) - Number(first.budget || 0) || byName;
-    return (Date.parse(second.lastModifiedAt) || 0) - (Date.parse(first.lastModifiedAt) || 0) || byName;
-  });
+  const activeProjects = projects.filter(project => !project.archived).sort((first, second) => (
+    (Date.parse(second.lastModifiedAt) || 0) - (Date.parse(first.lastModifiedAt) || 0)
+    || (first.projectName || `Project #${first.projectID}`).localeCompare(second.projectName || `Project #${second.projectID}`)
+  ));
 
   return (
     <Paper
@@ -240,69 +214,21 @@ export default function ProjectList({
         overflow: 'hidden',
       }}
     >
-      <Box sx={{ px: { xs: 2, md: 2.5 }, pt: 2.5 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
-          <Box>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Box sx={{ color: 'brand.secondary', display: 'flex' }}>
-                <AppIcon icon={icons.projects} />
-              </Box>
-              <Typography variant="h6" component="h2">Project Portfolio</Typography>
-            </Stack>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Manage project health, budgets, teams, and assignments.
-            </Typography>
-          </Box>
-        </Stack>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ my: 2 }}>
-          <TextField
-            label="Search projects"
-            value={search}
-            onChange={event => setSearch(event.target.value)}
-            size="small"
-            sx={{ flex: 1 }}
-          />
-          <FormControl size="small" sx={{ minWidth: 170 }}>
-            <InputLabel id="project-status-filter-label">Status</InputLabel>
-            <AppSelect
-              labelId="project-status-filter-label"
-              label="Status"
-              value={statusFilter}
-              onChange={event => setStatusFilter(event.target.value)}
-            >
-              <MenuItem value="all">All statuses</MenuItem>
-              {statuses.map(status => (
-                <MenuItem key={status} value={status}>
-                  {statusConfig[status]?.label || status.replaceAll('_', ' ')}
-                </MenuItem>
-              ))}
-            </AppSelect>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 190 }}>
-            <InputLabel id="project-sort-label">Sort by</InputLabel>
-            <AppSelect
-              labelId="project-sort-label"
-              label="Sort by"
-              value={sort}
-              onChange={event => setSort(event.target.value)}
-            >
-              <MenuItem value="updated">Recently updated</MenuItem>
-              <MenuItem value="name">Name A–Z</MenuItem>
-              <MenuItem value="name-desc">Name Z–A</MenuItem>
-              <MenuItem value="budget">Highest budget</MenuItem>
-            </AppSelect>
-          </FormControl>
-        </Stack>
-      </Box>
       <TableContainer sx={{ overflowX: 'auto', maxWidth: '100%' }}>
         <Table
           size="small"
           sx={{
-            minWidth: 1250,
-            '& .MuiTableCell-root': { py: 1.25 },
+            minWidth: 1100,
+            tableLayout: 'fixed',
+            '& .MuiTableCell-root': { py: 1.25, px: 1.5 },
             '& .MuiTableCell-head': { whiteSpace: 'nowrap' },
           }}
         >
+          <colgroup>
+            {[16, 12, 12, 15, 12, 9, 10, 14].map((width, index) => (
+              <col key={index} style={{ width: `${width}%` }} />
+            ))}
+          </colgroup>
           <TableHead>
             <TableRow>
               <TableCell>Project</TableCell>
@@ -316,7 +242,7 @@ export default function ProjectList({
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredProjects.map(project => {
+            {activeProjects.map(project => {
               const status = statusConfig[project.projectStatus || 'OPEN'] || {
                 label: (project.projectStatus || 'OPEN').replaceAll('_', ' '),
                 sx: {
@@ -330,7 +256,7 @@ export default function ProjectList({
               const projectName = project.projectName || `Project #${project.projectID}`;
               return (
                 <TableRow key={project.projectID} hover>
-                  <TableCell sx={{ minWidth: 210, maxWidth: 270 }}>
+                  <TableCell>
                     <Typography variant="body2" fontWeight={600} noWrap>
                       {projectName}
                     </Typography>
@@ -345,9 +271,9 @@ export default function ProjectList({
                   <TableCell><BudgetUsage project={project} /></TableCell>
                   <TableCell><ProjectTeams teams={teams} /></TableCell>
                   <TableCell align="center"><WorkOrderCount workOrders={workOrders} /></TableCell>
-                  <TableCell sx={{ minWidth: 120 }}><UpdatedTime value={project.lastModifiedAt} /></TableCell>
+                  <TableCell><UpdatedTime value={project.lastModifiedAt} /></TableCell>
                   <TableCell align="right">
-                    <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
+                    <Stack spacing={0.5} alignItems="flex-end" sx={{ '& .MuiButton-root': { whiteSpace: 'nowrap' } }}>
                       <Button variant="outlined" size="small" onClick={() => onOpen(project)}>
                         Open Workspace
                       </Button>
@@ -359,9 +285,9 @@ export default function ProjectList({
                 </TableRow>
               );
             })}
-            {!filteredProjects.length && (
+            {!activeProjects.length && (
               <EntityEmptyState
-                message={activeProjects.length ? 'No projects match your search and filters.' : 'No active projects found.'}
+                message="No active projects found."
                 colSpan={8}
               />
             )}

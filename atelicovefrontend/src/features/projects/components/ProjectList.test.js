@@ -15,33 +15,17 @@ const renderList = (overrides = {}) => {
   return props;
 };
 
-test('filters loaded active projects by search and status without showing archives', () => {
-  renderList();
-  expect(screen.queryByText('Archived project')).toBeNull();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Search projects' }), { target: { value: 'electrical' } });
-  expect(screen.getByText('Alpha')).toBeTruthy();
-  expect(screen.queryByText('Beta')).toBeNull();
-
-  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Status' }));
-  fireEvent.click(screen.getByRole('option', { name: 'Needs Review' }));
-  expect(screen.getByText('No projects match your search and filters.')).toBeTruthy();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Search projects' }), { target: { value: '' } });
-  expect(screen.getByText('Beta')).toBeTruthy();
-  expect(screen.queryByText('Alpha')).toBeNull();
-});
-
-test('sorts loaded projects and exposes direct workspace and edit actions', () => {
+test('shows active projects without search or selectable filters and keeps project actions', () => {
   const props = renderList();
-  expect(within(screen.getAllByRole('row')[1]).getByText('Beta')).toBeTruthy();
-  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Sort by' }));
-  fireEvent.click(screen.getByRole('option', { name: 'Name A–Z' }));
+  expect(screen.queryByText('Archived project')).toBeNull();
+  expect(screen.queryByRole('textbox')).toBeNull();
+  expect(screen.queryByRole('combobox')).toBeNull();
   const firstRow = within(screen.getAllByRole('row')[1]);
-  expect(firstRow.getByText('Alpha')).toBeTruthy();
+  expect(firstRow.getByText('Beta')).toBeTruthy();
   fireEvent.click(firstRow.getByRole('button', { name: 'Open Workspace' }));
   fireEvent.click(firstRow.getByRole('button', { name: 'Edit Project' }));
-  expect(props.onOpen).toHaveBeenCalledWith(projects[0]);
-  expect(props.onEdit).toHaveBeenCalledWith(projects[0]);
-  expect(projects.map(project => project.projectID)).toEqual([1, 2, 3]);
+  expect(props.onOpen).toHaveBeenCalledWith(projects[1]);
+  expect(props.onEdit).toHaveBeenCalledWith(projects[1]);
 });
 
 test('keeps configuration editing unavailable without management permission', () => {

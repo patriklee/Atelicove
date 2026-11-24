@@ -145,10 +145,7 @@ const ProjectPageContent = ({ mode, title, subtitle, routeProjectID }) => {
       <PageSections>
       {message && <AppAlert severity={message.severity}>{message.text}</AppAlert>}
 
-      <Stack direction="row" spacing={1}>
-        {isPortfolio && canManage && (
-          <Button component={Link} to="/admin/projects/new" variant="contained">Create Project</Button>
-        )}
+      {!isPortfolio && <Stack direction="row" spacing={1}>
         {!isPortfolio && !isWorkerEdit && (
           <Button component={Link} to={isEditing ? workspacePath : '/admin/projects/active'}>
             {isEditing ? 'Project Workspace' : 'Active Projects'}
@@ -159,9 +156,9 @@ const ProjectPageContent = ({ mode, title, subtitle, routeProjectID }) => {
             Edit Project
           </Button>
         )}
-      </Stack>
+      </Stack>}
 
-      {isPortfolio && <PortfolioSummary projects={visibleProjects} />}
+      {isCreating && <PortfolioSummary projects={visibleProjects} />}
       {isPortfolio && (
         <ProjectList
           projects={visibleProjects}
