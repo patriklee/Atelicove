@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Box,
   Button,
+  ButtonBase,
   Chip,
   LinearProgress,
   Paper,
@@ -18,6 +19,7 @@ import { formatDateTime, formatMoney } from '../../../model';
 import { TableNavigationButton } from '../../../shared/components/navigation';
 import { AppTableSortLabel } from '../../../shared/icons';
 import { EntityEmptyState } from '../../../shared/components/tables';
+import ProjectDetailsDialog from './ProjectDetailsDialog';
 import { getBudgetHealth, getProjectHealth } from '../../admin/dashboard/dashboardUtils';
 
 const statusConfig = {
@@ -200,6 +202,7 @@ export default function ProjectList({
   onEdit,
   onOpen,
 }) {
+  const [details, setDetails] = useState(null);
   const [orderBy, setOrderBy] = useState('projectName');
   const [order, setOrder] = useState('asc');
   const handleSort = column => {
@@ -226,6 +229,7 @@ export default function ProjectList({
   });
 
   return (
+    <>
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -275,9 +279,9 @@ export default function ProjectList({
                     <Chip size="small" variant="outlined" label={status.label} sx={status.sx} />
                   </TableCell>
                   <TableCell><ProjectProgress project={project} /></TableCell>
-                  <TableCell><BudgetUsage project={project} /></TableCell>
-                  <TableCell><ProjectTeams teams={teams} /></TableCell>
-                  <TableCell align="center"><WorkOrderCount workOrders={workOrders} /></TableCell>
+                  <TableCell><ButtonBase onClick={() => setDetails({ project, mode: 'Budget' })} aria-label={`View budget for ${projectName}`} sx={{ display: 'block', width: '100%', textAlign: 'inherit', borderRadius: 1, '&.Mui-focusVisible': { outline: '2px solid', outlineColor: 'primary.main' } }}><BudgetUsage project={project} /></ButtonBase></TableCell>
+                  <TableCell><ButtonBase onClick={() => setDetails({ project, mode: 'Teams' })} aria-label={`View teams for ${projectName}`} sx={{ display: 'block', width: '100%', textAlign: 'inherit', borderRadius: 1, '&.Mui-focusVisible': { outline: '2px solid', outlineColor: 'primary.main' } }}><ProjectTeams teams={teams} /></ButtonBase></TableCell>
+                  <TableCell align="center"><ButtonBase onClick={() => setDetails({ project, mode: 'Work Orders' })} aria-label={`View work orders for ${projectName}`} sx={{ display: 'block', width: '100%', textAlign: 'inherit', borderRadius: 1, '&.Mui-focusVisible': { outline: '2px solid', outlineColor: 'primary.main' } }}><WorkOrderCount workOrders={workOrders} /></ButtonBase></TableCell>
                   <TableCell><UpdatedTime value={project.lastModifiedAt} /></TableCell>
                   <TableCell align="right">
                     {canManage && (
@@ -296,5 +300,7 @@ export default function ProjectList({
           </TableBody>
         </Table>
       </TableContainer>
+      <ProjectDetailsDialog details={details} onClose={() => setDetails(null)} />
+    </>
   );
 }
