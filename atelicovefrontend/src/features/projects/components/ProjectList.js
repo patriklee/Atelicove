@@ -1,11 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
   Chip,
   LinearProgress,
   Paper,
-  Stack,
   Table,
   TableBody,
   TableCell,
@@ -16,6 +15,8 @@ import {
   Typography,
 } from '@mui/material';
 import { formatDateTime, formatMoney } from '../../../model';
+import { TableNavigationButton } from '../../../shared/components/navigation';
+import { AppTableSortLabel } from '../../../shared/icons';
 import { EntityEmptyState } from '../../../shared/components/tables';
 import { getBudgetHealth, getProjectHealth } from '../../admin/dashboard/dashboardUtils';
 
@@ -199,45 +200,51 @@ export default function ProjectList({
   onEdit,
   onOpen,
 }) {
-  const activeProjects = projects.filter(project => !project.archived).sort((first, second) => (
-    (Date.parse(second.lastModifiedAt) || 0) - (Date.parse(first.lastModifiedAt) || 0)
-    || (first.projectName || `Project #${first.projectID}`).localeCompare(second.projectName || `Project #${second.projectID}`)
-  ));
+  const [orderBy, setOrderBy] = useState('projectName');
+  const [order, setOrder] = useState('asc');
+  const handleSort = column => {
+    setOrder(orderBy === column && order === 'asc' ? 'desc' : 'asc');
+    setOrderBy(column);
+  };
+  const sortValue = project => {
+    switch (orderBy) {
+      case 'projectName': return project.projectName || `Project #${project.projectID}`;
+      case 'status': return statusConfig[project.projectStatus || 'OPEN']?.label || (project.projectStatus || 'OPEN').replaceAll('_', ' ');
+      case 'progress': return getProjectHealth(project).percent ?? -1;
+      case 'budget': return Number(project.budget ?? 0);
+      case 'teams': return (project.teams || []).map(team => team.teamName || `Team #${team.teamID}`).sort().join(', ');
+      case 'workOrders': return (project.workOrders || []).length;
+      case 'updated': return Date.parse(project.lastModifiedAt) || 0;
+      default: return '';
+    }
+  };
+  const activeProjects = projects.filter(project => !project.archived).sort((first, second) => {
+    const a = sortValue(first);
+    const b = sortValue(second);
+    const comparison = typeof a === 'string' ? a.localeCompare(b) : a - b;
+    return order === 'asc' ? comparison : -comparison;
+  });
 
   return (
-    <Paper
-      sx={{
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 3,
-        boxShadow: theme => theme.customShadows.soft,
-        overflow: 'hidden',
-      }}
-    >
-      <TableContainer sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-        <Table
-          size="small"
-          sx={{
-            minWidth: 1100,
-            tableLayout: 'fixed',
-            '& .MuiTableCell-root': { py: 1.25, px: 1.5 },
-            '& .MuiTableCell-head': { whiteSpace: 'nowrap' },
-          }}
-        >
-          <colgroup>
-            {[16, 12, 12, 15, 12, 9, 10, 14].map((width, index) => (
-              <col key={index} style={{ width: `${width}%` }} />
-            ))}
-          </colgroup>
+      <TableContainer component={Paper}>
+        <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Project</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Progress</TableCell>
-              <TableCell>Budget</TableCell>
-              <TableCell>Teams</TableCell>
-              <TableCell align="center">Work Orders</TableCell>
-              <TableCell>Updated</TableCell>
+              {[
+                ['projectName', 'Project'],
+                ['status', 'Status'],
+                ['progress', 'Progress'],
+                ['budget', 'Budget'],
+                ['teams', 'Teams'],
+                ['workOrders', 'Work Orders'],
+                ['updated', 'Updated'],
+              ].map(([column, label]) => (
+                <TableCell key={column} align={column === 'workOrders' ? 'center' : 'left'} sortDirection={orderBy === column ? order : false}>
+                  <AppTableSortLabel active={orderBy === column} direction={orderBy === column ? order : 'asc'} onClick={() => handleSort(column)}>
+                    {label}
+                  </AppTableSortLabel>
+                </TableCell>
+              ))}
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -257,9 +264,9 @@ export default function ProjectList({
               return (
                 <TableRow key={project.projectID} hover>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={600} noWrap>
+                    <TableNavigationButton onClick={() => onOpen(project)}>
                       {projectName}
-                    </Typography>
+                    </TableNavigationButton>
                     <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.25 }}>
                       Project #{project.projectID}
                     </Typography>
@@ -273,14 +280,9 @@ export default function ProjectList({
                   <TableCell align="center"><WorkOrderCount workOrders={workOrders} /></TableCell>
                   <TableCell><UpdatedTime value={project.lastModifiedAt} /></TableCell>
                   <TableCell align="right">
-                    <Stack spacing={0.5} alignItems="flex-end" sx={{ '& .MuiButton-root': { whiteSpace: 'nowrap' } }}>
-                      <Button variant="outlined" size="small" onClick={() => onOpen(project)}>
-                        Open Workspace
-                      </Button>
-                      {canManage && (
-                        <Button size="small" onClick={() => onEdit(project)}>Edit Project</Button>
-                      )}
-                    </Stack>
+                    {canManage && (
+                      <Button size="small" sx={{ whiteSpace: 'nowrap' }} onClick={() => onEdit(project)}>Edit Project</Button>
+                    )}
                   </TableCell>
                 </TableRow>
               );
@@ -294,6 +296,5 @@ export default function ProjectList({
           </TableBody>
         </Table>
       </TableContainer>
-    </Paper>
   );
 }
