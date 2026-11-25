@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -16,6 +16,7 @@ import { AppAlert, icons } from '../../shared/icons';
 import ProjectList from './components/ProjectList';
 import ProjectForm from './components/ProjectForm';
 import ProjectWorkspace from './components/ProjectWorkspace';
+import ProjectInfoDialog from './components/ProjectInfoDialog';
 import useProjectsPage from './hooks/useProjectsPage';
 
 function PortfolioSummary({ projects }) {
@@ -52,6 +53,8 @@ function PortfolioSummary({ projects }) {
 const ProjectPageContent = ({ mode, title, subtitle, routeProjectID }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [workspaceProjectID, setWorkspaceProjectID] = useState(null);
+  const closeWorkspace = () => setWorkspaceProjectID(null);
   const isWorkerEdit = mode === 'worker-edit';
   const canManage = user?.isAdmin === true && !isWorkerEdit;
   const isCreating = mode === 'create';
@@ -95,10 +98,11 @@ const ProjectPageContent = ({ mode, title, subtitle, routeProjectID }) => {
     },
   });
 
-  const projectWorkspace = selectedProject && !isEditing ? (
+  const projectWorkspace = selectedProject ? (
     <ProjectWorkspace
       project={selectedProject}
-      canManage={canManage && !selectedProject.archived}
+      readOnly={!isEditing && !isWorkerEdit}
+      canManage={canManage && isEditing && !selectedProject.archived}
       workOrderForm={workOrderForm}
       workOrders={attachableWorkOrders}
       teams={teams}
@@ -164,7 +168,7 @@ const ProjectPageContent = ({ mode, title, subtitle, routeProjectID }) => {
           projects={visibleProjects}
           canManage={canManage}
           onEdit={project => navigate(`/admin/projects/${project.projectID}/edit`)}
-          onOpen={project => navigate(projectPathFor(user, project.projectID))}
+          onOpen={project => setWorkspaceProjectID(project.projectID)}
         />
       )}
 
@@ -188,6 +192,9 @@ const ProjectPageContent = ({ mode, title, subtitle, routeProjectID }) => {
 
       {projectWorkspace}
       </PageSections>
+      {workspaceProjectID !== null && (
+        <ProjectInfoDialog projectID={workspaceProjectID} onClose={closeWorkspace} />
+      )}
     </PageContainer>
   );
 };

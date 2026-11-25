@@ -9,6 +9,7 @@ const COMMENT_TYPES = ['GENERAL', 'QUESTION', 'DECISION', 'WARNING', 'UPDATE'];
 
 const ProjectWorkspace = ({
   project,
+  readOnly = false,
   canManage,
   workOrderForm,
   workOrders,
@@ -30,13 +31,13 @@ const ProjectWorkspace = ({
   onAddActionItem,
   onRunProjectAction,
 }) => {
-  const projectOpenForEditing = !project.archived && project.projectStatus !== 'COMPLETE';
+  const projectOpenForEditing = !readOnly && !project.archived && project.projectStatus !== 'COMPLETE';
 
   return (
     <Stack spacing={4}>
       <ProjectWorkOrders
         project={project}
-        canManage={canManage}
+        canManage={canManage && !readOnly}
         form={workOrderForm}
         workOrders={workOrders}
         teams={teams}
@@ -72,12 +73,12 @@ const ProjectWorkspace = ({
 
       <WorkOrderDocuments
         basePath={`/projects/${project.projectID}/documents`}
-        canManage={!project.archived}
+        canManage={!readOnly && !project.archived}
         title="Project Documents"
         emptyMessage="No documents are attached to this project."
       />
 
-      {canManage && (
+      {canManage && !readOnly && (
         <Stack direction="row" spacing={1} justifyContent="flex-end">
           {project.projectStatus === 'OPEN' && (
             <Button onClick={() => onRunProjectAction(`/projects/${project.projectID}/submit`, { method: 'PUT' }, 'Project submitted for review.')}>

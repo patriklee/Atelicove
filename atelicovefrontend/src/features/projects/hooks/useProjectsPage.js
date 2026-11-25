@@ -57,7 +57,7 @@ const useProjectsPage = ({ routeProjectID, canManage, mode = 'active', onSaved }
     setCommentType('GENERAL');
     setActionItemText('');
     try {
-      const workspace = mode === 'workspace' || mode === 'worker-edit';
+      const workspace = mode === 'workspace' || mode === 'worker-edit' || mode === 'edit';
       const [projectData, workOrderData, teamData, companyData] = await Promise.all([
         routeProjectID && mode !== 'create' ? apiFetch(`/projects/${routeProjectID}`) : apiFetch('/projects'),
         workspace ? apiFetch('/workorders') : Promise.resolve([]),
